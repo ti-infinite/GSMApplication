@@ -86,7 +86,7 @@ jobs:
           docker buildx build \
             --platform linux/arm64 \
             -t $ECR_REGISTRY/$ECR_REPOSITORY:auth-$IMAGE_TAG \
-            -t $ECR_REGISTRY/$ECR_REPOSITORY:auth-latest \  
+            -t $ECR_REGISTRY/$ECR_REPOSITORY:auth-latest \
             --push \
             .
           

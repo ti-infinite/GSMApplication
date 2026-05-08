@@ -13,10 +13,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 var config = builder.Configuration;
 
-config.GetConnectionString("TenantRegistryConnection")!
-    .Replace("${DB_MASTER_URL}", Environment.GetEnvironmentVariable("DB_MASTER_URL") ?? "");
-
- config["JwtSettings:SecretKey"]?.Replace("${JWT_SECRET}", Environment.GetEnvironmentVariable("JWT_SECRET") ?? "");   
+config["JwtSettings:SecretKey"]?.Replace("${JWT_SECRET}", Environment.GetEnvironmentVariable("JWT_SECRET") ?? "");   
     
 // ------------------------------------------------------------
 // Controllers
@@ -65,7 +62,7 @@ builder.Services.AddSwaggerGen(options =>
 // ------------------------------------------------------------
 // Tenant Registry Connection (ENV or AppSettings)
 // ------------------------------------------------------------
-var registryConnection = Environment.GetEnvironmentVariable("TENANT_REGISTRY_CONNECTION");
+var registryConnection = Environment.GetEnvironmentVariable("DB_MASTER_URL");
 
 if (string.IsNullOrWhiteSpace(registryConnection))
 {
@@ -75,7 +72,7 @@ if (string.IsNullOrWhiteSpace(registryConnection))
 if (string.IsNullOrWhiteSpace(registryConnection))
 {
     throw new InvalidOperationException(
-        "No se encontró la conexión al Tenant Registry. Configure TENANT_REGISTRY_CONNECTION o ConnectionStrings:TenantRegistryConnection.");
+        "No se encontró la conexión al Tenant Registry. Configure DB_MASTER_URL o ConnectionStrings:TenantRegistryConnection.");
 }
 
 // ------------------------------------------------------------

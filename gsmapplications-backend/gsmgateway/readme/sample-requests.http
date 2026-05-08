@@ -1,0 +1,14 @@
+@gateway = https://localhost:7201
+
+### Health
+GET {{gateway}}/health
+
+### Login through gateway
+POST {{gateway}}/api/security/v1/auth/login
+Content-Type: application/json
+
+{
+  "idCompany": "GSM001",
+  "user": "admin",
+  "password": "Admin123*"
+}

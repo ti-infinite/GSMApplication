@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+
+<ProjectReference Include="..\GSMApplication.Abstractions\GSMApplication.Abstractions.csproj" />
+<ProjectReference Include="..\GSMApplication.Entities\GSMApplication.Entities.csproj" />
+<ProjectReference Include="..\GSMApplication.DataAccess\GSMApplication.DataAccess.csproj" />
+<ProjectReference Include="..\GSMApplication.Tenant\GSMApplication.Tenant.csproj" />
+
+
+  </ItemGroup>
+</Project>

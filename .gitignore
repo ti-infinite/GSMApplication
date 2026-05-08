@@ -1,0 +1,9 @@
+.vscode
+.vscode/*
+!.vscode/settings.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# Ignore node_modules
+node_modules/
+# Ignore build artifacts

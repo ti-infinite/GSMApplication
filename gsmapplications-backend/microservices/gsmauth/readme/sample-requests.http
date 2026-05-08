@@ -1,0 +1,12 @@
+@gsmAuth = https://localhost:7101
+
+### Login
+POST {{gsmAuth}}/api/v1/auth/login
+Content-Type: application/json
+X-Company-Id: GSM001
+
+{
+  "idCompany": "GSM001",
+  "user": "admin",
+  "password": "Admin123*"
+}

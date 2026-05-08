@@ -1,0 +1,51 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GSMGateway.Api", "src\GSMGateway.Api\GSMGateway.Api.csproj", "{601688AF-BE64-48E5-8AB6-5074CA24A27C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GSMGateway.Business", "src\GSMGateway.Business\GSMGateway.Business.csproj", "{636667CD-3803-4BB5-AECE-EC3B50B6816D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GSMGateway.Abstractions", "src\GSMGateway.Abstractions\GSMGateway.Abstractions.csproj", "{315DB7F5-8157-4344-957D-E48F942DEC04}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GSMGateway.Entities", "src\GSMGateway.Entities\GSMGateway.Entities.csproj", "{79BFCA40-BFA6-4571-A590-455E6C904548}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GSMGateway.Tenant", "src\GSMGateway.Tenant\GSMGateway.Tenant.csproj", "{45789410-24C8-4D78-AADA-0A839D484E1E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GSMGateway.Infrastructure", "src\GSMGateway.Infrastructure\GSMGateway.Infrastructure.csproj", "{8424C21D-49C5-4172-BA22-CE03D5683A84}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{601688AF-BE64-48E5-8AB6-5074CA24A27C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{601688AF-BE64-48E5-8AB6-5074CA24A27C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{601688AF-BE64-48E5-8AB6-5074CA24A27C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{601688AF-BE64-48E5-8AB6-5074CA24A27C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{636667CD-3803-4BB5-AECE-EC3B50B6816D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{636667CD-3803-4BB5-AECE-EC3B50B6816D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{636667CD-3803-4BB5-AECE-EC3B50B6816D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{636667CD-3803-4BB5-AECE-EC3B50B6816D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{315DB7F5-8157-4344-957D-E48F942DEC04}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{315DB7F5-8157-4344-957D-E48F942DEC04}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{315DB7F5-8157-4344-957D-E48F942DEC04}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{315DB7F5-8157-4344-957D-E48F942DEC04}.Release|Any CPU.Build.0 = Release|Any CPU
+		{79BFCA40-BFA6-4571-A590-455E6C904548}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{79BFCA40-BFA6-4571-A590-455E6C904548}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{79BFCA40-BFA6-4571-A590-455E6C904548}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{79BFCA40-BFA6-4571-A590-455E6C904548}.Release|Any CPU.Build.0 = Release|Any CPU
+		{45789410-24C8-4D78-AADA-0A839D484E1E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{45789410-24C8-4D78-AADA-0A839D484E1E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{45789410-24C8-4D78-AADA-0A839D484E1E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{45789410-24C8-4D78-AADA-0A839D484E1E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8424C21D-49C5-4172-BA22-CE03D5683A84}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8424C21D-49C5-4172-BA22-CE03D5683A84}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8424C21D-49C5-4172-BA22-CE03D5683A84}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8424C21D-49C5-4172-BA22-CE03D5683A84}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

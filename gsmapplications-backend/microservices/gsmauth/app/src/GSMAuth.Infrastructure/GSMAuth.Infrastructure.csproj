@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+
+<ProjectReference Include="..\GSMAuth.Abstractions\GSMAuth.Abstractions.csproj" />
+<ProjectReference Include="..\GSMAuth.Entities\GSMAuth.Entities.csproj" />
+<ProjectReference Include="..\GSMAuth.Tenant\GSMAuth.Tenant.csproj" />
+<ProjectReference Include="..\GSMAuth.DataAccess\GSMAuth.DataAccess.csproj" />
+
+
+<PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
+<PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" />
+
+  </ItemGroup>
+</Project>

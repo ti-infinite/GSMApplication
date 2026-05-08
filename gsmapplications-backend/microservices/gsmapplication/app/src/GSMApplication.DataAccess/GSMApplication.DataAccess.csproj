@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+
+<ProjectReference Include="..\GSMApplication.Entities\GSMApplication.Entities.csproj" />
+<ProjectReference Include="..\GSMApplication.Abstractions\GSMApplication.Abstractions.csproj" />
+<ProjectReference Include="..\GSMApplication.Tenant\GSMApplication.Tenant.csproj" />
+
+
+<PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" />
+
+  </ItemGroup>
+</Project>

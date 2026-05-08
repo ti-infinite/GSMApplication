@@ -1,0 +1,57 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GSMApplication.Api", "src\GSMApplication.Api\GSMApplication.Api.csproj", "{C15ABBDD-4DEF-4D1A-A7E3-62A1A59C9F97}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GSMApplication.Business", "src\GSMApplication.Business\GSMApplication.Business.csproj", "{E6AD8EE1-3E50-4BF2-B442-BF129FDEC250}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GSMApplication.Abstractions", "src\GSMApplication.Abstractions\GSMApplication.Abstractions.csproj", "{E1A75F22-EBE9-4897-9223-F8722DCD2B87}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GSMApplication.Entities", "src\GSMApplication.Entities\GSMApplication.Entities.csproj", "{C2AE8634-A58D-448C-BA19-A3CCC053E915}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GSMApplication.DataAccess", "src\GSMApplication.DataAccess\GSMApplication.DataAccess.csproj", "{0842EDD5-1548-4F13-90B0-559B879D45D9}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GSMApplication.Infrastructure", "src\GSMApplication.Infrastructure\GSMApplication.Infrastructure.csproj", "{F8B63F0F-4A5A-4523-ACDD-30018793D83C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GSMApplication.Tenant", "src\GSMApplication.Tenant\GSMApplication.Tenant.csproj", "{5F99D33D-75BE-4E4F-9A0E-0C5FADC7997C}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{C15ABBDD-4DEF-4D1A-A7E3-62A1A59C9F97}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C15ABBDD-4DEF-4D1A-A7E3-62A1A59C9F97}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C15ABBDD-4DEF-4D1A-A7E3-62A1A59C9F97}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C15ABBDD-4DEF-4D1A-A7E3-62A1A59C9F97}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E6AD8EE1-3E50-4BF2-B442-BF129FDEC250}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E6AD8EE1-3E50-4BF2-B442-BF129FDEC250}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E6AD8EE1-3E50-4BF2-B442-BF129FDEC250}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E6AD8EE1-3E50-4BF2-B442-BF129FDEC250}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E1A75F22-EBE9-4897-9223-F8722DCD2B87}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E1A75F22-EBE9-4897-9223-F8722DCD2B87}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E1A75F22-EBE9-4897-9223-F8722DCD2B87}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E1A75F22-EBE9-4897-9223-F8722DCD2B87}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C2AE8634-A58D-448C-BA19-A3CCC053E915}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C2AE8634-A58D-448C-BA19-A3CCC053E915}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C2AE8634-A58D-448C-BA19-A3CCC053E915}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C2AE8634-A58D-448C-BA19-A3CCC053E915}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0842EDD5-1548-4F13-90B0-559B879D45D9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0842EDD5-1548-4F13-90B0-559B879D45D9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0842EDD5-1548-4F13-90B0-559B879D45D9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0842EDD5-1548-4F13-90B0-559B879D45D9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F8B63F0F-4A5A-4523-ACDD-30018793D83C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F8B63F0F-4A5A-4523-ACDD-30018793D83C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F8B63F0F-4A5A-4523-ACDD-30018793D83C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F8B63F0F-4A5A-4523-ACDD-30018793D83C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5F99D33D-75BE-4E4F-9A0E-0C5FADC7997C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5F99D33D-75BE-4E4F-9A0E-0C5FADC7997C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5F99D33D-75BE-4E4F-9A0E-0C5FADC7997C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5F99D33D-75BE-4E4F-9A0E-0C5FADC7997C}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

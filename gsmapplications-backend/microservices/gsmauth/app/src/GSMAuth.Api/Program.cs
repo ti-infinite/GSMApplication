@@ -16,7 +16,8 @@ var config = builder.Configuration;
 
 config.GetConnectionString("TenantRegistryConnection")!
     .Replace("${DB_MASTER_URL}", Environment.GetEnvironmentVariable("DB_MASTER_URL") ?? "");
-
+    
+console.WriteLine("Tenant Registry Connection: " + config.GetConnectionString("TenantRegistryConnection"));
 config["JwtSettings:SecretKey"]?.Replace("${JWT_SECRET}", Environment.GetEnvironmentVariable("JWT_SECRET") ?? "");
 
 // ------------------------------------------------------------

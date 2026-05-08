@@ -65,7 +65,7 @@ builder.Services.AddSwaggerGen(options =>
 // ------------------------------------------------------------
 var registryConnection =
     Environment.GetEnvironmentVariable("DB_MASTER_URL");
-Console.Write($"Registry Connection from ENV: {registryConnection}");
+
 if (string.IsNullOrWhiteSpace(registryConnection))
 {
     registryConnection =

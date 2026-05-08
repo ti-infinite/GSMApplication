@@ -6,10 +6,10 @@
       "dotnetRunMessages": true,
       "launchBrowser": true,
       "launchUrl": "swagger",
-      "applicationUrl": "https://localhost:7101;http://localhost:7100",
+      "applicationUrl": "https://localhost:8081",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
-        "TENANT_REGISTRY_CONNECTION": "Server=nukak.tecfinanzas.com;User ID=KUSER;Password=Nuk4kPr0ducc10n2022;Database=MasterTenant;TrustServerCertificate=True"
+        "TENANT_REGISTRY_CONNECTION": "${DB_MASTER_URL}"
       }
     }
   }

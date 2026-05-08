@@ -25,4 +25,3 @@ Microservicio de aplicación de la plataforma GSM.
 - `TenantContext` mantiene el tenant actual de la request.
 - `TenantExtensions` intenta obtener `X-Company-Id` desde el Gateway y, si no existe, usa el claim `companyId` del JWT como fallback para pruebas directas.
 - `RegistryDbContext` resuelve el tenant desde la base central `TenantRegistryDb`.
- 

@@ -78,7 +78,7 @@ jobs:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
           IMAGE_TAG: ${{ github.sha }}
-        working-directory: gsmapplications-backend/microservices/gsmapplication
+        working-directory: gsmapplications-backend/microservices/gsmapplication/app
         run: |
           echo "Building arm64 image: linux/arm64"
           

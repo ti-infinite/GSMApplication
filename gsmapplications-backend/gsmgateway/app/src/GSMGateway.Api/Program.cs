@@ -125,7 +125,7 @@ app.UseAuthorization();
 app.UseRateLimiter();
 app.UseTenantLayer();
 
-app.MapGet("/health", [AllowAnonymous] () => Results.Ok(new { message = Messages.Gateway.Healthy }));
+app.MapGet("api/health", [AllowAnonymous] () => Results.Ok(new { message = Messages.Gateway.Healthy }));
 app.MapReverseProxy();
 
 await app.RunAsync();

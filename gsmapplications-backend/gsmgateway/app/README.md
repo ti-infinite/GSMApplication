@@ -1,6 +1,6 @@
 # GSMGateway
 
-Gateway basado en **YARP** para la plataforma GSMs.
+Gateway basado en **YARP** para la plataforma GSM.
 
 ## Objetivo
 
@@ -34,3 +34,4 @@ Gateway basado en **YARP** para la plataforma GSMs.
 4. El middleware del gateway extrae `companyId` del JWT.
 5. El gateway elimina cualquier `X-Company-Id` enviado por el cliente y agrega el valor confiable del token.
 6. El microservicio downstream recibe `X-Company-Id` y resuelve su base de datos tenant.
+

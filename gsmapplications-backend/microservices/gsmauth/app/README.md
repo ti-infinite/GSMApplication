@@ -1,7 +1,7 @@
 # GSMAuth
 
 Microservicio de autenticación con soporte para arquitectura **Database Per Tenant**.
-
+ 
 ## Estructura por capas / proyectos
 
 - `GSMAuth.Api`: capa de exposición HTTP/Swagger.
@@ -32,3 +32,4 @@ Si no está definida, se usa `ConnectionStrings:TenantRegistryConnection` en `ap
 
 - La tabla `Users` necesita `PasswordHash` y `PasswordSalt`; los campos de negocio originales no son suficientes para validar contraseña.
 - La capa Tenant es transversal y no contiene lógica de negocio.
+ 

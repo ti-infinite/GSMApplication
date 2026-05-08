@@ -46,7 +46,7 @@ jobs:
     name: Deploy Auth Service
     needs: determine-env
     runs-on: ubuntu-latest
-    environment: app-${{ needs.determine-env.outputs.environment }}
+    environment: backend-${{ needs.determine-env.outputs.environment }}
     permissions:
       id-token: write
       contents: read    

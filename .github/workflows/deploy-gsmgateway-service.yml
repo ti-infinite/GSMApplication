@@ -1,7 +1,7 @@
 name: Deploy Gateway Service
 on:
   push:
-    branches: ["develop","quality"]
+    branches: ["develop","main", "quality"]
     paths:
       - "gsmapplications-backend/gsmgateway/**"
   workflow_dispatch:

@@ -1,6 +1,6 @@
 # GSMGateway
 
-Gateway basado en **YARP** para la plataforma GSM.
+Gateway basado en **YARP** para la plataforma GSMs.
 
 ## Objetivo
 

@@ -51,7 +51,6 @@ WORKDIR /app
 
 RUN apk add --no-cache icu-libs wget && adduser -u 1001 -D appuser
 ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
-RUN apk add --no-cache wget && adduser -u 1001 -D appuser
 
 COPY --from=build /app/out ./
 RUN chown -R appuser:appuser /app

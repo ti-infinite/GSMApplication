@@ -1,4 +1,7 @@
 FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:8.0-alpine AS build
+
+RUN apt-get update && apt-get install -y libicu-dev
+
 ARG TARGETARCH
 WORKDIR /src
 

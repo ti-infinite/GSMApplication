@@ -13,7 +13,8 @@ var builder = WebApplication.CreateBuilder(args);
 
 var config = builder.Configuration;
 
-config["JwtSettings:SecretKey"]?.Replace("${JWT_SECRET}", Environment.GetEnvironmentVariable("JWT_SECRET") ?? "");   
+config["JwtSettings:SecretKey"] = config["JwtSettings:SecretKey"]
+    ?.Replace("${JWT_SECRET}", Environment.GetEnvironmentVariable("JWT_SECRET") ?? "");
     
 // ------------------------------------------------------------
 // Controllers

@@ -1,6 +1,7 @@
 FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:8.0-alpine AS build
 
-RUN apt-get update && apt-get install -y libicu-dev
+RUN apk add --no-cache icu-libs
+ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
 
 ARG TARGETARCH
 WORKDIR /src

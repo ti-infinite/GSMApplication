@@ -15,7 +15,11 @@ var config = builder.Configuration;
 
 config["JwtSettings:SecretKey"] = config["JwtSettings:SecretKey"]
     ?.Replace("${JWT_SECRET}", Environment.GetEnvironmentVariable("JWT_SECRET") ?? "");
-    
+
+// Log temporal para debug
+Console.WriteLine($"JWT Secret length: {config["JwtSettings:SecretKey"]?.Length ?? 0}");
+Console.WriteLine($"JWT Secret starts with: {config["JwtSettings:SecretKey"]?.Substring(0, Math.Min(5, config["JwtSettings:SecretKey"]?.Length ?? 0))}");
+
 // ------------------------------------------------------------
 // Controllers
 // ------------------------------------------------------------

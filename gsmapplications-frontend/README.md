@@ -37,6 +37,7 @@ npm run build   # genera dist/
 
 El deploy se hace vía GitHub Actions (`.github/workflows/deploy-gmsfrontend.yml`).
 
+
 - `develop` → environment `frontend-dev`
 - `quality` → environment `frontend-qa`
 - `main` → environment `frontend-prod`

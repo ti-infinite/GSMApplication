@@ -1,4 +1,4 @@
-name: Deploy Frontend
+name: Deploy GSMFrontend
 
 on:
   push:
@@ -44,7 +44,7 @@ jobs:
 
   deploy:
     if: ${{ vars.WORKFLOW_FRONTEND_ENABLED == 'true' }}
-    name: Deploy Frontend
+    name: Deploy GSMFrontend
     needs: determine-env
     runs-on: ubuntu-latest
     environment: frontend-${{ needs.determine-env.outputs.environment }}

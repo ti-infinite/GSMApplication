@@ -1,36 +1,44 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# GSM Application — Frontend
 
-## Getting Started
+SPA estática construida con Vite + React + TypeScript. Se despliega en AWS S3 + CloudFront.
 
-First, run the development server:
+## Stack
+
+- **Vite** + React 19 + TypeScript
+- **Tailwind CSS v4**
+- **React Router v7** — routing client-side con prefijo de locale (`/en/`, `/es/`)
+- **i18next** — internacionalización (EN / ES)
+- **js-cookie** — manejo de sesión (JWT)
+
+## Desarrollo local
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cp .env.example .env.local   # configura los tenant IDs por defecto
+npm install
+npm run dev                  # http://localhost:5173
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+El proxy de Vite redirige `/api/*` → `https://localhost:7201` automáticamente. El backend debe estar corriendo localmente.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Variables de entorno
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Variable | Descripción |
+|----------|-------------|
+| `VITE_TENANT_DEFAULT_EN` | CompanyId por defecto en login (inglés) |
+| `VITE_TENANT_DEFAULT_ES` | CompanyId por defecto en login (español) |
 
-## Learn More
+## Build
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+npm run build   # genera dist/
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Deploy
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+El deploy se hace vía GitHub Actions (`.github/workflows/deploy-gmsfrontend.yml`).
 
-## Deploy on Vercel
+- `develop` → environment `frontend-dev`
+- `quality` → environment `frontend-qa`
+- `main` → environment `frontend-prod`
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Cada environment requiere las variables `S3_BUCKET_NAME`, `CLOUDFRONT_DISTRIBUTION_ID`, `TENANT_DEFAULT_EN`, `TENANT_DEFAULT_ES` y el secret `AWS_INFRA_ROLE_ARN`.

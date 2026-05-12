@@ -123,7 +123,7 @@ app.UseSwaggerUI(options =>
     options.SwaggerEndpoint("/swagger/v1/swagger.json", "GSMGateway API v1");
 });
 
-app.UseHttpsRedirection();
+//app.UseHttpsRedirection(); No necesita HTTPS interno — CloudFront maneja el SSL
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseRateLimiter();

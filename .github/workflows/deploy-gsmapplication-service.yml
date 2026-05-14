@@ -1,7 +1,12 @@
 name: Deploy GSMApplication Service
 on:
   push:
-    branches: ["develop","main", "quality"]
+    branches: ["develop"]
+    paths:
+      - "gsmapplications-backend/microservices/gsmapplication/**"
+  pull_request:
+    branches: ["develop", "main"]
+    types: [closed]
     paths:
       - "gsmapplications-backend/microservices/gsmapplication/**"
   workflow_dispatch:

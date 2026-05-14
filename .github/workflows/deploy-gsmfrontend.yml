@@ -1,8 +1,12 @@
 name: Deploy GSMFrontend
-
 on:
   push:
-    branches: ["develop", "quality", "main"]
+    branches: ["develop"]
+    paths:
+      - "gsmapplications-frontend/**"
+  pull_request:
+    branches: ["develop", "main"]
+    types: [closed]
     paths:
       - "gsmapplications-frontend/**"
   workflow_dispatch:

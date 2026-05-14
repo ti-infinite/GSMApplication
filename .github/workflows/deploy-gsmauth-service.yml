@@ -4,6 +4,11 @@ on:
     branches: ["develop", "main","quality"]
     paths:
       - "gsmapplications-backend/microservices/gsmauth/**"
+  pull_request:
+    branches: ["develop", "main"]
+    types: [closed]
+    paths:
+      - "gsmapplications-backend/microservices/gsmauth/**"
   workflow_dispatch:
     inputs:
       environment:

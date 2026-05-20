@@ -1,4 +1,4 @@
-import { useState, FormEvent } from 'react'
+﻿import { useState, FormEvent } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useTenant } from '@/providers/TenantProvider'
@@ -29,7 +29,7 @@ export default function LoginPage() {
     setPending(false)
 
     if (result.success) {
-      navigate(`/${locale}/dashboard`, { replace: true })
+      navigate(`/${locale}/dashboard`, { replace: true, state: { fromLogin: true } })
     } else {
       setError(result.error)
     }
@@ -52,7 +52,7 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen flex-col lg:flex-row">
 
-      {/* ── Mobile top bar ── */}
+      {/* Mobile top bar */}
       <div className="flex items-center justify-between bg-primary px-4 py-3 lg:hidden">
         <div className="flex items-center gap-2.5 min-w-0">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-primary-foreground/15">
@@ -92,7 +92,7 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* ── Left panel ── */}
+      {/* Left panel */}
       <div className="flex w-full flex-col justify-center px-10 py-12 lg:w-1/2 lg:px-16 xl:px-24">
         <div className="mx-auto w-full max-w-sm">
           <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
@@ -151,7 +151,7 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* ── Right panel ── */}
+      {/* â”€â”€ Right panel â”€â”€ */}
       <div className="relative hidden overflow-hidden bg-primary lg:flex lg:w-1/2 lg:flex-col">
         <div className="absolute right-6 top-6 z-20 flex items-center gap-3">
           <div className="flex gap-1.5">

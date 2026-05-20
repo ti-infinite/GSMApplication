@@ -13,10 +13,11 @@ function normalizeItems(items: (MenuOption & { Name?: string; IdObject?: string 
   return items.map(item => ({
     Description: item.Description || item.Name || '',
     IdObject:    item.IdObject,
-    Icon:        item.Icon    || undefined,
-    Route:       item.Route   || undefined,
-    Section:     item.Section ?? 'menu',
-    IsNew:       item.IsNew   ?? false,
+    Icon:        item.Icon      || undefined,
+    Route:       item.Route     || undefined,
+    Section:     item.Section   ?? 'menu',
+    IsNew:       item.IsNew     ?? false,
+    IsShortcut:  item.IsShortcut ?? false,
     Children:    item.Children ? normalizeItems(item.Children) : undefined,
   }))
 }
@@ -38,8 +39,9 @@ export default function DashboardLayout() {
   const { t }      = useTranslation()
   const { branding } = useTenant()
 
-  const [menuItems, setMenuItems] = useState<MenuOption[]>([])
-  const [loading,   setLoading]   = useState(true)
+  const [menuItems,  setMenuItems]  = useState<MenuOption[]>([])
+  const [shortcuts,  setShortcuts]  = useState<MenuOption[]>([])
+  const [loading,    setLoading]    = useState(true)
 
   const token    = Cookies.get('gsm_token') ?? ''
   const userName = Cookies.get('gsm_user_name') ?? ''
@@ -70,6 +72,8 @@ export default function DashboardLayout() {
           })),
         }))
         setMenuItems(translated)
+        const allItems = translated.flatMap(i => [i, ...(i.Children ?? [])])
+        setShortcuts(allItems.filter(i => i.IsShortcut))
       } catch {
         navigate(`/${locale}/login`, { replace: true })
       } finally {
@@ -109,7 +113,7 @@ export default function DashboardLayout() {
       userName={userName}
       onLogout={handleLogout}
     >
-      <Outlet />
+      <Outlet context={{ shortcuts }} />
     </DashboardShell>
   )
 }

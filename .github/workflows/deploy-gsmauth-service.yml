@@ -1,7 +1,7 @@
 name: Deploy GSMAuth Service
 on:
   push:
-    branches: ["develop", "main","quality"]
+    branches: ["develop"]
     paths:
       - "gsmapplications-backend/microservices/gsmauth/**"
   pull_request:

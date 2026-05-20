@@ -1,13 +1,8 @@
 import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { isSafeUrl } from '@/lib/utils'
-import {
-  ChevronRight, LogOut,
-  House, LayoutDashboard, CreditCard, Wallet, Package,
-  Users, User, Settings, Hammer, Boxes, BookOpen,
-  BarChart2, ClipboardList, FileText, FileCheck, FilePlus,
-  Leaf, GitBranch, Scroll, Map, Star, type LucideIcon,
-} from 'lucide-react'
+import { ChevronRight, LogOut, LayoutGrid, type LucideIcon } from 'lucide-react'
+import * as icons from 'lucide-react'
 
 export type MenuOption = {
   Description: string
@@ -16,44 +11,26 @@ export type MenuOption = {
   Route?: string
   Section?: string
   IsNew?: boolean
+  IsShortcut?: boolean
   Children?: MenuOption[]
 }
 
 type Brand = { name: string; initials: string; logo?: string }
 
-const ICON_MAP: Record<string, LucideIcon> = {
-  'house':            House,
-  'layout-dashboard': LayoutDashboard,
-  'package':          Package,
-  'users':            Users,
-  'user':             User,
-  'settings':         Settings,
-  'credit-card':      CreditCard,
-  'clipboard-list':   ClipboardList,
-  'map':              Map,
-  'hammer':           Hammer,
-  'boxes':            Boxes,
-  'book-open':        BookOpen,
-  'bar-chart-2':      BarChart2,
-  'file-text':        FileText,
-  'file-check':       FileCheck,
-  'file-plus':        FilePlus,
-  'wallet':           Wallet,
-  'leaf':             Leaf,
-  'git-branch':       GitBranch,
-  'scroll':           Scroll,
-}
-
-function getIcon(name?: string): LucideIcon {
-  if (!name) return Star
-  return ICON_MAP[name] ?? Star
+export function getIcon(name?: string): LucideIcon {
+  if (!name) return LayoutGrid
+  const pascal = name.includes('-')
+    ? name.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join('')
+    : name.charAt(0).toUpperCase() + name.slice(1)
+  const Icon = (icons as Record<string, unknown>)[pascal]
+  return (Icon ?? LayoutGrid) as LucideIcon
 }
 
 function SimpleItem({ item, locale, collapsed }: { item: MenuOption; locale: string; collapsed: boolean }) {
   const { pathname } = useLocation()
   const href = item.Route ? `/${locale}${item.Route}` : '#'
   const isActive = item.Route ? pathname === `/${locale}${item.Route}` : false
-  const Icon = getIcon(item.Icon ?? item.Description)
+  const Icon = getIcon(item.Icon)
 
   const base = `flex items-center rounded-lg transition-colors ${
     isActive
@@ -82,17 +59,28 @@ function SimpleItem({ item, locale, collapsed }: { item: MenuOption; locale: str
   )
 }
 
-function ComboItem({
-  item, locale, expanded, onToggle, collapsed,
-}: {
-  item: MenuOption; locale: string; expanded: boolean; onToggle: () => void; collapsed: boolean
-}) {
-  const Icon = getIcon(item.Icon ?? item.Description)
+function ComboItem({ item, locale, collapsed }: { item: MenuOption; locale: string; collapsed: boolean }) {
+  const [expanded, setExpanded] = useState(false)
+  const Icon = getIcon(item.Icon)
 
   if (collapsed) {
     return (
-      <div title={item.Description} className="flex w-full items-center justify-center rounded-lg p-2 text-sidebar-foreground/40">
-        <Icon className="h-5 w-5 shrink-0" />
+      <div className="flex flex-col gap-0.5">
+        <button
+          type="button"
+          onClick={() => setExpanded(p => !p)}
+          title={item.Description}
+          className={`flex w-full items-center justify-center rounded-lg p-2 transition-colors ${
+            expanded
+              ? 'bg-sidebar-accent text-sidebar-foreground'
+              : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground'
+          }`}
+        >
+          <Icon className="h-5 w-5 shrink-0" />
+        </button>
+        {expanded && item.Children?.map(child => (
+          <MenuItem key={child.IdObject ?? child.Description} item={child} locale={locale} collapsed={true} />
+        ))}
       </div>
     )
   }
@@ -101,7 +89,7 @@ function ComboItem({
     <div>
       <button
         type="button"
-        onClick={onToggle}
+        onClick={() => setExpanded(p => !p)}
         className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent/60 hover:text-sidebar-foreground"
       >
         <Icon className="h-4 w-4 shrink-0" />
@@ -111,12 +99,18 @@ function ComboItem({
       {expanded && (
         <div className="ml-4 mt-0.5 flex flex-col gap-0.5 border-l border-sidebar-border pl-3">
           {item.Children?.map(child => (
-            <SimpleItem key={child.Description} item={child} locale={locale} collapsed={false} />
+            <MenuItem key={child.IdObject ?? child.Description} item={child} locale={locale} collapsed={false} />
           ))}
         </div>
       )}
     </div>
   )
+}
+
+function MenuItem({ item, locale, collapsed }: { item: MenuOption; locale: string; collapsed: boolean }) {
+  return item.Children?.length
+    ? <ComboItem item={item} locale={locale} collapsed={collapsed} />
+    : <SimpleItem item={item} locale={locale} collapsed={collapsed} />
 }
 
 type Props = {
@@ -128,16 +122,7 @@ type Props = {
 }
 
 export default function Sidebar({ items, brand, locale, open = true, onLogout }: Props) {
-  const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const collapsed = !open
-
-  function toggle(name: string) {
-    setExpanded(prev => {
-      const next = new Set(prev)
-      next.has(name) ? next.delete(name) : next.add(name)
-      return next
-    })
-  }
 
   const isOther = (i: MenuOption) => i.Section?.toLowerCase() === 'others'
   const menuItems  = items.filter(i => !isOther(i))
@@ -167,17 +152,9 @@ export default function Sidebar({ items, brand, locale, open = true, onLogout }:
         )}
 
         <div className="flex flex-col gap-0.5">
-          {menuItems.map(item =>
-            item.Children && item.Children.length > 0 ? (
-              <ComboItem
-                key={item.Description} item={item} locale={locale} collapsed={collapsed}
-                expanded={expanded.has(item.Description)}
-                onToggle={() => toggle(item.Description)}
-              />
-            ) : (
-              <SimpleItem key={item.Description} item={item} locale={locale} collapsed={collapsed} />
-            )
-          )}
+          {menuItems.map(item => (
+            <MenuItem key={item.IdObject ?? item.Description} item={item} locale={locale} collapsed={collapsed} />
+          ))}
         </div>
 
         <button
@@ -201,17 +178,9 @@ export default function Sidebar({ items, brand, locale, open = true, onLogout }:
             )}
             {collapsed && <div className="my-2 border-t border-sidebar-border" />}
             <div className="flex flex-col gap-0.5">
-              {otherItems.map(item =>
-                item.Children && item.Children.length > 0 ? (
-                  <ComboItem
-                    key={item.Description} item={item} locale={locale} collapsed={collapsed}
-                    expanded={expanded.has(item.Description)}
-                    onToggle={() => toggle(item.Description)}
-                  />
-                ) : (
-                  <SimpleItem key={item.Description} item={item} locale={locale} collapsed={collapsed} />
-                )
-              )}
+              {otherItems.map(item => (
+                <MenuItem key={item.IdObject ?? item.Description} item={item} locale={locale} collapsed={collapsed} />
+              ))}
             </div>
           </>
         )}

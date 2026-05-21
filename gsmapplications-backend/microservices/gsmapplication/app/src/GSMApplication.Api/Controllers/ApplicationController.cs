@@ -1,5 +1,6 @@
-using System.Security.Claims;
+using System.Net;
 using GSMApplication.Abstractions;
+using GSMApplication.Business.Interfaces;
 using GSMApplication.Entities.Common;
 using GSMApplication.Entities.DTOs;
 using Microsoft.AspNetCore.Authorization;
@@ -12,10 +13,12 @@ namespace GSMApplication.Api.Controllers;
 public sealed class ApplicationController : ControllerBase
 {
     private readonly IMenuService _menuService;
+    private readonly IMultimediaResourceService _multimediaResourceService;
 
-    public ApplicationController(IMenuService menuService)
+    public ApplicationController(IMenuService menuService, IMultimediaResourceService multimediaResourceService)
     {
         _menuService = menuService;
+        _multimediaResourceService = multimediaResourceService;
     }
 
     [Authorize]
@@ -43,4 +46,17 @@ public sealed class ApplicationController : ControllerBase
         return Ok(response);
     }
 
+    [Authorize]
+    [HttpGet("getMediaResources")]
+    public async Task<IActionResult> GetMediaResources([FromQuery] List<string> categories, CancellationToken cancellationToken)
+    {
+        if (categories == null || !categories.Any())
+        {
+            return BadRequest("Categories cannot be empty");
+        }
+            
+        var response = await _multimediaResourceService.GetMultimediaResourceByCategory(categories, cancellationToken);
+
+        return Ok(response);
+    }
 }

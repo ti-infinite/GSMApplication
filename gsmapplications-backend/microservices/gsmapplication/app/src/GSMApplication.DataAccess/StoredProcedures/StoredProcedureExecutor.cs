@@ -18,8 +18,7 @@ public sealed class StoredProcedureExecutor : IStoredProcedureExecutor
 
     public async Task<string> ExecuteSpScalarAsync(StoredProcedureModel sp, CancellationToken cancellationToken = default)
     {
-        var connectionInfo = _tenantContext.ConnectionInfo
-            ?? throw new InvalidOperationException("Tenant not initialized.");
+        var connectionInfo = _tenantContext.ConnectionInfo ?? throw new InvalidOperationException("Tenant not initialized.");
 
         var connectionString = connectionInfo.BuildConnectionString();
 

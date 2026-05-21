@@ -1,8 +1,13 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace GSMGateway.Entities.Security;
 
 public sealed class JwtSettingsOptions
 {
-    public string Issuer { get; set; } = string.Empty;
-    public string Audience { get; set; } = string.Empty;
-    public string SecretKey { get; set; } = string.Empty;
+    [Required]
+    public string Issuer { get; set; } = null!;
+    [Required]
+    public string Audience { get; set; } = null!;
+    [Required]
+    public string SecretKey { get; set; } = null!;
 }

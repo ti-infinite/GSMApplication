@@ -8,7 +8,9 @@
       "launchUrl": "swagger",
       "applicationUrl": "https://localhost:8082",
       "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Development"
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "DB_MASTER_URL": "Server=nukak.tecfinanzas.com;User ID=KUSER;Password=Nuk4kPr0ducc10n2022;Database=MasterTenant;TrustServerCertificate=True",
+        "JWT_SECRET": "gsm-auth-secret-key-change-in-production-2026"
       }
     }
   }

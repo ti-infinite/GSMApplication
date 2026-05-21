@@ -13,8 +13,14 @@ var builder = WebApplication.CreateBuilder(args);
 
 var config = builder.Configuration;
 
-config["JwtSettings:SecretKey"] = config["JwtSettings:SecretKey"]
-    ?.Replace("${JWT_SECRET}", Environment.GetEnvironmentVariable("JWT_SECRET") ?? "");
+var envSecret = Environment.GetEnvironmentVariable("JWT_SECRET");
+
+if (string.IsNullOrWhiteSpace(envSecret))
+{
+    throw new InvalidOperationException("JWT_SECRET is not configured for this environment.");
+}
+
+config["JwtSettings:SecretKey"] = envSecret;
 
 
 // ------------------------------------------------------------
@@ -68,13 +74,7 @@ var registryConnection = Environment.GetEnvironmentVariable("DB_MASTER_URL");
 
 if (string.IsNullOrWhiteSpace(registryConnection))
 {
-    registryConnection = builder.Configuration.GetConnectionString("TenantRegistryConnection");
-}
-
-if (string.IsNullOrWhiteSpace(registryConnection))
-{
-    throw new InvalidOperationException(
-        "No se encontró la conexión al Tenant Registry. Configure DB_MASTER_URL o ConnectionStrings:TenantRegistryConnection.");
+    throw new InvalidOperationException("No Tenant registry connection was found");
 }
 
 // ------------------------------------------------------------
@@ -116,14 +116,13 @@ var secret = jwt["SecretKey"]
 // ------------------------------------------------------------
 builder.Services.AddAuthorization(options =>
 {
-    // De ahora en adelante, este microservicio exige token por defecto.
     options.FallbackPolicy = options.DefaultPolicy;
 });
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
-        options.RequireHttpsMetadata = false;
+        options.RequireHttpsMetadata = !builder.Environment.IsDevelopment();
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
@@ -142,9 +141,12 @@ var app = builder.Build();
 // ------------------------------------------------------------
 // Middleware Pipeline
 // ------------------------------------------------------------
-app.UseSwagger();
-app.UseSwaggerUI(options =>
-    options.SwaggerEndpoint("/swagger/v1/swagger.json", "GSMApplication API v1"));
+if(app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI(options =>
+        options.SwaggerEndpoint("/swagger/v1/swagger.json", "GSMApplication API v1"));
+}
 
 //app.UseHttpsRedirection();
 

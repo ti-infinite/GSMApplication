@@ -9,7 +9,8 @@
       "applicationUrl": "https://localhost:8081",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
-        "TENANT_REGISTRY_CONNECTION": "${DB_MASTER_URL}"
+        "DB_MASTER_URL": "Server=nukak.tecfinanzas.com;User ID=KUSER;Password=Nuk4kPr0ducc10n2022;Database=MasterTenant;TrustServerCertificate=True",
+        "JWT_SECRET": "gsm-auth-secret-key-change-in-production-2026"
       }
     }
   }

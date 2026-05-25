@@ -6,6 +6,7 @@ public static class Messages
     {
         public const string LoginSuccess = "Login successful.";
         public const string UserNotFound = "User does not exist.";
+        public const string CompanyNotFound = "Company does not exist.";
         public const string InvalidCredentials = "Invalid credentials.";
         public const string UserInactive = "User is inactive.";
         public const string Healthy = "Auth is healthy.";

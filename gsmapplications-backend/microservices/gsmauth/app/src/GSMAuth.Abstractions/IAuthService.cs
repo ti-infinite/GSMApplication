@@ -1,8 +1,9 @@
+using GSMAuth.Entities.Common;
 using GSMAuth.Entities.DTOs;
 
 namespace GSMAuth.Abstractions;
 
 public interface IAuthService
 {
-    Task<LoginResponseDto> LoginAsync(LoginRequestDto request, CancellationToken cancellationToken = default);
+    Task<ApiResponse<LoginDto>> LoginAsync(LoginRequestDto request, CancellationToken cancellationToken = default);
 }

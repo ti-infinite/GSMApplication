@@ -8,6 +8,8 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
+using GSMAuth.Infrastructure.Middleware;
+using GSMAuth.Infrastructure.Filters;
 
 var builder = WebApplication.CreateBuilder(args);
 var config = builder.Configuration;
@@ -24,7 +26,10 @@ config["JwtSettings:SecretKey"] = envSecret;
 // ------------------------------------------------------------
 // Controllers
 // ------------------------------------------------------------
-builder.Services.AddControllers();
+builder.Services.AddControllers(options =>
+{
+    options.Filters.Add<ApiResponseFilter>();
+});
 builder.Services.AddEndpointsApiExplorer();
 
 // ------------------------------------------------------------
@@ -154,7 +159,7 @@ if (app.Environment.IsDevelopment())
 }
 
 //app.UseHttpsRedirection();
-
+app.UseMiddleware<ExceptionMiddleware>();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseTenantLayer();

@@ -40,5 +40,6 @@ public sealed class User
     [Required]
     [MaxLength(500)]
     public string PasswordHash { get; set; } = string.Empty;
-
+    public DateTime? LastSessionDate { get; set; }    
+    public DateTime? PasswordUpdateDate { get; set; }
 }

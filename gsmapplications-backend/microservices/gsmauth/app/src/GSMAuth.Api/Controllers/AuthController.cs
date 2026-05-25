@@ -23,24 +23,17 @@ public sealed class AuthController : ControllerBase
 
     [AllowAnonymous]
     [HttpPost("login")]
-    [ProducesResponseType(typeof(LoginResponseDto), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(LoginResponseDto), StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(typeof(LoginResponseDto), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<LoginDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<LoginDto>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<LoginDto>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<LoginDto>), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiResponse<LoginDto>), StatusCodes.Status500InternalServerError)]
+
     public async Task<IActionResult> Login([FromBody] LoginRequestDto request, CancellationToken cancellationToken)
     {
         _tenantContext.CompanyId = request.IDCompany;
+        
         var response = await _authService.LoginAsync(request, cancellationToken);
-
-        if (!response.Success)
-        {
-            return response.ErrorType switch
-            {
-                ErrorType.Validation => BadRequest(response),
-                ErrorType.Unauthorized => Unauthorized(response),
-                ErrorType.NotFound => NotFound(response),
-                _ => StatusCode(500, response)
-            };
-        }
 
         return Ok(response);
     }

@@ -18,7 +18,7 @@ var envSecret = Environment.GetEnvironmentVariable("JWT_SECRET");
 
 if (string.IsNullOrWhiteSpace(envSecret))
 {
-    throw new InvalidOperationException("JWT_SECRET nis not configured for this environment.");
+    throw new InvalidOperationException("JWT_SECRET is not configured for this environment.");
 }
 
 config["JwtSettings:SecretKey"] = envSecret;

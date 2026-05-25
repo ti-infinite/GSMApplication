@@ -20,11 +20,14 @@ public sealed class AuthService : IAuthService
         _tokenService = tokenService;
     }
 
-    public async Task<LoginResponseDto> LoginAsync(
+    public async Task<ApiResponse<LoginDto>> LoginAsync(
         LoginRequestDto request,
         CancellationToken cancellationToken = default)
     {
         var companyId = request.IDCompany.Trim();
+        
+        if (string.IsNullOrWhiteSpace(companyId))
+            return Fail(Messages.Auth.CompanyNotFound, ErrorType.BadRequest);
 
         var user = await _userAuthRepository.GetByUsernameAsync(
             companyId,
@@ -55,30 +58,36 @@ public sealed class AuthService : IAuthService
 
         var (token, expiresAtUtc) = _tokenService.CreateToken(tokenClaims);
 
-        return new LoginResponseDto
+
+        return new ApiResponse<LoginDto>
         {
             Success = true,
             Message = Messages.Auth.LoginSuccess,
-            Token = token,
-            ExpiresAtUtc = expiresAtUtc,
-            User = new AuthenticatedUserDto
+            Data = new LoginDto
             {
-                IdUser = user.IdUser,
-                Username = user.Username,
-                FullName = user.FullName,
-                Email = user.Email,
-                IdProfile = user.IdProfile,
-                PasswordChangeRequired = user.PasswordChangeRequired,
-                Location = user.Location,
-                Department = user.Department
+                Token = token,
+                ExpiresAtUtc = expiresAtUtc,
+                User = new AuthenticatedUserDto
+                {
+                    IdUser = user.IdUser,
+                    Username = user.Username,
+                    FullName = user.FullName,
+                    Email = user.Email,
+                    IdProfile = user.IdProfile,
+                    PasswordChangeRequired = user.PasswordChangeRequired,
+                    Location = user.Location,
+                    Department = user.Department
+                }
             }
         };
     }
-    private static LoginResponseDto Fail(string message, ErrorType errorType)
+
+    private static ApiResponse<LoginDto> Fail(string message, ErrorType errorType)
         => new()
         {
             Success = false,
             Message = message,
             ErrorType = errorType
         };
+
 }

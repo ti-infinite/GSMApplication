@@ -1,4 +1,3 @@
-using System.Net;
 using GSMApplication.Abstractions;
 using GSMApplication.Business.Interfaces;
 using GSMApplication.Entities.Common;

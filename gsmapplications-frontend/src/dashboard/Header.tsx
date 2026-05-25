@@ -1,4 +1,5 @@
 import { Globe, Menu, ChevronDown, Search } from 'lucide-react'
+import { useLocale } from '@/hooks/useLocale'
 
 const LANG_LABELS: Record<string, string> = {
   en: 'English',
@@ -12,9 +13,11 @@ type Props = {
 }
 
 export default function Header({ locale, userName, onMenuToggle }: Props) {
+  const { switchLocale } = useLocale()
+
   function switchLanguage() {
     const next = locale === 'en' ? 'es' : 'en'
-    window.location.replace(`/${next}/dashboard`)
+    switchLocale(next)
   }
 
   const initials = userName
@@ -44,7 +47,7 @@ export default function Header({ locale, userName, onMenuToggle }: Props) {
       <button
         type="button"
         onClick={switchLanguage}
-        className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+        className="flex items-center gap-1.5 rounded-lg border border-primary/20 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-primary/20 hover:border-primary/40"
       >
         <Globe className="h-3.5 w-3.5" />
         <span className="hidden sm:inline">{LANG_LABELS[locale]}</span>

@@ -7,7 +7,13 @@ import DashboardShell from '@/dashboard/DashboardShell'
 import DashboardLoading from '@/components/DashboardLoading'
 import type { MenuOption } from '@/dashboard/Sidebar'
 
-type MenuResponseDto = { success: boolean; menu: string }
+type MenuResponseDto = {
+  success:    boolean
+  message:    string
+  idProfile?: number | null
+  menu:       string
+  errorType?: string | null
+}
 
 function normalizeItems(items: (MenuOption & { Name?: string; IdObject?: string })[]): MenuOption[] {
   return items.map(item => ({
@@ -52,13 +58,12 @@ export default function DashboardLayout() {
         const res = await fetch('/api/application/v1/Application/getMenu', {
           headers: { Authorization: `Bearer ${token}` },
         })
-        if (res.status === 401) {
-          navigate(`/${locale}/login`, { replace: true })
+        const data: MenuResponseDto = await res.json()
+        if (!data.success) {
+          if (res.status === 401) navigate(`/${locale}/login`, { replace: true })
           return
         }
-        if (!res.ok) throw new Error(`Menu fetch failed: ${res.status}`)
-        const data = await res.json() as MenuResponseDto
-        const items = parseMenu(data?.menu ?? '')
+        const items = parseMenu(data.menu ?? '')
         const translated = items.map(item => ({
           ...item,
           Description: item.IdObject

@@ -12,6 +12,16 @@
     />
   </head>
   <body>
+    <script>
+      try {
+        var v = localStorage.getItem('gsm_theme_vars')
+        if (v) {
+          var vars = JSON.parse(v)
+          var root = document.documentElement
+          for (var k in vars) root.style.setProperty(k, vars[k])
+        }
+      } catch (e) {}
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

@@ -1,128 +1,169 @@
-type ActivityItem = { title: string; date: string }
-type NewsItem     = { title: string }
+import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
+import { ExternalLink } from 'lucide-react'
+import Cookies from 'js-cookie'
+import { ResponsiveIframe } from '@/components/ui/responsive-iframe'
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+} from '@/components/ui/dialog'
 
-type StaticContent = {
-  activityTitle:    string
-  activitySubtitle: string
-  newsTitle:        string
-  newsSubtitle:     string
-  activity:         ActivityItem[]
-  news:             NewsItem[]
+type ConfigEntry = {
+  CODLANG:  string
+  SRC:      string
+  TITLE:    string
+  SUBTITLE: string
+  DESCR:    string
+  TYPE:     string
 }
 
-const CONTENT: Record<string, Record<string, StaticContent>> = {
-  ih: {
-    en: {
-      activityTitle:    'Release Activity',
-      activitySubtitle: 'Common tasks and operations',
-      newsTitle:        'Company News',
-      newsSubtitle:     'Latest updates from Infinite Herbs',
-      activity: [
-        { title: 'Add Inventory manager button',               date: '2026-03-15' },
-        { title: 'Integrations Whs Potted Herbs Manager',      date: '2026-02-26' },
-        { title: 'Integrations App Compras and Bi dashboards', date: '2026-02-08' },
-        { title: 'Activity item 4',                            date: '2026-01-16' },
-      ],
-      news: [
-        { title: 'New Walmart DC' },
-        { title: 'Agroaromas Adds Products' },
-        { title: 'Sales Holy Week' },
-        { title: 'Miami and Boston WHS are in service' },
-      ],
-    },
-    es: {
-      activityTitle:    'Actividad de Versiones',
-      activitySubtitle: 'Tareas y operaciones comunes',
-      newsTitle:        'Noticias Empresa',
-      newsSubtitle:     'Últimas novedades de Infinite Herbs',
-      activity: [
-        { title: 'Botón de Gestor de Inventario',              date: '2026-03-15' },
-        { title: 'Integración Whs Potted Herbs Manager',       date: '2026-02-26' },
-        { title: 'Integración App Compras y BI dashboards',    date: '2026-02-08' },
-        { title: 'Elemento de actividad 4',                    date: '2026-01-16' },
-      ],
-      news: [
-        { title: 'Nuevo DC Walmart' },
-        { title: 'Agroaromas Agrega Productos' },
-        { title: 'Ventas Semana Santa' },
-        { title: 'WHS Miami y Boston en servicio' },
-      ],
-    },
-  },
-  ag: {
-    es: {
-      activityTitle:    'Release Activity',
-      activitySubtitle: 'Tareas/Operaciones Comunes',
-      newsTitle:        'Noticias Empresa',
-      newsSubtitle:     'Últimas novedades de Agroaromas',
-      activity: [
-        { title: 'Desarrollo Apartado Gestion de Inventario', date: '2026-03-15' },
-        { title: 'Integración Delivery Product',              date: '2026-02-26' },
-        { title: 'Integración App Compras/BI dashboards',     date: '2026-02-08' },
-        { title: 'Desarrollo Hoja De Ruta',                   date: '2026-01-16' },
-      ],
-      news: [
-        { title: 'Nueva Finca Mandarino Tenjo' },
-        { title: 'Nuevo Producto' },
-        { title: 'Cambio de precios' },
-      ],
-    },
-    en: {
-      activityTitle:    'Release Activity',
-      activitySubtitle: 'Common Tasks / Operations',
-      newsTitle:        'Company News',
-      newsSubtitle:     'Latest updates from Agroaromas',
-      activity: [
-        { title: 'Inventory Management Module',               date: '2026-03-15' },
-        { title: 'Delivery Product Integration',              date: '2026-02-26' },
-        { title: 'Compras / BI Dashboards Integration',       date: '2026-02-08' },
-        { title: 'Route Sheet Development',                   date: '2026-01-16' },
-      ],
-      news: [
-        { title: 'New Mandarino Tenjo Farm' },
-        { title: 'New Product Added' },
-        { title: 'Price Update' },
-      ],
-    },
-  },
+type MediaItem = {
+  resourceCategory: string
+  resourceOrder:    number
+  config:           ConfigEntry[]
 }
 
-export default function DashboardActivity({ tenant, locale }: { tenant: string; locale: string }) {
-  const c = CONTENT[tenant]?.[locale] ?? CONTENT[tenant]?.es ?? CONTENT.ih.en
+type RawItem = {
+  resourceCategory: string
+  resourceOrder:    number
+  config:           string
+}
+
+function parseConfig(raw: string): ConfigEntry[] {
+  try { return JSON.parse(raw) } catch { return [] }
+}
+
+function getLocaleContent(entries: ConfigEntry[], locale: string): ConfigEntry | undefined {
+  const lang = locale.toUpperCase()
+  return entries.find(e => e.CODLANG === lang)
+    ?? entries.find(e => e.CODLANG === 'EN')
+    ?? entries[0]
+}
+
+function ItemViewer({ content }: { content: ConfigEntry }) {
+  const type = content.TYPE?.toLowerCase()
+
+  if (!content.SRC) return null
+
+  if (type === 'url') {
+    return (
+      <a
+        href={content.SRC}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+      >
+        <ExternalLink className="h-4 w-4" />
+        Open
+      </a>
+    )
+  }
+
+  return <ResponsiveIframe src={content.SRC} title={content.TITLE} maxHeight="none" />
+}
+
+function Section({
+  i18nPrefix, items, locale, dotColor,
+}: {
+  i18nPrefix: string
+  items:      MediaItem[]
+  locale:     string
+  dotColor:   string
+}) {
+  const { t } = useTranslation()
+  const [active, setActive] = useState<MediaItem | null>(null)
+  const activeContent = active ? getLocaleContent(active.config, locale) : null
 
   return (
-    <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-5">
-      <div className="flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm lg:col-span-3">
+    <>
+      <div className="flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm">
         <div className="border-b border-border px-6 py-4">
-          <p className="font-semibold text-foreground">{c.activityTitle}</p>
-          <p className="text-xs text-muted-foreground">{c.activitySubtitle}</p>
+          <p className="font-semibold text-foreground">{t(`${i18nPrefix}.title`)}</p>
+          <p className="text-xs text-muted-foreground">{t(`${i18nPrefix}.subtitle`)}</p>
         </div>
-        <ul className="flex flex-col divide-y divide-border">
-          {c.activity.map((item) => (
-            <li key={item.title} className="flex items-center gap-3 px-6 py-3.5">
-              <span className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-primary" />
-              <div className="flex-1 min-w-0">
-                <p className="truncate text-sm font-medium text-foreground">{item.title}</p>
-                <p className="text-xs text-muted-foreground">{item.date}</p>
-              </div>
-            </li>
-          ))}
-        </ul>
+        {items.length === 0 ? (
+          <div className="px-6 py-8 text-center text-sm text-muted-foreground">—</div>
+        ) : (
+          <ul className="flex flex-col divide-y divide-border">
+            {items.map((item) => {
+              const lc = getLocaleContent(item.config, locale)
+              return (
+                <li
+                  key={item.resourceOrder}
+                  onClick={() => setActive(item)}
+                  className="flex cursor-pointer items-center gap-3 px-6 py-3.5 transition-colors hover:bg-muted/50"
+                >
+                  <span className={`mt-0.5 h-2 w-2 shrink-0 rounded-full ${dotColor}`} />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-foreground">{lc?.TITLE || lc?.DESCR || ''}</p>
+                    {lc?.SUBTITLE && (
+                      <p className="truncate text-xs text-muted-foreground">{lc.SUBTITLE}</p>
+                    )}
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+        )}
       </div>
 
-      <div className="flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm lg:col-span-2">
-        <div className="border-b border-border px-6 py-4">
-          <p className="font-semibold text-foreground">{c.newsTitle}</p>
-          <p className="text-xs text-muted-foreground">{c.newsSubtitle}</p>
-        </div>
-        <ul className="flex flex-col divide-y divide-border">
-          {c.news.map((item) => (
-            <li key={item.title} className="px-6 py-3.5">
-              <p className="text-sm text-foreground">{item.title}</p>
-            </li>
-          ))}
-        </ul>
+      <Dialog open={!!active} onOpenChange={(open) => !open && setActive(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{activeContent?.TITLE || activeContent?.DESCR || ''}</DialogTitle>
+            {activeContent?.DESCR && (
+              <DialogDescription>{activeContent.DESCR}</DialogDescription>
+            )}
+          </DialogHeader>
+          <div className="px-4 pb-4 pt-3">
+            {activeContent && <ItemViewer content={activeContent} />}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  )
+}
+
+type Props = { locale: string }
+
+export default function DashboardActivity({ locale }: Props) {
+  const token = Cookies.get('gsm_token') ?? ''
+
+  const [activity, setActivity] = useState<MediaItem[]>([])
+  const [news,     setNews]     = useState<MediaItem[]>([])
+  const [loading,  setLoading]  = useState(true)
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const res = await fetch(
+          '/api/application/v1/Application/getMediaResources?categories=ACTIVITY&categories=NEWS',
+          { headers: { Authorization: `Bearer ${token}` } }
+        )
+        if (!res.ok) return
+        const data: RawItem[] = await res.json()
+        const parsed = data.map(r => ({ ...r, config: parseConfig(r.config) }))
+        setActivity(parsed.filter(r => r.resourceCategory.toUpperCase() === 'ACTIVITY'))
+        setNews(parsed.filter(r => r.resourceCategory.toUpperCase() === 'NEWS'))
+      } finally {
+        setLoading(false)
+      }
+    }
+    load()
+  }, [token])
+
+  if (loading) {
+    return (
+      <div className="mt-6 grid animate-pulse grid-cols-1 gap-4 lg:grid-cols-5">
+        <div className="h-64 rounded-xl bg-muted lg:col-span-3" />
+        <div className="h-64 rounded-xl bg-muted lg:col-span-2" />
       </div>
+    )
+  }
+
+  return (
+    <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <Section i18nPrefix="activity" items={activity} locale={locale} dotColor="bg-primary" />
+      <Section i18nPrefix="news" items={news} locale={locale} dotColor="bg-secondary" />
     </div>
   )
 }

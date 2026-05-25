@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { Outlet, useNavigate, useParams } from 'react-router-dom'
 import Cookies from 'js-cookie'
-import { isTokenExpired } from '@/lib/auth'
+import { isTokenValid } from '@/lib/auth'
 
 export default function AuthGuard() {
   const { locale } = useParams<{ locale: string }>()
@@ -9,14 +9,14 @@ export default function AuthGuard() {
 
   useEffect(() => {
     const token = Cookies.get('gsm_token')
-    if (!token || isTokenExpired(token)) {
+    if (!token || !isTokenValid(token)) {
       Cookies.remove('gsm_token')
       navigate(`/${locale}/login`, { replace: true })
     }
   }, [locale, navigate])
 
   const token = Cookies.get('gsm_token')
-  if (!token || isTokenExpired(token)) return null
+  if (!token || !isTokenValid(token)) return null
 
   return <Outlet />
 }

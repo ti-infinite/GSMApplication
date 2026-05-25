@@ -1,23 +1,25 @@
-﻿import { useState, FormEvent } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+﻿import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { Eye, EyeOff } from 'lucide-react'
 import { useTenant } from '@/providers/TenantProvider'
 import { login } from '@/lib/auth'
 import { TENANT_IDS } from '@/lib/tenants'
 import { isSafeUrl } from '@/lib/utils'
-
-type Locale = 'en' | 'es'
+import { Button } from '@/components/ui/button'
+import { useLocale, type Locale } from '@/hooks/useLocale'
 
 export default function LoginPage() {
-  const { locale = 'en' } = useParams<{ locale: string }>()
-  const navigate           = useNavigate()
-  const { t }              = useTranslation()
+  const { locale, switchLocale } = useLocale()
+  const navigate = useNavigate()
+  const { t }                    = useTranslation()
   const { companyId, branding, resolving, loadTenant } = useTenant()
 
-  const [error,   setError]   = useState<string | null>(null)
-  const [pending, setPending] = useState(false)
+  const [error,       setError]       = useState<string | null>(null)
+  const [pending,     setPending]     = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
 
-  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const form = new FormData(e.currentTarget)
     const user     = form.get('user')     as string
@@ -25,7 +27,7 @@ export default function LoginPage() {
 
     setError(null)
     setPending(true)
-    const result = await login(companyId, user, password)
+    const result = await login({ companyId, user, password })
     setPending(false)
 
     if (result.success) {
@@ -36,8 +38,7 @@ export default function LoginPage() {
   }
 
   function switchLanguage(next: Locale) {
-    if (next === locale) return
-    window.location.replace(`/${next}/login`)
+    switchLocale(next, `/${next}/login`)
   }
 
   function isTenantActive(prefix: string) {
@@ -66,28 +67,30 @@ export default function LoginPage() {
         </div>
         <div className="flex shrink-0 items-center gap-1.5 pl-3">
           {TENANTS.map(({ prefix, id, label }) => (
-            <button key={prefix} type="button" onClick={() => loadTenant(id)}
-              className={`rounded-full px-2.5 py-1 text-xs font-semibold transition-colors ${
+            <Button key={prefix} type="button" size="sm" variant="ghost"
+              onClick={() => loadTenant(id)}
+              className={`text-xs ${
                 isTenantActive(prefix)
-                  ? 'bg-primary-foreground text-primary'
+                  ? 'bg-primary-foreground text-primary hover:bg-primary-foreground/90'
                   : 'text-primary-foreground/60 hover:bg-primary-foreground/10 hover:text-primary-foreground'
               }`}
             >
               <span className="hidden sm:inline">{label}</span>
               <span className="sm:hidden">{prefix}</span>
-            </button>
+            </Button>
           ))}
           <span className="h-4 w-px bg-primary-foreground/20" />
           {(['en', 'es'] as Locale[]).map((loc) => (
-            <button key={loc} type="button" onClick={() => switchLanguage(loc)}
-              className={`rounded px-2 py-1 text-xs font-bold uppercase transition-colors ${
+            <Button key={loc} type="button" size="sm" variant="ghost"
+              onClick={() => switchLanguage(loc)}
+              className={`rounded text-xs font-bold uppercase ${
                 locale === loc
-                  ? 'bg-primary-foreground text-primary'
+                  ? 'bg-primary-foreground text-primary hover:bg-primary-foreground/90'
                   : 'text-primary-foreground/50 hover:bg-primary-foreground/10 hover:text-primary-foreground'
               }`}
             >
               {loc}
-            </button>
+            </Button>
           ))}
         </div>
       </div>
@@ -117,11 +120,24 @@ export default function LoginPage() {
               <label htmlFor="password" className="text-sm font-medium text-foreground">
                 {t('login.password')}
               </label>
-              <input
-                id="password" name="password" type="password" required autoComplete="current-password"
-                placeholder={t('login.passwordPlaceholder')}
-                className="rounded-lg border border-border bg-input px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-              />
+              <div className="relative">
+                <input
+                  id="password" name="password" required autoComplete="current-password"
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder={t('login.passwordPlaceholder')}
+                  className="w-full rounded-lg border border-border bg-input px-3.5 py-2.5 pr-10 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(p => !p)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  {showPassword
+                    ? <EyeOff className="h-4 w-4" />
+                    : <Eye className="h-4 w-4" />
+                  }
+                </button>
+              </div>
             </div>
 
             <div className="flex items-center justify-between">
@@ -129,24 +145,25 @@ export default function LoginPage() {
                 <input type="checkbox" className="h-4 w-4 rounded border-border accent-primary" />
                 {t('login.rememberMe')}
               </label>
-              <button type="button" className="text-sm text-primary hover:underline">
+              <Button type="button" variant="link" className="h-auto p-0 text-sm">
                 {t('login.forgotPassword')}
-              </button>
+              </Button>
             </div>
 
             {error && (
               <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-3.5 py-2.5 text-sm text-destructive">
-                {error}
+                {t(error, { defaultValue: error })}
               </p>
             )}
 
-            <button
+            <Button
               type="submit"
+              size="lg"
               disabled={pending || resolving}
-              className="mt-1 rounded-lg bg-primary py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+              className="mt-1 w-full"
             >
               {pending || resolving ? t('login.submitting') : t('login.submit')}
-            </button>
+            </Button>
           </form>
         </div>
       </div>
@@ -156,29 +173,31 @@ export default function LoginPage() {
         <div className="absolute right-6 top-6 z-20 flex items-center gap-3">
           <div className="flex gap-1.5">
             {TENANTS.map(({ prefix, id, label }) => (
-              <button key={prefix} type="button" onClick={() => loadTenant(id)}
-                className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors ${
+              <Button key={prefix} type="button" size="sm" variant="ghost"
+                onClick={() => loadTenant(id)}
+                className={`text-xs ${
                   isTenantActive(prefix)
-                    ? 'bg-primary-foreground text-primary'
+                    ? 'bg-primary-foreground text-primary hover:bg-primary-foreground/90'
                     : 'text-primary-foreground/60 hover:bg-primary-foreground/10 hover:text-primary-foreground'
                 }`}
               >
                 {label}
-              </button>
+              </Button>
             ))}
           </div>
           <span className="h-4 w-px bg-primary-foreground/20" />
           <div className="flex gap-1">
             {(['en', 'es'] as Locale[]).map((loc) => (
-              <button key={loc} type="button" onClick={() => switchLanguage(loc)}
-                className={`rounded px-2 py-1 text-xs font-bold uppercase transition-colors ${
+              <Button key={loc} type="button" size="sm" variant="ghost"
+                onClick={() => switchLanguage(loc)}
+                className={`rounded text-xs font-bold uppercase ${
                   locale === loc
-                    ? 'bg-primary-foreground text-primary'
+                    ? 'bg-primary-foreground text-primary hover:bg-primary-foreground/90'
                     : 'text-primary-foreground/50 hover:bg-primary-foreground/10 hover:text-primary-foreground'
                 }`}
               >
                 {loc}
-              </button>
+              </Button>
             ))}
           </div>
         </div>

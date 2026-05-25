@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { isSafeUrl } from '@/lib/utils'
 import { ChevronRight, LogOut, LayoutGrid, type LucideIcon } from 'lucide-react'
 import * as icons from 'lucide-react'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 export type MenuOption = {
   Description: string
@@ -29,7 +30,7 @@ export function getIcon(name?: string): LucideIcon {
 function SimpleItem({ item, locale, collapsed }: { item: MenuOption; locale: string; collapsed: boolean }) {
   const { pathname } = useLocation()
   const href = item.Route ? `/${locale}${item.Route}` : '#'
-  const isActive = item.Route ? pathname === `/${locale}${item.Route}` : false
+  const isActive = item.Route ? pathname.startsWith(`/${locale}${item.Route}`) : false
   const Icon = getIcon(item.Icon)
 
   const base = `flex items-center rounded-lg transition-colors ${
@@ -40,9 +41,14 @@ function SimpleItem({ item, locale, collapsed }: { item: MenuOption; locale: str
 
   if (collapsed) {
     return (
-      <Link to={href} title={item.Description} className={`${base} justify-center p-2`}>
-        <Icon className="h-5 w-5 shrink-0" />
-      </Link>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Link to={href} className={`${base} justify-center p-2`}>
+            <Icon className="h-5 w-5 shrink-0" />
+          </Link>
+        </TooltipTrigger>
+        <TooltipContent side="right">{item.Description}</TooltipContent>
+      </Tooltip>
     )
   }
 
@@ -59,25 +65,45 @@ function SimpleItem({ item, locale, collapsed }: { item: MenuOption; locale: str
   )
 }
 
+function hasActiveDescendant(item: MenuOption, locale: string, pathname: string): boolean {
+  return !!(item.Children?.some(child =>
+    (child.Route && pathname.startsWith(`/${locale}${child.Route}`))
+    || hasActiveDescendant(child, locale, pathname)
+  ))
+}
+
 function ComboItem({ item, locale, collapsed }: { item: MenuOption; locale: string; collapsed: boolean }) {
-  const [expanded, setExpanded] = useState(false)
+  const { pathname } = useLocation()
+  const autoExpanded = useMemo(
+    () => hasActiveDescendant(item, locale, pathname),
+    [item, locale, pathname]
+  )
+  const [expanded, setExpanded] = useState(autoExpanded)
   const Icon = getIcon(item.Icon)
+
+  useEffect(() => {
+    if (autoExpanded) setExpanded(true)
+  }, [autoExpanded])
 
   if (collapsed) {
     return (
       <div className="flex flex-col gap-0.5">
-        <button
-          type="button"
-          onClick={() => setExpanded(p => !p)}
-          title={item.Description}
-          className={`flex w-full items-center justify-center rounded-lg p-2 transition-colors ${
-            expanded
-              ? 'bg-sidebar-accent text-sidebar-foreground'
-              : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground'
-          }`}
-        >
-          <Icon className="h-5 w-5 shrink-0" />
-        </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              onClick={() => setExpanded(p => !p)}
+              className={`flex w-full items-center justify-center rounded-lg p-2 transition-colors ${
+                expanded
+                  ? 'bg-sidebar-accent text-sidebar-foreground'
+                  : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground'
+              }`}
+            >
+              <Icon className="h-5 w-5 shrink-0" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="right">{item.Description}</TooltipContent>
+        </Tooltip>
         {expanded && item.Children?.map(child => (
           <MenuItem key={child.IdObject ?? child.Description} item={child} locale={locale} collapsed={true} />
         ))}
@@ -129,6 +155,7 @@ export default function Sidebar({ items, brand, locale, open = true, onLogout }:
   const otherItems = items.filter(isOther)
 
   return (
+    <TooltipProvider>
     <aside className={`fixed inset-y-0 left-0 z-50 flex h-screen shrink-0 flex-col overflow-hidden border-r border-sidebar-border bg-sidebar transition-all duration-300 lg:relative lg:inset-y-auto lg:left-auto lg:z-auto ${open ? 'w-55 translate-x-0' : 'w-55 -translate-x-full lg:w-16 lg:translate-x-0'}`}>
 
       <div className={`flex items-center gap-3 py-4 ${collapsed ? 'justify-center px-0' : 'px-5'}`}>
@@ -157,34 +184,36 @@ export default function Sidebar({ items, brand, locale, open = true, onLogout }:
           ))}
         </div>
 
-        <button
-          type="button"
-          onClick={onLogout}
-          title="Exit"
-          className={`mt-3 flex w-full items-center rounded-lg transition-colors text-sidebar-foreground/50 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground ${
-            collapsed ? 'justify-center p-2' : 'gap-3 px-3 py-2 text-sm font-medium'
-          }`}
-        >
-          <LogOut className="h-4 w-4 shrink-0" />
-          {!collapsed && <span>Exit</span>}
-        </button>
+        <div className="mt-4 flex flex-col gap-0.5">
+          {!collapsed && (
+            <p className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/40">
+              Others
+            </p>
+          )}
+          {collapsed && <div className="mb-2 border-t border-sidebar-border" />}
 
-        {otherItems.length > 0 && (
-          <>
-            {!collapsed && (
-              <p className="mb-1.5 mt-4 px-3 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/40">
-                Others
-              </p>
-            )}
-            {collapsed && <div className="my-2 border-t border-sidebar-border" />}
-            <div className="flex flex-col gap-0.5">
-              {otherItems.map(item => (
-                <MenuItem key={item.IdObject ?? item.Description} item={item} locale={locale} collapsed={collapsed} />
-              ))}
-            </div>
-          </>
-        )}
+          {otherItems.map(item => (
+            <MenuItem key={item.IdObject ?? item.Description} item={item} locale={locale} collapsed={collapsed} />
+          ))}
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={onLogout}
+                className={`flex w-full items-center rounded-lg border border-primary/20 bg-primary/10 text-primary transition-colors hover:bg-primary/20 hover:border-primary/40 ${
+                  collapsed ? 'justify-center p-2' : 'gap-3 px-3 py-2 text-sm font-medium'
+                }`}
+              >
+                <LogOut className="h-4 w-4 shrink-0" />
+                {!collapsed && <span>Exit</span>}
+              </button>
+            </TooltipTrigger>
+            {collapsed && <TooltipContent side="right">Exit</TooltipContent>}
+          </Tooltip>
+        </div>
       </nav>
     </aside>
+    </TooltipProvider>
   )
 }

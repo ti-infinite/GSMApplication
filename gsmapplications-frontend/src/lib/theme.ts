@@ -26,51 +26,34 @@ export async function fetchTenantTheme(companyId: string): Promise<TenantTheme |
   }
 }
 
+// CSS var names must start with -- and contain only word chars, hyphens, digits
+const CSS_VAR_NAME_RE = /^--[\w-]+$/
+// Block injection vectors: url(), expression(), semicolons (breakout), braces, < (HTML close tags)
+const CSS_VALUE_UNSAFE_RE = /url\s*\(|expression\s*\(|[;<>{}\\]/i
+
+function sanitizeCssValue(v: string): string | null {
+  if (typeof v !== 'string') return null
+  if (CSS_VALUE_UNSAFE_RE.test(v)) return null
+  return v.trim()
+}
+
 export function buildThemeCSS(theme: TenantTheme, tenantSlug: string): string {
-  const sel = `html[data-tenant="${tenantSlug}"]`
-  const sanitizeValue = (v: string) => v.replace(/<\/style/gi, '')
+  // Sanitize tenantSlug to prevent attribute injection
+  const slug = tenantSlug.replace(/[^a-zA-Z0-9_-]/g, '')
+  const sel = `html[data-tenant="${slug}"]`
   const toVars = (vars: Record<string, string>) =>
     Object.entries(vars)
-      .map(([k, v]) => `  ${k}: ${sanitizeValue(v)};`)
+      .filter(([k]) => CSS_VAR_NAME_RE.test(k))
+      .map(([k, v]) => {
+        const safe = sanitizeCssValue(v)
+        return safe !== null ? `  ${k}: ${safe};` : null
+      })
+      .filter(Boolean)
       .join('\n')
   return `${sel} {\n${toVars(theme.light)}\n}\n${sel}.dark {\n${toVars(theme.dark)}\n}`
 }
 
-function decodeTokenPayload(token: string): Record<string, unknown> | null {
-  try {
-    const b64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')
-    return JSON.parse(atob(b64))
-  } catch {
-    return null
-  }
-}
-
-export function getCompanyIdFromToken(token: string): string | null {
-  const payload = decodeTokenPayload(token)
-  return (payload?.companyId as string) ?? null
-}
-
-export function getUserNameFromToken(token: string): string {
-  const payload = decodeTokenPayload(token)
-  if (!payload) return ''
-  return (
-    (payload.fullName as string) ??
-    (payload.name as string) ??
-    (payload.unique_name as string) ??
-    (payload.sub as string) ??
-    ''
-  )
-}
-
-export function isTokenValid(token: string): boolean {
-  try {
-    const b64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')
-    const payload = JSON.parse(atob(b64))
-    return typeof payload.exp === 'number' && payload.exp > Math.floor(Date.now() / 1000)
-  } catch {
-    return false
-  }
-}
+export { isTokenValid, getCompanyIdFromToken, getUserNameFromToken } from '@/lib/auth'
 
 const THEME_CACHE_KEY = 'gsm_theme_vars'
 

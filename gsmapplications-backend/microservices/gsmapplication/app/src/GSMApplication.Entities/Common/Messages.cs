@@ -7,6 +7,10 @@ public static class Messages
         public const string MenuLoaded = "Menu response loaded successfully.";
         public const string InvalidToken = "Invalid token.";
         public const string Healthy = "Application is healthy.";
+        public const string MenuEmpty = "No menu options found for the given profile.";
+        public const string ResourcesEmpty = "No resources found for the given categories.";
+        public const string ResourcesLoaded = "Resources loaded successfully.";
+        public const string InvalidCategories = "Invalid categories. Please provide at least one category.";
     }
 
     public static class Tenant

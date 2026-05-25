@@ -10,44 +10,50 @@ public sealed class AuthService : IAuthService
     private readonly IPasswordHasher _passwordHasher;
     private readonly ITokenService _tokenService;
 
-    public AuthService(
-        IUserAuthRepository userAuthRepository,
-        IPasswordHasher passwordHasher,
-        ITokenService tokenService)
+    public AuthService(IUserAuthRepository userAuthRepository, IPasswordHasher passwordHasher, ITokenService tokenService)
     {
         _userAuthRepository = userAuthRepository;
         _passwordHasher = passwordHasher;
         _tokenService = tokenService;
     }
 
-    public async Task<ApiResponse<LoginDto>> LoginAsync(
-        LoginRequestDto request,
-        CancellationToken cancellationToken = default)
+    public async Task<ApiResponse<LoginDto>> LoginAsync(LoginRequestDto request, CancellationToken cancellationToken = default)
     {
-        var companyId = request.IDCompany.Trim();
-        
-        if (string.IsNullOrWhiteSpace(companyId))
-            return Fail(Messages.Auth.CompanyNotFound, ErrorType.BadRequest);
+        var companyId = request.IDCompany?.Trim();
 
-        var user = await _userAuthRepository.GetByUsernameAsync(
-            companyId,
-            request.User.Trim(),
-            cancellationToken);
+        if (string.IsNullOrWhiteSpace(companyId))
+        {
+            return ApiResponse<LoginDto>.FailResponse(
+                Messages.Auth.CompanyNotFound,
+                ErrorType.BadRequest);
+        }
+
+        var user = await _userAuthRepository.GetByUsernameAsync(companyId, request.User.Trim(), cancellationToken);
 
         if (user is null)
-            return Fail(Messages.Auth.UserNotFound, ErrorType.NotFound);
+        {
+            return ApiResponse<LoginDto>.FailResponse(
+                Messages.Auth.UserNotFound,
+                ErrorType.NotFound); 
+        }
 
         if (!user.IsActive)
-            return Fail(Messages.Auth.UserInactive, ErrorType.Unauthorized);
-
+        {
+            return ApiResponse<LoginDto>.FailResponse(
+                Messages.Auth.UserInactive,
+                ErrorType.Unauthorized); 
+        }
 
         var passwordIsValid = _passwordHasher.Verify(
             request.Password,
             user.PasswordHash);
 
-
         if (!passwordIsValid)
-            return Fail(Messages.Auth.InvalidCredentials, ErrorType.Unauthorized);
+        {
+            return ApiResponse<LoginDto>.FailResponse(
+                Messages.Auth.InvalidCredentials,
+                ErrorType.Unauthorized); 
+        }
 
         var tokenClaims = new TokenClaimsDto
         {
@@ -58,12 +64,8 @@ public sealed class AuthService : IAuthService
 
         var (token, expiresAtUtc) = _tokenService.CreateToken(tokenClaims);
 
-
-        return new ApiResponse<LoginDto>
-        {
-            Success = true,
-            Message = Messages.Auth.LoginSuccess,
-            Data = new LoginDto
+        return ApiResponse<LoginDto>.SuccessResponse(
+            new LoginDto
             {
                 Token = token,
                 ExpiresAtUtc = expiresAtUtc,
@@ -78,16 +80,9 @@ public sealed class AuthService : IAuthService
                     Location = user.Location,
                     Department = user.Department
                 }
-            }
-        };
+            },
+            Messages.Auth.LoginSuccess
+        );
     }
-
-    private static ApiResponse<LoginDto> Fail(string message, ErrorType errorType)
-        => new()
-        {
-            Success = false,
-            Message = message,
-            ErrorType = errorType
-        };
 
 }

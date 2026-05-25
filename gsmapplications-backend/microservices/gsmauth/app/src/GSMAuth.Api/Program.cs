@@ -8,8 +8,8 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
-using GSMAuth.Infrastructure.Middleware;
-using GSMAuth.Infrastructure.Filters;
+using GSMAuth.Api.Middleware;
+using GSMAuth.Api.Filters;
 
 var builder = WebApplication.CreateBuilder(args);
 var config = builder.Configuration;

@@ -1,12 +1,8 @@
 using System.Net;
-using System.Text.Json;
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 
-namespace GSMAuth.Infrastructure.Middleware
-{
-    public class ExceptionMiddleware
+namespace GSMApplication.Api.Middleware;
+
+   public class ExceptionMiddleware
     {
         private readonly RequestDelegate _next;
         private readonly ILogger<ExceptionMiddleware> _logger;
@@ -75,4 +71,3 @@ namespace GSMAuth.Infrastructure.Middleware
 
 
     }
-}

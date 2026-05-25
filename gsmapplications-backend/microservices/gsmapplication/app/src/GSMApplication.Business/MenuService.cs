@@ -8,8 +8,6 @@ namespace GSMApplication.Business;
 
 public sealed class MenuService : IMenuService
 {
-
-
     private readonly IStoredProcedureExecutor _spExecutor;
 
     public MenuService(IStoredProcedureExecutor spExecutor)
@@ -17,8 +15,7 @@ public sealed class MenuService : IMenuService
         _spExecutor = spExecutor;
     }
 
-
-    public async Task<GetMenuResponseDto> GetMenuAsync(int idProfile, CancellationToken cancellationToken = default)
+    public async Task<ApiResponse<GetMenuDto>> GetMenuAsync(int idProfile, CancellationToken cancellationToken = default)
     {
         var sp = new StoredProcedureModel
         (
@@ -31,15 +28,25 @@ public sealed class MenuService : IMenuService
 
         var json = await _spExecutor.ExecuteSpScalarAsync(sp, cancellationToken);
 
-
-        var response = new GetMenuResponseDto
+        if (string.IsNullOrWhiteSpace(json))
         {
-            Success = true,
-            Message = Messages.Application.MenuLoaded,
-            IdProfile = idProfile,
-            Menu = json
-        };
+            return ApiResponse<GetMenuDto>.FailResponse(
+                Messages.Application.MenuEmpty,
+                ErrorType.NotFound
+            );
+        }
 
-        return response;
+
+        return ApiResponse<GetMenuDto>.SuccessResponse(
+            new GetMenuDto
+            {
+                IdProfile = idProfile,
+                Menu = json
+            },
+            Messages.Application.MenuLoaded
+        );
+
     }
+
+
 }

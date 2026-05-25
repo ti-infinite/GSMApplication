@@ -22,8 +22,8 @@ public sealed class ApplicationController : ControllerBase
 
     [Authorize]
     [HttpGet("getMenu")]
-    [ProducesResponseType(typeof(GetMenuResponseDto), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(GetMenuResponseDto), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<GetMenuDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<GetMenuDto>), StatusCodes.Status401Unauthorized)]
 
     public async Task<IActionResult> GetMenu(CancellationToken cancellationToken)
     {
@@ -31,13 +31,7 @@ public sealed class ApplicationController : ControllerBase
 
         if (!int.TryParse(idProfileValue, out var idProfile))
         {
-            return Unauthorized(new GetMenuResponseDto
-            {
-                Success = false,
-                Message = Messages.Application.InvalidToken,
-                ErrorType = ErrorType.Unauthorized,
-                Menu = string.Empty
-            });
+            return Ok(ApiResponse<GetMenuDto>.FailResponse(Messages.Application.InvalidToken, ErrorType.Unauthorized));
         }
 
         var response = await _menuService.GetMenuAsync(idProfile, cancellationToken);
@@ -51,7 +45,7 @@ public sealed class ApplicationController : ControllerBase
     {
         if (categories == null || !categories.Any())
         {
-            return BadRequest("Categories cannot be empty");
+            return Ok(ApiResponse<List<MultimediaResourceDto>>.FailResponse(Messages.Application.InvalidCategories, ErrorType.Validation));
         }
             
         var response = await _multimediaResourceService.GetMultimediaResourceByCategory(categories, cancellationToken);

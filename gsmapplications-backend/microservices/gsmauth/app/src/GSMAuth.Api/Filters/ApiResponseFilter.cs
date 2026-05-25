@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 
-namespace GSMAuth.Infrastructure.Filters;
+namespace GSMAuth.Api.Filters;
 
 public sealed class ApiResponseFilter : IActionFilter
 {

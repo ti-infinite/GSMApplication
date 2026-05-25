@@ -28,6 +28,13 @@ type RawItem = {
   config:           string
 }
 
+type ActivityResponseDto = {
+  success:    boolean
+  message:    string
+  errorType?: string | null
+  data:       RawItem[]
+}
+
 function parseConfig(raw: string): ConfigEntry[] {
   try { return JSON.parse(raw) } catch { return [] }
 }
@@ -139,9 +146,9 @@ export default function DashboardActivity({ locale }: Props) {
           '/api/application/v1/Application/getMediaResources?categories=ACTIVITY&categories=NEWS',
           { headers: { Authorization: `Bearer ${token}` } }
         )
-        if (!res.ok) return
-        const data: RawItem[] = await res.json()
-        const parsed = data.map(r => ({ ...r, config: parseConfig(r.config) }))
+        const response: ActivityResponseDto = await res.json()
+        if (!response.success || !response.data) return
+        const parsed = response.data.map(r => ({ ...r, config: parseConfig(r.config) }))
         setActivity(parsed.filter(r => r.resourceCategory.toUpperCase() === 'ACTIVITY'))
         setNews(parsed.filter(r => r.resourceCategory.toUpperCase() === 'NEWS'))
       } finally {

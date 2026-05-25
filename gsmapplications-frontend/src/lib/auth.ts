@@ -10,10 +10,7 @@ export type LoginResult =
   | { success: true }
   | { success: false; error: string }
 
-type LoginResponseDto = {
-  success:    boolean
-  message:    string
-  errorType?: string | null
+type LoginDataDto = {
   token:        string
   expiresAtUtc: string
   user?: {
@@ -26,6 +23,13 @@ type LoginResponseDto = {
     location:               string
     department:             string
   }
+}
+
+type LoginResponseDto = {
+  success:    boolean
+  message:    string
+  errorType?: string | null
+  data:       LoginDataDto
 }
 
 export async function login(credentials: LoginCredentials): Promise<LoginResult> {
@@ -47,9 +51,9 @@ export async function login(credentials: LoginCredentials): Promise<LoginResult>
     return { success: false, error: response.message || 'errors.loginFailed' }
   }
 
-  const token       = response.token
-  const expiresAt   = response.expiresAtUtc
-  const displayName = response.user?.fullName || response.user?.username
+  const token       = response.data?.token
+  const expiresAt   = response.data?.expiresAtUtc
+  const displayName = response.data?.user?.fullName || response.data?.user?.username
 
   if (!token || !expiresAt) {
     console.error('[auth] Unexpected login response shape:', response)

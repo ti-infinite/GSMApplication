@@ -30,6 +30,13 @@ type RawResource = {
   config:           string
 }
 
+type MediaResponseDto = {
+  success:    boolean
+  message:    string
+  errorType?: string | null
+  data:       RawResource[]
+}
+
 export function parseConfig(raw: string): ConfigEntry[] {
   try { return JSON.parse(raw) } catch { return [] }
 }
@@ -115,9 +122,9 @@ export function MediaPage({ category, i18nPrefix }: MediaPageProps) {
           `/api/application/v1/Application/getMediaResources?categories=${category}`,
           { headers: { Authorization: `Bearer ${token}` } }
         )
-        if (!res.ok) return
-        const data: RawResource[] = await res.json()
-        setResources(data.map(r => ({ ...r, config: parseConfig(r.config) })))
+        const response: MediaResponseDto = await res.json()
+        if (!response.success || !response.data) return
+        setResources(response.data.map(r => ({ ...r, config: parseConfig(r.config) })))
       } finally {
         setLoading(false)
       }

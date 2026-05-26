@@ -2,10 +2,10 @@ import { useState, useEffect } from 'react'
 import { Outlet, useNavigate, useParams } from 'react-router-dom'
 import Cookies from 'js-cookie'
 import { useTranslation } from 'react-i18next'
-import { useTenant } from '@/providers/TenantProvider'
-import DashboardShell from '@/dashboard/DashboardShell'
-import DashboardLoading from '@/components/DashboardLoading'
-import type { MenuOption } from '@/dashboard/Sidebar'
+import { useTenant } from '@/app/providers/TenantProvider'
+import DashboardShell from '@/layouts/shell/DashboardShell'
+import DashboardLoading from '@/shared/components/DashboardLoading'
+import type { MenuOption } from '@/shared/lib/menu'
 
 type GetMenuDto = {
   idProfile?: number | null

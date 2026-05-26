@@ -1,9 +1,9 @@
 import { useEffect } from 'react'
 import { useParams, useOutletContext, useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import QuickCards from '@/dashboard/QuickCards'
-import DashboardActivity from '@/dashboard/DashboardActivity'
-import type { MenuOption } from '@/dashboard/Sidebar'
+import QuickCards from '@/features/dashboard/QuickCards'
+import DashboardActivity from '@/features/dashboard/DashboardActivity'
+import type { MenuOption } from '@/shared/lib/menu'
 
 type OutletCtx = { shortcuts: MenuOption[] }
 

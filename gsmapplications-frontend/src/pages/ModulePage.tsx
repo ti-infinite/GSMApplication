@@ -1,10 +1,10 @@
 import { lazy, Suspense } from 'react'
 import { useParams } from 'react-router-dom'
-import ComingSoon from '@/components/ComingSoon'
+import ComingSoon from '@/shared/components/ComingSoon'
 
 const modules: Record<string, React.LazyExoticComponent<React.ComponentType>> = {
-  'resources': lazy(() => import('@/modules/resources/ResourcesPage')),
-  'sop':   lazy(() => import('@/modules/sop/SopPage')),
+  'resources': lazy(() => import('@/features/resources/ResourcesPage')),
+  'sop':       lazy(() => import('@/features/sop/SopPage')),
 }
 
 function slugToTitle(slug: string): string {

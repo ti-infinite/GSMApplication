@@ -1,11 +1,11 @@
 import { useEffect } from 'react'
 import { Outlet, useParams, Navigate } from 'react-router-dom'
 import Cookies from 'js-cookie'
-import i18n from '@/i18n'
-import { TenantProvider } from '@/providers/TenantProvider'
-import { isTokenValid, getCompanyIdFromToken } from '@/lib/auth'
-import { TENANT_IDS, getBrandingFromCompanyId } from '@/lib/tenants'
-import { isSupportedLocale } from '@/hooks/useLocale'
+import i18n from '@/app/i18n'
+import { TenantProvider } from '@/app/providers/TenantProvider'
+import { isTokenValid, getCompanyIdFromToken } from '@/shared/lib/auth'
+import { DEFAULT_TENANT_ID, getBrandingFromCompanyId } from '@/shared/lib/tenants'
+import { isSupportedLocale } from '@/shared/hooks/useLocale'
 
 export default function LocaleLayout() {
   const { locale } = useParams<{ locale: string }>()
@@ -25,7 +25,7 @@ export default function LocaleLayout() {
 
   const companyId = (token && isTokenValid(token) ? getCompanyIdFromToken(token) : null)
     ?? gsmCompany
-    ?? TENANT_IDS[locale]
+    ?? DEFAULT_TENANT_ID
     ?? ''
 
   const initialBranding = getBrandingFromCompanyId(companyId)

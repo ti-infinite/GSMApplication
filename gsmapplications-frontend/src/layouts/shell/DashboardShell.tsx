@@ -6,9 +6,9 @@ import type { MenuOption } from '@/shared/lib/menu'
 type Brand = { name: string; initials: string; logo?: string }
 
 type Props = {
-  items: MenuOption[]
-  brand: Brand
-  locale: string
+  items:    MenuOption[]
+  brand:    Brand
+  locale:   string
   userName: string
   onLogout: () => void
   children: React.ReactNode
@@ -52,7 +52,7 @@ export default function DashboardShell({ items, brand, locale, userName, onLogou
       )}
       <Sidebar items={items} brand={brand} locale={locale} open={open} onLogout={onLogout} />
       <div className="flex flex-1 flex-col overflow-hidden">
-        <Header locale={locale} userName={userName} onMenuToggle={handleToggle} />
+        <Header locale={locale} userName={userName} onMenuToggle={handleToggle} onLogout={onLogout} />
         <main className="flex-1 overflow-auto bg-muted/30 p-6">
           {children}
         </main>

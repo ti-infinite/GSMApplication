@@ -3,16 +3,14 @@ import { useParams, useOutletContext, useNavigate, useLocation } from 'react-rou
 import { useTranslation } from 'react-i18next'
 import QuickCards from '@/features/dashboard/QuickCards'
 import DashboardActivity from '@/features/dashboard/DashboardActivity'
-import type { MenuOption } from '@/shared/lib/menu'
-
-type OutletCtx = { shortcuts: MenuOption[] }
+import type { DashboardOutletCtx } from '@/shared/lib/menu'
 
 export default function DashboardPage() {
   const { locale = 'en' } = useParams<{ locale: string }>()
   const navigate = useNavigate()
   const location = useLocation()
   const { t } = useTranslation()
-  const { shortcuts } = useOutletContext<OutletCtx>()
+  const { shortcuts } = useOutletContext<DashboardOutletCtx>()
 
   useEffect(() => {
     if (shortcuts.length === 1 && location.state?.fromLogin) {

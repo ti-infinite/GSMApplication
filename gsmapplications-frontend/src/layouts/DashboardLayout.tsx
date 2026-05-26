@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { useTenant } from '@/app/providers/TenantProvider'
 import DashboardShell from '@/layouts/shell/DashboardShell'
 import DashboardLoading from '@/shared/components/DashboardLoading'
-import type { MenuOption } from '@/shared/lib/menu'
+import type { MenuOption, DashboardOutletCtx } from '@/shared/lib/menu'
 
 type GetMenuDto = {
   idProfile?: number | null
@@ -19,17 +19,27 @@ type MenuResponseDto = {
   data:       GetMenuDto
 }
 
-function normalizeItems(items: (MenuOption & { Name?: string; IdObject?: string })[]): MenuOption[] {
-  return items.map(item => ({
-    Description: item.Description || item.Name || '',
-    IdObject:    item.IdObject,
-    Icon:        item.Icon      || undefined,
-    Route:       item.Route     || undefined,
-    Section:     item.Section   ?? 'menu',
-    IsNew:       item.IsNew     ?? false,
-    IsShortcut:  item.IsShortcut ?? false,
-    Children:    item.Children ? normalizeItems(item.Children) : undefined,
-  }))
+function normalizeItems(items: (MenuOption & { Name?: string; ActiveType?: string | null })[]): MenuOption[] {
+  return items
+    .map(item => ({
+      Description:    item.Description || item.Name || '',
+      IdObject:       item.IdObject,
+      Icon:           item.Icon          || undefined,
+      Route:          item.Route         || undefined,
+      ExternalRoute:  item.ExternalRoute ?? null,
+      ActiveType:     item.ActiveType    ?? null,
+      Section:        item.Section       ?? 'menu',
+      IsNew:          item.IsNew         ?? false,
+      IsShortcut:     item.IsShortcut    ?? false,
+      Children:       item.Children ? normalizeItems(item.Children) : undefined,
+    }))
+    .sort((a, b) => {
+      const aIsHome = a.Route === '/dashboard'
+      const bIsHome = b.Route === '/dashboard'
+      if (aIsHome) return -1
+      if (bIsHome) return  1
+      return a.Description.localeCompare(b.Description, undefined, { sensitivity: 'base' })
+    })
 }
 
 function parseMenu(raw: string): MenuOption[] {
@@ -51,6 +61,7 @@ export default function DashboardLayout() {
 
   const [menuItems,  setMenuItems]  = useState<MenuOption[]>([])
   const [shortcuts,  setShortcuts]  = useState<MenuOption[]>([])
+  const [allOptions, setAllOptions] = useState<MenuOption[]>([])
   const [loading,    setLoading]    = useState(true)
 
   const token    = Cookies.get('gsm_token') ?? ''
@@ -83,6 +94,7 @@ export default function DashboardLayout() {
         setMenuItems(translated)
         const allItems = translated.flatMap(i => [i, ...(i.Children ?? [])])
         setShortcuts(allItems.filter(i => i.IsShortcut))
+        setAllOptions(allItems)
       } catch {
         navigate(`/${locale}/login`, { replace: true })
       } finally {
@@ -122,7 +134,7 @@ export default function DashboardLayout() {
       userName={userName}
       onLogout={handleLogout}
     >
-      <Outlet context={{ shortcuts }} />
+      <Outlet context={{ shortcuts, menuOptions: allOptions } satisfies DashboardOutletCtx} />
     </DashboardShell>
   )
 }

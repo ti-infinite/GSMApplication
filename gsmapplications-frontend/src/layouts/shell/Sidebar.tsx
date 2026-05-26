@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Link, useLocation } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { isSafeUrl } from '@/shared/lib/utils'
 import { ChevronRight, LogOut } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/ui/tooltip'
@@ -10,7 +11,7 @@ type Brand = { name: string; initials: string; logo?: string }
 function SimpleItem({ item, locale, collapsed }: { item: MenuOption; locale: string; collapsed: boolean }) {
   const { pathname } = useLocation()
   const href = item.Route ? `/${locale}${item.Route}` : '#'
-  const isActive = item.Route ? pathname.startsWith(`/${locale}${item.Route}`) : false
+  const isActive = item.Route ? pathname === `/${locale}${item.Route}` : false
   const Icon = getIcon(item.Icon)
 
   const base = `flex items-center rounded-lg transition-colors ${
@@ -128,6 +129,7 @@ type Props = {
 }
 
 export default function Sidebar({ items, brand, locale, open = true, onLogout }: Props) {
+  const { t } = useTranslation()
   const collapsed = !open
 
   const isOther = (i: MenuOption) => i.Section?.toLowerCase() === 'others'
@@ -186,10 +188,10 @@ export default function Sidebar({ items, brand, locale, open = true, onLogout }:
                 }`}
               >
                 <LogOut className="h-4 w-4 shrink-0" />
-                {!collapsed && <span>Exit</span>}
+                {!collapsed && <span>{t('dashboard.logout')}</span>}
               </button>
             </TooltipTrigger>
-            {collapsed && <TooltipContent side="right">Exit</TooltipContent>}
+            {collapsed && <TooltipContent side="right">{t('dashboard.logout')}</TooltipContent>}
           </Tooltip>
         </div>
       </nav>

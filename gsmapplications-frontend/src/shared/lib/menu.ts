@@ -2,14 +2,21 @@ import { LayoutGrid, type LucideIcon } from 'lucide-react'
 import * as icons from 'lucide-react'
 
 export type MenuOption = {
-  Description: string
-  IdObject?:   string
-  Icon?:       string
-  Route?:      string
-  Section?:    string
-  IsNew?:      boolean
-  IsShortcut?: boolean
-  Children?:   MenuOption[]
+  Description:    string
+  IdObject?:      string
+  Icon?:          string
+  Route?:         string
+  ExternalRoute?: string | null
+  ActiveType?:    string | null
+  Section?:       string
+  IsNew?:         boolean
+  IsShortcut?:    boolean
+  Children?:      MenuOption[]
+}
+
+export type DashboardOutletCtx = {
+  shortcuts:   MenuOption[]
+  menuOptions: MenuOption[]
 }
 
 export function getIcon(name?: string): LucideIcon {

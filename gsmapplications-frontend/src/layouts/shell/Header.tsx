@@ -1,5 +1,13 @@
-import { Globe, Menu, ChevronDown, Search } from 'lucide-react'
+import { Globe, Menu, Search, LogOut } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { useLocale } from '@/shared/hooks/useLocale'
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from '@/shared/ui/dropdown-menu'
 
 const LANG_LABELS: Record<string, string> = {
   en: 'English',
@@ -7,12 +15,14 @@ const LANG_LABELS: Record<string, string> = {
 }
 
 type Props = {
-  locale: string
-  userName: string
+  locale:        string
+  userName:      string
   onMenuToggle?: () => void
+  onLogout:      () => void
 }
 
-export default function Header({ locale, userName, onMenuToggle }: Props) {
+export default function Header({ locale, userName, onMenuToggle, onLogout }: Props) {
+  const { t } = useTranslation()
   const { switchLocale } = useLocale()
 
   function switchLanguage() {
@@ -54,16 +64,42 @@ export default function Header({ locale, userName, onMenuToggle }: Props) {
         <span className="sm:hidden">{locale.toUpperCase()}</span>
       </button>
 
-      <button
-        type="button"
-        className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm transition-colors hover:bg-muted"
-      >
-        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
-          {initials || '?'}
-        </div>
-        <span className="hidden max-w-[120px] truncate font-medium text-foreground sm:block">{userName}</span>
-        <ChevronDown className="hidden h-3.5 w-3.5 text-muted-foreground sm:block" />
-      </button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm transition-colors hover:bg-muted"
+          >
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
+              {initials || '?'}
+            </div>
+            <span className="hidden max-w-30 truncate font-medium text-foreground sm:block">
+              {userName}
+            </span>
+          </button>
+        </DropdownMenuTrigger>
+
+        <DropdownMenuContent align="end">
+          <div className="flex items-center gap-3 px-3 py-2">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
+              {initials || '?'}
+            </div>
+            <div className="flex flex-col min-w-0">
+              <span className="truncate text-sm font-semibold text-foreground">{userName}</span>
+            </div>
+          </div>
+
+          <DropdownMenuSeparator />
+
+          <DropdownMenuItem
+            className="text-primary focus:bg-primary/10 focus:text-primary"
+            onSelect={onLogout}
+          >
+            <LogOut className="h-4 w-4" />
+            {t('dashboard.logout')}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </header>
   )
 }

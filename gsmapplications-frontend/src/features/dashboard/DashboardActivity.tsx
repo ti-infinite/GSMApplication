@@ -1,23 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ExternalLink } from 'lucide-react'
-import Cookies from 'js-cookie'
 import { ResponsiveIframe } from '@/shared/ui/responsive-iframe'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/shared/ui/dialog'
-import { type ConfigEntry, parseConfig, getLocaleContent, type MediaResource } from '@/shared/components/MediaPage'
-
-type RawItem = {
-  resourceCategory: string
-  resourceOrder:    number
-  config:           string
-}
-
-type ActivityResponseDto = {
-  success:    boolean
-  message:    string
-  errorType?: string | null
-  data:       RawItem[]
-}
+import { type ConfigEntry, getLocaleContent, type MediaResource } from '@/shared/components/MediaPage'
+import { useDashboardActivity } from './hooks/useDashboardActivity'
 
 function ItemViewer({ content }: { content: ConfigEntry }) {
   const type = content.TYPE?.toLowerCase()
@@ -106,30 +93,7 @@ function Section({
 type Props = { locale: string }
 
 export default function DashboardActivity({ locale }: Props) {
-  const token = Cookies.get('gsm_token') ?? ''
-
-  const [activity, setActivity] = useState<MediaResource[]>([])
-  const [news,     setNews]     = useState<MediaResource[]>([])
-  const [loading,  setLoading]  = useState(true)
-
-  useEffect(() => {
-    async function load() {
-      try {
-        const res = await fetch(
-          '/api/application/v1/Application/getMediaResources?categories=ACTIVITY&categories=NEWS',
-          { headers: { Authorization: `Bearer ${token}` } }
-        )
-        const response: ActivityResponseDto = await res.json()
-        if (!response.success || !response.data) return
-        const parsed = response.data.map(r => ({ ...r, config: parseConfig(r.config) }))
-        setActivity(parsed.filter(r => r.resourceCategory.toUpperCase() === 'ACTIVITY'))
-        setNews(parsed.filter(r => r.resourceCategory.toUpperCase() === 'NEWS'))
-      } finally {
-        setLoading(false)
-      }
-    }
-    load()
-  }, [token])
+  const { activity, news, loading } = useDashboardActivity()
 
   if (loading) {
     return (

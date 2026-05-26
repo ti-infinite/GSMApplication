@@ -5,11 +5,17 @@ import { isSafeUrl } from '@/shared/lib/utils'
 import { ChevronRight, LogOut } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/ui/tooltip'
 import { type MenuOption, getIcon } from '@/shared/lib/menu'
+import NewTabDialog from '@/shared/components/NewTabDialog'
 
 type Brand = { name: string; initials: string; logo?: string }
 
 function SimpleItem({ item, locale, collapsed }: { item: MenuOption; locale: string; collapsed: boolean }) {
   const { pathname } = useLocation()
+
+  if (item.ActiveType === 'newtab') {
+    return <NewTabDialog item={item} collapsed={collapsed} />
+  }
+
   const href = item.Route ? `/${locale}${item.Route}` : '#'
   const isActive = item.Route ? pathname === `/${locale}${item.Route}` : false
   const Icon = getIcon(item.Icon)

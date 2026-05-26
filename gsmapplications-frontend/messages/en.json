@@ -57,7 +57,12 @@
     "traz-delivery-product": "Product Delivery"
   },
   "common": {
-    "swipeHint": "Swipe to browse"
+    "swipeHint": "Swipe to browse",
+    "open": "Open",
+    "cancel": "Cancel"
+  },
+  "newtab": {
+    "description": "This content will open in a new tab. You can return to the app at any time."
   },
   "activity": {
     "title": "Release Activity",

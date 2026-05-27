@@ -1,8 +1,10 @@
 import { useEffect } from 'react'
 import { Outlet, useNavigate, useParams } from 'react-router-dom'
 import Cookies from 'js-cookie'
+import { useQueryClient } from '@tanstack/react-query'
 import { useTenant } from '@/app/providers/TenantProvider'
 import { useMenu } from '@/shared/hooks/useMenu'
+import { logout } from '@/shared/lib/auth'
 import DashboardShell from '@/layouts/shell/DashboardShell'
 import DashboardLoading from '@/shared/components/DashboardLoading'
 import type { DashboardOutletCtx } from '@/shared/lib/menu'
@@ -12,7 +14,8 @@ export default function DashboardLayout() {
   const navigate   = useNavigate()
   const { branding } = useTenant()
 
-  const userName = Cookies.get('gsm_user_name') ?? ''
+  const userName     = Cookies.get('gsm_user_name') ?? ''
+  const queryClient  = useQueryClient()
 
   const { menuItems, shortcuts, allOptions, loading, isError } = useMenu()
 
@@ -31,8 +34,8 @@ export default function DashboardLayout() {
   }
 
   function handleLogout() {
-    Cookies.remove('gsm_token')
-    Cookies.remove('gsm_user_name')
+    logout()
+    queryClient.clear()
     navigate(`/${locale}/login`, { replace: true })
   }
 

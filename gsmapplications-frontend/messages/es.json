@@ -57,7 +57,12 @@
     "traz-delivery-product": "Entrega de Producto"
   },
   "common": {
-    "swipeHint": "Desliza para explorar"
+    "swipeHint": "Desliza para explorar",
+    "open": "Abrir",
+    "cancel": "Cancelar"
+  },
+  "newtab": {
+    "description": "Este contenido se abrirá en una nueva pestaña. Puedes volver a la app en cualquier momento."
   },
   "activity": {
     "title": "Actividad de Versiones",

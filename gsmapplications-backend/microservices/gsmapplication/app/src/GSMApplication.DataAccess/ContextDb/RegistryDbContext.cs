@@ -16,7 +16,6 @@ public sealed class RegistryDbContext : DbContext
         {
             entity.ToTable("Tenants");
             entity.HasKey(x => x.CompanyId);
-            entity.HasIndex(x => x.CompanyId).IsUnique();
             entity.Property(x => x.IsActive).IsRequired();
         });
     }

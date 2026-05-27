@@ -1,6 +1,6 @@
 using GSMApplication.Entities.Models;
 
-namespace GSMApplication.DataAccess.StoredProcedures;
+namespace GSMApplication.DataAccess.Interfaces;
 
 public interface IStoredProcedureExecutor
 {

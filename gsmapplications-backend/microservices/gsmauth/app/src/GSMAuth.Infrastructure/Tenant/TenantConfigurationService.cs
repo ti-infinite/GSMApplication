@@ -13,9 +13,7 @@ public sealed class TenantConfigurationService : ITenantConfigurationService
         _context = context;
     }
 
-    public async Task<string?> GetJsonStylesAsync(
-        string companyId,
-        CancellationToken cancellationToken)
+    public async Task<string?> GetJsonStylesAsync(string companyId, CancellationToken cancellationToken)
     {
         return await _context.Tenants
             .AsNoTracking()

@@ -1,10 +1,10 @@
 using GSMApplication.Abstractions;
-using GSMApplication.DataAccess.StoredProcedures;
+using GSMApplication.DataAccess.Interfaces;
 using GSMApplication.Entities.Common;
 using GSMApplication.Entities.DTOs;
 using GSMApplication.Entities.Models;
 
-namespace GSMApplication.Business;
+namespace GSMApplication.Business.Services;
 
 public sealed class MenuService : IMenuService
 {

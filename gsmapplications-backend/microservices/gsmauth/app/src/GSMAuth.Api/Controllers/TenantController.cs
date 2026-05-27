@@ -21,30 +21,34 @@ public sealed class TenantController : ControllerBase
 
 
     [HttpPost("resolve")]
-    [ProducesResponseType(typeof(TenantResolveResponseDto), 200)]
-    [ProducesResponseType(typeof(TenantResolveResponseDto), 400)]
+    [ProducesResponseType(typeof(ApiResponse<TenantResolveDto>), 200)]
+    [ProducesResponseType(typeof(ApiResponse<TenantResolveDto>), 400)]
+    [ProducesResponseType(typeof(ApiResponse<TenantResolveDto>), 404)]
     public async Task<IActionResult> Resolve([FromBody] TenantResolveRequestDto request, CancellationToken cancellationToken)
     {
-        var companyId = request.IDCompany.Trim();
+        var companyId = request.IDCompany?.Trim();
+
+        if (string.IsNullOrWhiteSpace(companyId))
+        {
+            return Ok(ApiResponse<TenantResolveDto>.FailResponse(Messages.Tenant.TenantInvalid, ErrorType.Validation));
+        }
 
         var tenant = await _tenantResolver.ResolveAsync(companyId, cancellationToken);
 
         if (tenant is null)
         {
-            return Ok(new TenantResolveResponseDto
-            {
-                TenantExists = false,
-                Message = Messages.Tenant.TenantInvalid
-            });
+            return Ok(ApiResponse<TenantResolveDto>.FailResponse(Messages.Tenant.TenantInvalid, ErrorType.NotFound));
         }
+
         var jsonStyles = await _tenantConfig.GetJsonStylesAsync(companyId, cancellationToken);
 
-        return Ok(new TenantResolveResponseDto
-        {
-            TenantExists = true,
-            Message = Messages.Tenant.TenantValid,
-            JsonStyles = jsonStyles
-        });
-
+        return Ok(ApiResponse<TenantResolveDto>.SuccessResponse(
+            new TenantResolveDto
+            {
+                TenantExists = true,
+                JsonStyles = jsonStyles
+            },
+            Messages.Tenant.TenantValid
+        ));
     }
 }

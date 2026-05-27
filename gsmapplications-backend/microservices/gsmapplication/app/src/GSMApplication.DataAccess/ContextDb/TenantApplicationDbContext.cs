@@ -1,4 +1,4 @@
-using GSMApplication.DataAccess.Models;
+using GSMApplication.DataAccess.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace GSMApplication.DataAccess.ContextDb;

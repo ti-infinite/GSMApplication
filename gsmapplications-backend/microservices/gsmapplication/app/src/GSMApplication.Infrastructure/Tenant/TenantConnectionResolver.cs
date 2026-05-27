@@ -15,9 +15,7 @@ public sealed class TenantConnectionResolver : ITenantConnectionResolver
         _registryDbContext = registryDbContext;
     }
 
-    public async Task<TenantConnectionInfo?> ResolveAsync(
-        string companyId,
-        CancellationToken cancellationToken = default)
+    public async Task<TenantConnectionInfo?> ResolveAsync(string companyId, CancellationToken cancellationToken = default)
     {
         var tenantRecord = await _registryDbContext.Tenants
             .AsNoTracking()

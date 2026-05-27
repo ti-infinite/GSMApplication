@@ -1,5 +1,5 @@
 using GSMApplication.DataAccess.ContextDb;
-using GSMApplication.DataAccess.ContextFactory;
+using GSMApplication.DataAccess.Interfaces;
 using GSMApplication.DataAccess.StoredProcedures;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;

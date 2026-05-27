@@ -1,10 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Microsoft.EntityFrameworkCore;
 
-namespace GSMApplication.DataAccess.Models;
+namespace GSMApplication.DataAccess.Entities;
 
 [Table("MultimediaResources", Schema = "db_ms")]
 public partial class MultimediaResource

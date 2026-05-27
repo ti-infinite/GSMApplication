@@ -7,10 +7,9 @@ using System.Threading.Tasks;
 namespace GSMAuth.Entities.DTOs
 {
 
-    public sealed class TenantResolveResponseDto
+    public sealed class TenantResolveDto
     {
         public bool TenantExists { get; set; }
-        public string Message { get; set; } = string.Empty;
         public string? JsonStyles { get; set; }
 
     }

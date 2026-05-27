@@ -1,4 +1,5 @@
 using GSMApplication.DataAccess.ContextFactory;
+using GSMApplication.DataAccess.Interfaces;
 using GSMApplication.Entities.Models;
 using GSMApplication.Tenant;
 using Microsoft.Data.SqlClient;

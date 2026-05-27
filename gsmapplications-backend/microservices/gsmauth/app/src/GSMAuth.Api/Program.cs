@@ -105,43 +105,30 @@ builder.Services.AddBusiness();
 // ------------------------------------------------------------
 var jwt = builder.Configuration.GetSection("JwtSettings");
 
-var issuer =
-    jwt["Issuer"] ??
-    throw new InvalidOperationException("JwtSettings:Issuer no configurado.");
+var issuer = jwt["Issuer"] ?? throw new InvalidOperationException("JwtSettings:Issuer no configurado.");
 
-var audience =
-    jwt["Audience"] ??
-    throw new InvalidOperationException("JwtSettings:Audience no configurado.");
+var audience = jwt["Audience"] ?? throw new InvalidOperationException("JwtSettings:Audience no configurado.");
 
-var secret =
-    jwt["SecretKey"] ??
-    throw new InvalidOperationException("JwtSettings:SecretKey no configurado.");
+var secret = jwt["SecretKey"] ?? throw new InvalidOperationException("JwtSettings:SecretKey no configurado.");
 
 // ------------------------------------------------------------
 // Auth + Authorization
 // ------------------------------------------------------------
 builder.Services.AddAuthorization();
 
-builder.Services.AddAuthentication(
-        JwtBearerDefaults.AuthenticationScheme)
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
         options.RequireHttpsMetadata = !builder.Environment.IsDevelopment();
-
         options.TokenValidationParameters = new TokenValidationParameters
             {
                 ValidateIssuer = true,
                 ValidateAudience = true,
                 ValidateLifetime = true,
                 ValidateIssuerSigningKey = true,
-
                 ValidIssuer = issuer,
                 ValidAudience = audience,
-
-                IssuerSigningKey =
-                    new SymmetricSecurityKey(
-                        Encoding.UTF8.GetBytes(secret)),
-
+                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret)),
                 ClockSkew = TimeSpan.Zero
             };
     });

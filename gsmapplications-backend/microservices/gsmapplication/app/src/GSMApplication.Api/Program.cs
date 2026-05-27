@@ -10,6 +10,9 @@ using Microsoft.OpenApi.Models;
 using System.Text;
 using GSMApplication.Api.Middleware;
 using GSMApplication.Api.Filters;
+using System.IdentityModel.Tokens.Jwt;
+
+JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -107,14 +110,11 @@ builder.Services.AddBusiness();
 // ------------------------------------------------------------
 var jwt = builder.Configuration.GetSection("JwtSettings");
 
-var issuer = jwt["Issuer"]
-    ?? throw new InvalidOperationException("JwtSettings:Issuer no configurado.");
+var issuer = jwt["Issuer"] ?? throw new InvalidOperationException("JwtSettings:Issuer no configurado.");
 
-var audience = jwt["Audience"]
-    ?? throw new InvalidOperationException("JwtSettings:Audience no configurado.");
+var audience = jwt["Audience"] ?? throw new InvalidOperationException("JwtSettings:Audience no configurado.");
 
-var secret = jwt["SecretKey"]
-    ?? throw new InvalidOperationException("JwtSettings:SecretKey no configurado.");
+var secret = jwt["SecretKey"] ?? throw new InvalidOperationException("JwtSettings:SecretKey no configurado.");
 
 // ------------------------------------------------------------
 // Auth + Authorization

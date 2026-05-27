@@ -4,7 +4,6 @@ using GSMAuth.Entities.DTOs;
 using GSMAuth.Tenant;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
 
 namespace GSMAuth.Api.Controllers;
 

@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Outlet, useNavigate, useParams } from 'react-router-dom'
 import Cookies from 'js-cookie'
 import { useTenant } from '@/app/providers/TenantProvider'
@@ -11,10 +12,13 @@ export default function DashboardLayout() {
   const navigate   = useNavigate()
   const { branding } = useTenant()
 
-  const token    = Cookies.get('gsm_token') ?? ''
   const userName = Cookies.get('gsm_user_name') ?? ''
 
-  const { menuItems, shortcuts, allOptions, loading } = useMenu(token, locale)
+  const { menuItems, shortcuts, allOptions, loading, isError } = useMenu()
+
+  useEffect(() => {
+    if (isError) navigate(`/${locale}/login`, { replace: true })
+  }, [isError, navigate, locale])
 
   if (loading) {
     return (

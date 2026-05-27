@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
+import { getToken } from '@/shared/lib/auth'
 import type { MenuOption } from '@/shared/lib/menu'
 
 type GetMenuDto = {
@@ -53,54 +54,55 @@ function parseMenu(raw: string): MenuOption[] {
   }
 }
 
+async function fetchMenu(token: string): Promise<MenuOption[]> {
+  const res = await fetch('/api/application/v1/Application/getMenu', {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (res.status === 401) throw new Error('unauthorized')
+  const response: MenuResponseDto = await res.json()
+  if (!response.success) throw new Error(response.message)
+  return parseMenu(response.data?.menu ?? '')
+}
+
 type UseMenuResult = {
   menuItems:  MenuOption[]
   shortcuts:  MenuOption[]
   allOptions: MenuOption[]
   loading:    boolean
+  isError:    boolean
 }
 
-export function useMenu(token: string, locale: string | undefined): UseMenuResult {
+export function useMenu(): UseMenuResult {
   const { t } = useTranslation()
+  const token = getToken()
 
-  const [menuItems,  setMenuItems]  = useState<MenuOption[]>([])
-  const [shortcuts,  setShortcuts]  = useState<MenuOption[]>([])
-  const [allOptions, setAllOptions] = useState<MenuOption[]>([])
-  const [loading,    setLoading]    = useState(true)
+  const { data: rawItems = [], isLoading, isError } = useQuery({
+    queryKey: ['menu', token],
+    queryFn:  () => fetchMenu(token),
+    staleTime: 5 * 60 * 1000,
+    enabled:  !!token,
+  })
 
-  useEffect(() => {
-    async function fetch_() {
-      try {
-        const res = await fetch('/api/application/v1/Application/getMenu', {
-          headers: { Authorization: `Bearer ${token}` },
-        })
-        const response: MenuResponseDto = await res.json()
-        if (!response.success) return
+  const translated = rawItems.map(item => ({
+    ...item,
+    Description: item.IdObject
+      ? t(`menu.${item.IdObject}`, { defaultValue: item.Description })
+      : item.Description,
+    Children: item.Children?.map(child => ({
+      ...child,
+      Description: child.IdObject
+        ? t(`menu.${child.IdObject}`, { defaultValue: child.Description })
+        : child.Description,
+    })),
+  }))
 
-        const items = parseMenu(response.data?.menu ?? '')
-        const translated = items.map(item => ({
-          ...item,
-          Description: item.IdObject
-            ? t(`menu.${item.IdObject}`, { defaultValue: item.Description })
-            : item.Description,
-          Children: item.Children?.map(child => ({
-            ...child,
-            Description: child.IdObject
-              ? t(`menu.${child.IdObject}`, { defaultValue: child.Description })
-              : child.Description,
-          })),
-        }))
+  const allItems = translated.flatMap(i => [i, ...(i.Children ?? [])])
 
-        setMenuItems(translated)
-        const allItems = translated.flatMap(i => [i, ...(i.Children ?? [])])
-        setShortcuts(allItems.filter(i => i.IsShortcut))
-        setAllOptions(allItems)
-      } finally {
-        setLoading(false)
-      }
-    }
-    fetch_()
-  }, [token, locale, t])
-
-  return { menuItems, shortcuts, allOptions, loading }
+  return {
+    menuItems:  translated,
+    shortcuts:  allItems.filter(i => i.IsShortcut),
+    allOptions: allItems,
+    loading:    isLoading,
+    isError,
+  }
 }

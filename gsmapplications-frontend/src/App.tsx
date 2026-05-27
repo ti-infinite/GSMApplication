@@ -6,12 +6,14 @@ import ErrorBoundary from '@/shared/components/ErrorBoundary'
 import LoginPage from '@/pages/LoginPage'
 import DashboardPage from '@/pages/DashboardPage'
 import ModulePage from '@/pages/ModulePage'
+import QueryProvider from '@/app/providers/QueryProvider'
 import { getSavedLocale } from '@/shared/hooks/useLocale'
 
 export default function App() {
   const defaultLocale = getSavedLocale()
   return (
     <ErrorBoundary>
+      <QueryProvider>
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Navigate to={`/${defaultLocale}/login`} replace />} />
@@ -28,6 +30,7 @@ export default function App() {
           <Route path="*" element={<Navigate to={`/${defaultLocale}/login`} replace />} />
         </Routes>
       </BrowserRouter>
+      </QueryProvider>
     </ErrorBoundary>
   )
 }

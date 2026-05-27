@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { useQuery } from '@tanstack/react-query'
 import { ExternalLink } from 'lucide-react'
-import Cookies from 'js-cookie'
+import { getToken } from '@/shared/lib/auth'
 import { PDFViewer } from '@embedpdf/react-pdf-viewer'
 import { Button } from '@/shared/ui/button'
 import { Skeleton } from '@/shared/ui/skeleton'
@@ -106,31 +107,28 @@ type MediaPageProps = {
   i18nPrefix: string
 }
 
+async function fetchMediaResources(category: string, token: string): Promise<MediaResource[]> {
+  const res = await fetch(
+    `/api/application/v1/Application/getMediaResources?categories=${category}`,
+    { headers: { Authorization: `Bearer ${token}` } }
+  )
+  const response: MediaResponseDto = await res.json()
+  if (!response.success || !response.data) throw new Error(response.message)
+  return response.data.map(r => ({ ...r, config: parseConfig(r.config) }))
+}
+
 export function MediaPage({ category, i18nPrefix }: MediaPageProps) {
   const { locale = 'en' } = useParams<{ locale: string }>()
-  const { t }  = useTranslation()
-  const token  = Cookies.get('gsm_token') ?? ''
+  const { t }   = useTranslation()
+  const token   = getToken()
+  const [selected, setSelected] = useState(0)
 
-  const [resources, setResources] = useState<MediaResource[]>([])
-  const [selected, setSelected]   = useState(0)
-  const [loading, setLoading]     = useState(true)
-
-  useEffect(() => {
-    async function load() {
-      try {
-        const res = await fetch(
-          `/api/application/v1/Application/getMediaResources?categories=${category}`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        )
-        const response: MediaResponseDto = await res.json()
-        if (!response.success || !response.data) return
-        setResources(response.data.map(r => ({ ...r, config: parseConfig(r.config) })))
-      } finally {
-        setLoading(false)
-      }
-    }
-    load()
-  }, [token, category])
+  const { data: resources = [], isLoading: loading } = useQuery({
+    queryKey: ['media-resources', category],
+    queryFn:  () => fetchMediaResources(category, token),
+    staleTime: 2 * 60 * 1000,
+    enabled:  !!token,
+  })
 
   if (loading) {
     return (

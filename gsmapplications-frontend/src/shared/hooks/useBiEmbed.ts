@@ -1,5 +1,16 @@
-import { useState, useEffect } from 'react'
-import Cookies from 'js-cookie'
+import { useQuery } from '@tanstack/react-query'
+import { getToken } from '@/shared/lib/auth'
+
+async function fetchBiEmbed(url: string, token?: string): Promise<string> {
+  const res = await fetch(url, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  })
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
+  const data: { embedUrl?: string; data?: { embedUrl?: string } } = await res.json()
+  const embedUrl = data.embedUrl ?? data.data?.embedUrl
+  if (!embedUrl) throw new Error('embedUrl not found in response')
+  return embedUrl
+}
 
 type State =
   | { status: 'loading' }
@@ -7,27 +18,16 @@ type State =
   | { status: 'error'; message: string }
 
 export function useBiEmbed(url: string): State {
-  const [state, setState] = useState<State>({ status: 'loading' })
+  const token = getToken()
 
-  useEffect(() => {
-    setState({ status: 'loading' })
+  const { data: embedUrl, isLoading, isError, error } = useQuery({
+    queryKey: ['bi-embed', url],
+    queryFn:  () => fetchBiEmbed(url, token),
+    staleTime: 30 * 1000,
+    retry: 1,
+  })
 
-    const token = Cookies.get('gsm_token')
-
-    fetch(url, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    })
-      .then(res => {
-        if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
-        return res.json()
-      })
-      .then((data: { embedUrl?: string; data?: { embedUrl?: string } }) => {
-        const embedUrl = data.embedUrl ?? data.data?.embedUrl
-        if (!embedUrl) throw new Error('embedUrl not found in response')
-        setState({ status: 'ready', embedUrl })
-      })
-      .catch((err: Error) => setState({ status: 'error', message: err.message }))
-  }, [url])
-
-  return state
+  if (isLoading) return { status: 'loading' }
+  if (isError)   return { status: 'error', message: (error as Error).message }
+  return { status: 'ready', embedUrl: embedUrl! }
 }

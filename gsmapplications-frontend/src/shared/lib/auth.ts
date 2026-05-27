@@ -67,6 +67,10 @@ export async function login(credentials: LoginCredentials): Promise<LoginResult>
   return { success: true }
 }
 
+export function getToken(): string {
+  return Cookies.get('gsm_token') ?? ''
+}
+
 export function logout() {
   Cookies.remove('gsm_token')
   Cookies.remove('gsm_user_name')

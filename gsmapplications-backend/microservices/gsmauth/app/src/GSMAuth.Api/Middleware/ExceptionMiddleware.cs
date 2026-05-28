@@ -1,77 +1,83 @@
-using System.Net;
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
+using GSMAuth.Entities.Common;
 
-namespace GSMAuth.Api.Middleware
+namespace GSMAuth.Api.Middleware;
+public class ExceptionMiddleware
 {
-    public class ExceptionMiddleware
+    private readonly RequestDelegate _next;
+    private readonly ILogger<ExceptionMiddleware> _logger;
+    private readonly IHostEnvironment _env;
+
+    public ExceptionMiddleware(RequestDelegate next, ILogger<ExceptionMiddleware> logger, IHostEnvironment env)
     {
-        private readonly RequestDelegate _next;
-        private readonly ILogger<ExceptionMiddleware> _logger;
-        private readonly IHostEnvironment _env;
+        _next = next;
+        _logger = logger;
+        _env = env;
+    }
 
-        public ExceptionMiddleware(RequestDelegate next, ILogger<ExceptionMiddleware> logger, IHostEnvironment env)
+    public async Task InvokeAsync(HttpContext context)
+    {
+        try
         {
-            _next = next;
-            _logger = logger;
-            _env = env;
+            await _next(context);
+        }
+        catch (Exception ex)
+        {
+            var traceId = context.TraceIdentifier;
+
+            _logger.LogError(
+                ex,
+                "Unhandled exception at {Method} {Path} | TraceId: {TraceId}",
+                context.Request.Method,
+                context.Request.Path,
+                traceId
+            );
+
+            await HandleExceptionAsync(context, ex, traceId);
+        }
+    }
+
+    private async Task HandleExceptionAsync(HttpContext context, Exception exception, string traceId)
+    {
+        if (context.Response.HasStarted)
+        {
+            _logger.LogWarning("Response already started. Cannot handle exception. TraceId: {TraceId}", traceId);
+            return;
         }
 
-        public async Task InvokeAsync(HttpContext httpContext)
+        context.Response.Clear();
+
+        var (statusCode, message, errorType) = exception switch
         {
-            try
-            {
-                await _next(httpContext);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "An unhandled exception occurred.");
-                await HandleExceptionAsync(httpContext, ex);
-            }
-        }
+            ArgumentNullException => (StatusCodes.Status400BadRequest, "Missing required parameter.", ErrorType.Validation),
 
-        private Task HandleExceptionAsync(HttpContext context, Exception exception)
-        {
-            context.Response.Clear();
+            ArgumentException => (StatusCodes.Status400BadRequest, "Invalid argument.", ErrorType.Validation),
 
-            int statusCode = (int)HttpStatusCode.InternalServerError;
-            string message = "An unexpected error occurred.";
+            UnauthorizedAccessException => (StatusCodes.Status401Unauthorized, "Access denied.", ErrorType.Unauthorized),
 
+            OperationCanceledException when context.RequestAborted.IsCancellationRequested => 
+            (StatusCodes.Status408RequestTimeout, "Request was cancelled.", ErrorType.Internal),
 
-            switch (exception)
-            {
-                case ArgumentNullException:
-                    statusCode = StatusCodes.Status400BadRequest;
-                    message = "Missing required parameter.";
-                    break;
+            TaskCanceledException => (StatusCodes.Status408RequestTimeout, "Request timeout.", ErrorType.Internal),
 
-                case UnauthorizedAccessException:
-                    statusCode = StatusCodes.Status401Unauthorized;
-                    message = "Access is denied.";
-                    break;
+            KeyNotFoundException => (StatusCodes.Status404NotFound, "Resource not found.", ErrorType.NotFound),
 
-                case TaskCanceledException:
-                    statusCode = 499;
-                    message = "Request was cancelled.";
-                    break;
-            }
+            _ => (
+                StatusCodes.Status500InternalServerError,
+                "Unexpected error.",
+                ErrorType.Internal
+            )
+        };
 
-            context.Response.ContentType = "application/json";
-            context.Response.StatusCode = statusCode;
+        context.Response.StatusCode = statusCode;
+        context.Response.ContentType = "application/json";
 
-            var errorDetails = new
-            {
-                statusCode = context.Response.StatusCode,
-                message = message,
-                errorType  = _env.IsDevelopment() ? exception.StackTrace : null
-            };
+        var response = ApiResponse<object>.FailResult(
+            message,
+            errorType,
+            traceId,
+            _env.IsDevelopment() ? exception.ToString() : null
+        );
 
-            return context.Response.WriteAsJsonAsync(errorDetails);
-        }
-
-
-
-
+        await context.Response.WriteAsJsonAsync(response);
     }
 }

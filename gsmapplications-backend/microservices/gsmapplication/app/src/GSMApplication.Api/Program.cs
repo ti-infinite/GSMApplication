@@ -11,11 +11,11 @@ using System.Text;
 using GSMApplication.Api.Middleware;
 using GSMApplication.Api.Filters;
 using System.IdentityModel.Tokens.Jwt;
+using GSMApplication.Api;
 
 JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
 
 var builder = WebApplication.CreateBuilder(args);
-
 var config = builder.Configuration;
 
 var envSecret = Environment.GetEnvironmentVariable("JWT_SECRET");
@@ -31,6 +31,7 @@ config["JwtSettings:SecretKey"] = envSecret;
 // ------------------------------------------------------------
 // Controllers
 // ------------------------------------------------------------
+builder.Services.AddApiServices();
 builder.Services.AddControllers(options =>
 {
     options.Filters.Add<ApiResponseFilter>();

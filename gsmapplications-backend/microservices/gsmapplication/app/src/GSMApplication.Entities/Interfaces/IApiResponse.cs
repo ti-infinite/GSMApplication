@@ -4,6 +4,6 @@ namespace GSMApplication.Entities.Interfaces;
 
 public interface IApiResponse
 {
-    bool Success { get; set; }
-    ErrorType? ErrorType { get; set; }
+    bool Success { get; }
+    ErrorType? ErrorType { get; }
 }

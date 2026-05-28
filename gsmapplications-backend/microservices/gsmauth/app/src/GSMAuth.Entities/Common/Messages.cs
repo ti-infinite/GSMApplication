@@ -8,6 +8,7 @@ public static class Messages
         public const string UserNotFound = "User does not exist.";
         public const string CompanyNotFound = "Company does not exist.";
         public const string InvalidCredentials = "Invalid credentials.";
+        public const string RequiredCredentials = "Required credentials are missing.";
         public const string UserInactive = "User is inactive.";
         public const string Healthy = "Auth is healthy.";
     }

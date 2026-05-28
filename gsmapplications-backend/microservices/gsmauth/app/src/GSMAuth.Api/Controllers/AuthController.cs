@@ -1,7 +1,6 @@
 using GSMAuth.Abstractions;
 using GSMAuth.Entities.Common;
 using GSMAuth.Entities.DTOs;
-using GSMAuth.Tenant;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -12,12 +11,10 @@ namespace GSMAuth.Api.Controllers;
 public sealed class AuthController : ControllerBase
 {
     private readonly IAuthService _authService;
-    private readonly TenantContext _tenantContext;
 
-    public AuthController(IAuthService authService, TenantContext tenantContext)
+    public AuthController(IAuthService authService)
     {
         _authService = authService;
-        _tenantContext = tenantContext;
     }
 
     [AllowAnonymous]
@@ -30,8 +27,6 @@ public sealed class AuthController : ControllerBase
 
     public async Task<IActionResult> Login([FromBody] LoginRequestDto request, CancellationToken cancellationToken)
     {
-        _tenantContext.CompanyId = request.IDCompany;
-        
         var response = await _authService.LoginAsync(request, cancellationToken);
 
         return Ok(response);

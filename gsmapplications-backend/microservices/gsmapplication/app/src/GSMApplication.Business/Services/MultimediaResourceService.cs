@@ -1,35 +1,23 @@
-using System.Security.Cryptography.X509Certificates;
 using GSMApplication.Business.Interfaces;
-using GSMApplication.DataAccess.ContextFactory;
+using GSMApplication.DataAccess.ContextDb;
 using GSMApplication.Entities.Common;
 using GSMApplication.Entities.DTOs;
-using GSMApplication.Tenant;
 using Microsoft.EntityFrameworkCore;
 
 namespace GSMApplication.Business.Services
 {
-    
-    public class MultimediaResourceService : IMultimediaResourceService
+    public sealed class MultimediaResourceService : IMultimediaResourceService
     {
+        private readonly TenantApplicationDbContext _context;
 
-        private readonly TenantContext _tenantContext;
-
-        public MultimediaResourceService(TenantContext tenantContext)
+        public MultimediaResourceService(TenantApplicationDbContext context)
         {
-           _tenantContext = tenantContext; 
+            _context = context;
         }
 
-        public async Task<ApiResponse<List<MultimediaResourceDto>>> GetMultimediaResourceByCategory(
-        List<string> resourceCategory, CancellationToken cancellationToken = default)
+        public async Task<ApiResponse<List<MultimediaResourceDto>>> GetMultimediaResourceByCategory(List<string> resourceCategory, CancellationToken cancellationToken = default)
         {
-
-            var connectionInfo = _tenantContext.ConnectionInfo ?? throw new InvalidOperationException("Tenant not initialized.");
-
-            var connectionString = connectionInfo.BuildConnectionString();
-
-            await using var context = TenantApplicationDbContextFactory.Create(connectionString);
-
-            var result = await context.MultimediaResources
+            var result = await _context.MultimediaResources
                 .Where(x => resourceCategory.Contains(x.ResourceCategory) && x.IsActive)
                 .Select(x => new MultimediaResourceDto
                 {
@@ -42,12 +30,10 @@ namespace GSMApplication.Business.Services
 
             if (result.Count == 0)
             {
-                return ApiResponse<List<MultimediaResourceDto>>.FailResponse(Messages.Application.ResourcesEmpty, ErrorType.NotFound);
+                return ApiResponse<List<MultimediaResourceDto>>.FailResult(Messages.Application.ResourcesEmpty, ErrorType.NotFound);
             }
 
-            return ApiResponse<List<MultimediaResourceDto>>.SuccessResponse(result, Messages.Application.ResourcesLoaded);
+            return ApiResponse<List<MultimediaResourceDto>>.SuccessResult(result, Messages.Application.ResourcesLoaded);
         }
-
     }
-
 }

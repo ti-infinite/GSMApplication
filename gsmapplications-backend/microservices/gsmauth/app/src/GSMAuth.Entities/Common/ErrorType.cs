@@ -7,5 +7,6 @@ public enum ErrorType
     NotFound,
     BadRequest,
     Conflict,
-    Internal
+    Internal,
+    Forbidden
 }

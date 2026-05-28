@@ -1,6 +1,7 @@
 using GSMAuth.Abstractions;
-using GSMAuth.Entities.DTOs;
 using GSMAuth.Entities.Common;
+using GSMAuth.Entities.DTOs;
+using GSMAuth.Tenant;
 
 namespace GSMAuth.Business;
 
@@ -9,12 +10,15 @@ public sealed class AuthService : IAuthService
     private readonly IUserAuthRepository _userAuthRepository;
     private readonly IPasswordHasher _passwordHasher;
     private readonly ITokenService _tokenService;
+    private readonly TenantContext _tenantContext;
 
-    public AuthService(IUserAuthRepository userAuthRepository, IPasswordHasher passwordHasher, ITokenService tokenService)
+    public AuthService(IUserAuthRepository userAuthRepository, IPasswordHasher passwordHasher, 
+            ITokenService tokenService, TenantContext tenantContext)
     {
         _userAuthRepository = userAuthRepository;
         _passwordHasher = passwordHasher;
         _tokenService = tokenService;
+        _tenantContext = tenantContext;
     }
 
     public async Task<ApiResponse<LoginDto>> LoginAsync(LoginRequestDto request, CancellationToken cancellationToken = default)
@@ -23,36 +27,39 @@ public sealed class AuthService : IAuthService
 
         if (string.IsNullOrWhiteSpace(companyId))
         {
-            return ApiResponse<LoginDto>.FailResponse(
-                Messages.Auth.CompanyNotFound,
-                ErrorType.BadRequest);
+            return ApiResponse<LoginDto>.FailResult(Messages.Auth.CompanyNotFound, ErrorType.Validation);
+        }
+        if (string.IsNullOrWhiteSpace(request.User))
+        {
+            return ApiResponse<LoginDto>.FailResult(Messages.Auth.RequiredCredentials, ErrorType.Validation);
         }
 
-        var user = await _userAuthRepository.GetByUsernameAsync(companyId, request.User.Trim(), cancellationToken);
+        if (string.IsNullOrWhiteSpace(request.Password))
+        {
+            return ApiResponse<LoginDto>.FailResult(Messages.Auth.RequiredCredentials, ErrorType.Validation);
+        }
+
+
+        _tenantContext.CompanyId = companyId;
+        var username = request.User.Trim();
+
+        var user = await _userAuthRepository.GetByUsernameAsync(companyId, username, cancellationToken);
 
         if (user is null)
         {
-            return ApiResponse<LoginDto>.FailResponse(
-                Messages.Auth.UserNotFound,
-                ErrorType.NotFound); 
+            return ApiResponse<LoginDto>.FailResult(Messages.Auth.UserNotFound, ErrorType.NotFound);
         }
 
         if (!user.IsActive)
         {
-            return ApiResponse<LoginDto>.FailResponse(
-                Messages.Auth.UserInactive,
-                ErrorType.Unauthorized); 
+            return ApiResponse<LoginDto>.FailResult(Messages.Auth.UserInactive, ErrorType.Unauthorized);
         }
 
-        var passwordIsValid = _passwordHasher.Verify(
-            request.Password,
-            user.PasswordHash);
+        var passwordIsValid = _passwordHasher.Verify(request.Password, user.PasswordHash);
 
         if (!passwordIsValid)
         {
-            return ApiResponse<LoginDto>.FailResponse(
-                Messages.Auth.InvalidCredentials,
-                ErrorType.Unauthorized); 
+            return ApiResponse<LoginDto>.FailResult(Messages.Auth.InvalidCredentials, ErrorType.Unauthorized);
         }
 
         var tokenClaims = new TokenClaimsDto
@@ -64,25 +71,23 @@ public sealed class AuthService : IAuthService
 
         var (token, expiresAtUtc) = _tokenService.CreateToken(tokenClaims);
 
-        return ApiResponse<LoginDto>.SuccessResponse(
-            new LoginDto
+        var response = new LoginDto
+        {
+            Token = token,
+            ExpiresAtUtc = expiresAtUtc,
+            User = new AuthenticatedUserDto
             {
-                Token = token,
-                ExpiresAtUtc = expiresAtUtc,
-                User = new AuthenticatedUserDto
-                {
-                    IdUser = user.IdUser,
-                    Username = user.Username,
-                    FullName = user.FullName,
-                    Email = user.Email,
-                    IdProfile = user.IdProfile,
-                    PasswordChangeRequired = user.PasswordChangeRequired,
-                    Location = user.Location,
-                    Department = user.Department
-                }
-            },
-            Messages.Auth.LoginSuccess
-        );
-    }
+                IdUser = user.IdUser,
+                Username = user.Username,
+                FullName = user.FullName,
+                Email = user.Email,
+                IdProfile = user.IdProfile,
+                PasswordChangeRequired = user.PasswordChangeRequired,
+                Location = user.Location,
+                Department = user.Department
+            }
+        };
 
+        return ApiResponse<LoginDto>.SuccessResult(response, Messages.Auth.LoginSuccess);
+    }
 }

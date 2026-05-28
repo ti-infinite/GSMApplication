@@ -9,15 +9,21 @@ public partial class TenantApplicationDbContext : DbContext
         : base(options) { }
 
     public virtual DbSet<MultimediaResource> MultimediaResources => Set<MultimediaResource>();
+    public virtual DbSet<ApiRule> ApiRules => Set<ApiRule>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
 
         modelBuilder.Entity<MultimediaResource>(entity =>
         {
-            entity.HasKey(e => e.IdResource).HasName("PK__Resource__3E14779333AEDE18");
-
+            entity.HasKey(e => e.IdResource).HasName("PK_IdResource");
             entity.Property(e => e.IsActive).HasDefaultValue(true);
+        });
+
+        modelBuilder.Entity<ApiRule>(entity =>
+        {
+            entity.HasKey(e => e.IdApi).HasName("PK_IdApi");
+            entity.Property(e => e.IdApi).ValueGeneratedOnAdd();
         });
 
 

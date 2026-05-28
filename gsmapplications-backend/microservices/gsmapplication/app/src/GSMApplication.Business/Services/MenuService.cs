@@ -30,14 +30,11 @@ public sealed class MenuService : IMenuService
 
         if (string.IsNullOrWhiteSpace(json))
         {
-            return ApiResponse<GetMenuDto>.FailResponse(
-                Messages.Application.MenuEmpty,
-                ErrorType.NotFound
-            );
+            return ApiResponse<GetMenuDto>.FailResult(Messages.Application.MenuEmpty, ErrorType.NotFound);
         }
 
 
-        return ApiResponse<GetMenuDto>.SuccessResponse(
+        return ApiResponse<GetMenuDto>.SuccessResult(
             new GetMenuDto
             {
                 IdProfile = idProfile,

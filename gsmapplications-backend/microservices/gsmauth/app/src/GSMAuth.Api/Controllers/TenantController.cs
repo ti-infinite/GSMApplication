@@ -12,43 +12,49 @@ public sealed class TenantController : ControllerBase
     private readonly ITenantConnectionResolver _tenantResolver;
     private readonly ITenantConfigurationService _tenantConfig;
 
-
     public TenantController(ITenantConnectionResolver tenantResolver, ITenantConfigurationService tenantConfig)
     {
         _tenantResolver = tenantResolver;
         _tenantConfig = tenantConfig;
     }
 
-
     [HttpPost("resolve")]
-    [ProducesResponseType(typeof(ApiResponse<TenantResolveDto>), 200)]
-    [ProducesResponseType(typeof(ApiResponse<TenantResolveDto>), 400)]
-    [ProducesResponseType(typeof(ApiResponse<TenantResolveDto>), 404)]
+    [ProducesResponseType(typeof(ApiResponse<TenantResolveDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<TenantResolveDto>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<TenantResolveDto>), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Resolve([FromBody] TenantResolveRequestDto request, CancellationToken cancellationToken)
     {
-        var companyId = request.IDCompany?.Trim();
+        var companyId = request?.IDCompany?.Trim();
 
         if (string.IsNullOrWhiteSpace(companyId))
         {
-            return Ok(ApiResponse<TenantResolveDto>.FailResponse(Messages.Tenant.TenantInvalid, ErrorType.Validation));
+ 
+            var response = ApiResponse<TenantResolveDto>.FailResult(Messages.Tenant.TenantInvalid, ErrorType.Validation);
+
+            return Ok(response);
         }
 
         var tenant = await _tenantResolver.ResolveAsync(companyId, cancellationToken);
 
         if (tenant is null)
         {
-            return Ok(ApiResponse<TenantResolveDto>.FailResponse(Messages.Tenant.TenantInvalid, ErrorType.NotFound));
+            var response = ApiResponse<TenantResolveDto>.FailResult(Messages.Tenant.TenantInvalid, ErrorType.NotFound);
+
+            return Ok(response);
         }
 
         var jsonStyles = await _tenantConfig.GetJsonStylesAsync(companyId, cancellationToken);
 
-        return Ok(ApiResponse<TenantResolveDto>.SuccessResponse(
+        var successResponse = ApiResponse<TenantResolveDto>.SuccessResult(
             new TenantResolveDto
             {
                 TenantExists = true,
                 JsonStyles = jsonStyles
             },
             Messages.Tenant.TenantValid
-        ));
+        );
+
+        return Ok(successResponse);
+
     }
 }

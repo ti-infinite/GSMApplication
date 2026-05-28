@@ -10,6 +10,7 @@ using Microsoft.OpenApi.Models;
 using System.Text;
 using GSMAuth.Api.Middleware;
 using GSMAuth.Api.Filters;
+using GSMAuth.Api;
 
 var builder = WebApplication.CreateBuilder(args);
 var config = builder.Configuration;
@@ -26,6 +27,7 @@ config["JwtSettings:SecretKey"] = envSecret;
 // ------------------------------------------------------------
 // Controllers
 // ------------------------------------------------------------
+builder.Services.AddApiServices();
 builder.Services.AddControllers(options =>
 {
     options.Filters.Add<ApiResponseFilter>();

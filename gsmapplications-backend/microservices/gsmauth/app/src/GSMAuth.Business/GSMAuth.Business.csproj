@@ -11,6 +11,7 @@
 
 <ProjectReference Include="..\GSMAuth.Abstractions\GSMAuth.Abstractions.csproj" />
 <ProjectReference Include="..\GSMAuth.Entities\GSMAuth.Entities.csproj" />
+<ProjectReference Include="..\GSMAuth.Tenant\GSMAuth.Tenant.csproj" />
 
 
   </ItemGroup>

@@ -47,7 +47,7 @@ public sealed class AuthService : IAuthService
 
         if (user is null)
         {
-            return ApiResponse<LoginDto>.FailResult(Messages.Auth.UserNotFound, ErrorType.NotFound);
+            return ApiResponse<LoginDto>.FailResult(Messages.Auth.InvalidCredentials, ErrorType.Unauthorized);
         }
 
         if (!user.IsActive)

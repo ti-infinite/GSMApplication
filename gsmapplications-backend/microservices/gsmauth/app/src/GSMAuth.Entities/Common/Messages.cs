@@ -5,7 +5,6 @@ public static class Messages
     public static class Auth
     {
         public const string LoginSuccess = "Login successful.";
-        public const string UserNotFound = "User does not exist.";
         public const string CompanyNotFound = "Company does not exist.";
         public const string InvalidCredentials = "Invalid credentials.";
         public const string RequiredCredentials = "Required credentials are missing.";

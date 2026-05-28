@@ -70,6 +70,10 @@ jobs:
         working-directory: gsmapplications-frontend
         run: npm ci
 
+      - name: Generate API clients
+        working-directory: gsmapplications-frontend
+        run: npm run generate
+
       - name: Build
         working-directory: gsmapplications-frontend
         env:

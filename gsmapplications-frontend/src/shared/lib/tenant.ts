@@ -25,9 +25,9 @@ export async function resolveCompany(companyId: string): Promise<ResolveResult> 
       body: JSON.stringify({ IDCompany: companyId }),
     })
     if (!res.ok) return { valid: false }
-    const data = await res.json()
-    if (!data.tenantExists || !data.jsonStyles) return { valid: false }
-    const theme = JSON.parse(data.jsonStyles) as TenantTheme
+    const response = await res.json()
+    if (!response.success || !response.data?.tenantExists || !response.data?.jsonStyles) return { valid: false }
+    const theme = JSON.parse(response.data.jsonStyles) as TenantTheme
     return {
       valid: true,
       name: theme.meta.name,

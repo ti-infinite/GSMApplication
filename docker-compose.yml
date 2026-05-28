@@ -1,0 +1,67 @@
+services:
+
+  frontend:
+    build:
+      context: ./gsmapplications-frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_TENANT_DEFAULT: ${VITE_TENANT_DEFAULT:-IH001}
+        VITE_TENANT_IDS: ${VITE_TENANT_IDS:-IH001,AG001}
+    ports:
+      - "3000:80"
+    depends_on:
+      gateway:
+        condition: service_healthy
+    networks:
+      - gsm-network
+
+  gateway:
+    build:
+      context: ./gsmapplications-backend/gsmgateway/app
+      dockerfile: Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:80
+      JWT_SECRET: ${JWT_SECRET:-gsm-auth-secret-key-change-in-production-2026}
+      ReverseProxy__Clusters__gsmAuthCluster__Destinations__authDestination__Address: http://gsmauth:8081/
+      ReverseProxy__Clusters__gsmApplicationCluster__Destinations__applicationDestination__Address: http://gsmapplication:8082/
+    depends_on:
+      gsmauth:
+        condition: service_healthy
+      gsmapplication:
+        condition: service_healthy
+    networks:
+      - gsm-network
+
+  gsmauth:
+    build:
+      context: ./gsmapplications-backend/microservices/gsmauth/app
+      dockerfile: Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8081
+      JWT_SECRET: ${JWT_SECRET:-gsm-auth-secret-key-change-in-production-2026}
+      JwtSettings__Issuer: GSMAuth
+      JwtSettings__Audience: GSMClients
+      JwtSettings__ExpirationMinutes: 240
+      DB_MASTER_URL: ${DB_MASTER_URL:-}
+    networks:
+      - gsm-network
+
+  gsmapplication:
+    build:
+      context: ./gsmapplications-backend/microservices/gsmapplication/app
+      dockerfile: Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8082
+      JWT_SECRET: ${JWT_SECRET:-gsm-auth-secret-key-change-in-production-2026}
+      JwtSettings__Issuer: GSMAuth
+      JwtSettings__Audience: GSMClients
+      DB_MASTER_URL: ${DB_MASTER_URL:-}
+    networks:
+      - gsm-network
+
+networks:
+  gsm-network:
+    driver: bridge

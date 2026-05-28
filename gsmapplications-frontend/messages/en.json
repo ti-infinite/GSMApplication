@@ -87,9 +87,48 @@
     "subtitle": "Standard Operating Procedures for your agricultural processes",
     "noResources": "No SOPs available."
   },
+  "settings": {
+    "title": "Settings",
+    "subtitle": "Manage your account preferences"
+  },
+  "profile": {
+    "title": "Profile",
+    "subtitle": "Your account information",
+    "fullName": "Full name",
+    "username": "Username",
+    "email": "Email",
+    "location": "Location",
+    "department": "Department",
+    "idProfile": "Profile ID"
+  },
+  "changePassword": {
+    "title": "Change Password",
+    "forcedBadge": "Action required",
+    "forcedSubtitle": "Your password must be changed before accessing the platform.",
+    "currentPassword": "Current password",
+    "newPassword": "New password",
+    "confirmPassword": "Confirm new password",
+    "submit": "Change password",
+    "submitting": "Saving…",
+    "successMessage": "Password changed successfully.",
+    "errors": {
+      "currentRequired": "Enter your current password.",
+      "newRequired": "Enter a new password.",
+      "minLength": "Password must be at least 8 characters.",
+      "sameAsCurrent": "New password must be different from the current one.",
+      "confirmRequired": "Confirm your new password.",
+      "mismatch": "Passwords do not match."
+    }
+  },
   "errors": {
     "serverConnection": "Connection error. Please try again.",
     "invalidCredentials": "Invalid credentials",
-    "loginFailed": "Login failed. Please try again."
+    "loginFailed": "Login failed. Please try again.",
+    "validation": "Please check the required fields.",
+    "unauthorized": "Invalid credentials. Please try again.",
+    "notFound": "Resource not found.",
+    "badRequest": "Invalid request.",
+    "conflict": "A conflict occurred. Please try again.",
+    "server": "Server error. Please try again later."
   }
 }

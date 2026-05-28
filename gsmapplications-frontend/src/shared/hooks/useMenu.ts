@@ -1,19 +1,7 @@
-import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { getToken } from '@/shared/lib/auth'
 import type { MenuOption } from '@/shared/lib/menu'
-
-type GetMenuDto = {
-  idProfile?: number | null
-  menu:       string
-}
-
-type MenuResponseDto = {
-  success:    boolean
-  message:    string
-  errorType?: string | null
-  data:       GetMenuDto
-}
+import { useGetMenu } from '@/shared/api/application/application/application'
 
 type RawItem = MenuOption & {
   Name?:       string
@@ -54,16 +42,6 @@ function parseMenu(raw: string): MenuOption[] {
   }
 }
 
-async function fetchMenu(token: string): Promise<MenuOption[]> {
-  const res = await fetch('/api/application/v1/Application/getMenu', {
-    headers: { Authorization: `Bearer ${token}` },
-  })
-  if (res.status === 401) throw new Error('unauthorized')
-  const response: MenuResponseDto = await res.json()
-  if (!response.success) throw new Error(response.message)
-  return parseMenu(response.data?.menu ?? '')
-}
-
 type UseMenuResult = {
   menuItems:  MenuOption[]
   shortcuts:  MenuOption[]
@@ -76,11 +54,13 @@ export function useMenu(): UseMenuResult {
   const { t } = useTranslation()
   const token = getToken()
 
-  const { data: rawItems = [], isLoading, isError } = useQuery({
-    queryKey: ['menu', token],
-    queryFn:  () => fetchMenu(token),
-    staleTime: 5 * 60 * 1000,
-    enabled:  !!token,
+  const { data: rawItems = [], isLoading, isError } = useGetMenu({
+    query: {
+      queryKey:  ['menu', token],
+      staleTime: 5 * 60 * 1000,
+      enabled:   !!token,
+      select:    (response) => parseMenu(response.data.data?.menu ?? ''),
+    },
   })
 
   const translated = rawItems.map(item => ({

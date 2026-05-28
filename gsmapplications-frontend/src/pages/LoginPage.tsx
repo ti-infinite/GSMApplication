@@ -3,11 +3,12 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Eye, EyeOff } from 'lucide-react'
 import { useTenant } from '@/app/providers/TenantProvider'
-import { login } from '@/shared/lib/auth'
+import { login, isPasswordChangeRequired } from '@/shared/lib/auth'
 import { AVAILABLE_TENANT_IDS, getBrandingFromCompanyId } from '@/shared/lib/tenants'
 import { isSafeUrl } from '@/shared/lib/utils'
 import { Button } from '@/shared/ui/button'
 import { useLocale, type Locale } from '@/shared/hooks/useLocale'
+import { ChangePasswordForm } from '@/shared/components/ChangePasswordForm'
 
 export default function LoginPage() {
   const { locale, switchLocale } = useLocale()
@@ -15,8 +16,9 @@ export default function LoginPage() {
   const { t }                    = useTranslation()
   const { companyId, branding, resolving, loadTenant } = useTenant()
 
-  const [error,       setError]       = useState<string | null>(null)
-  const [pending,     setPending]     = useState(false)
+  const [step,         setStep]        = useState<'login' | 'change-password'>('login')
+  const [error,        setError]       = useState<string | null>(null)
+  const [pending,      setPending]     = useState(false)
   const [showPassword, setShowPassword] = useState(false)
 
   async function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
@@ -31,7 +33,11 @@ export default function LoginPage() {
     setPending(false)
 
     if (result.success) {
-      navigate(`/${locale}/dashboard`, { replace: true, state: { fromLogin: true } })
+      if (isPasswordChangeRequired()) {
+        setStep('change-password')
+      } else {
+        navigate(`/${locale}/dashboard`, { replace: true, state: { fromLogin: true } })
+      }
     } else {
       setError(result.error)
     }
@@ -99,6 +105,18 @@ export default function LoginPage() {
       {/* Left panel */}
       <div className="flex w-full flex-col justify-center px-10 py-12 lg:w-1/2 lg:px-16 xl:px-24">
         <div className="mx-auto w-full max-w-sm">
+        {step === 'change-password' && (
+          <>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+              {t('changePassword.forcedBadge')}
+            </p>
+            <h1 className="mb-1 text-3xl font-bold text-foreground">{t('changePassword.title')}</h1>
+            <p className="mb-8 text-sm text-muted-foreground">{t('changePassword.forcedSubtitle')}</p>
+            <ChangePasswordForm onSuccess={() => navigate(`/${locale}/dashboard`, { replace: true, state: { fromLogin: true } })} />
+          </>
+        )}
+        {step === 'login' && (
+          <>
           <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
             {t('login.welcome')} <span className="text-primary">{branding.name}</span>
           </p>
@@ -166,6 +184,8 @@ export default function LoginPage() {
               {pending ? t('login.submitting') : t('login.submit')}
             </Button>
           </form>
+          </>
+        )}
         </div>
       </div>
 

@@ -7,6 +7,7 @@ import type { DashboardOutletCtx } from '@/shared/lib/menu'
 const modules: Record<string, React.LazyExoticComponent<React.ComponentType>> = {
   'resources': lazy(() => import('@/features/resources/ResourcesPage')),
   'sop':       lazy(() => import('@/features/sop/SopPage')),
+  'settings':  lazy(() => import('@/features/settings/SettingsPage')),
 }
 
 function slugToTitle(slug: string): string {

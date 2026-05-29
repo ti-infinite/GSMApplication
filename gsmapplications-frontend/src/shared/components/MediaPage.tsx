@@ -1,53 +1,14 @@
 import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { useQuery } from '@tanstack/react-query'
 import { ExternalLink } from 'lucide-react'
 import { getToken } from '@/shared/lib/auth'
-import { PDFViewer } from '@embedpdf/react-pdf-viewer'
+import { type ConfigEntry, type MediaResource, parseConfig, getLocaleContent } from '@/shared/lib/mediaConfig'
+import { useGetMediaResources } from '@/shared/api/application/application/application'
 import { Button } from '@/shared/ui/button'
 import { Skeleton } from '@/shared/ui/skeleton'
 import { ResponsiveIframe } from '@/shared/ui/responsive-iframe'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/ui/tooltip'
-
-export type ConfigEntry = {
-  CODLANG:  string
-  SRC:      string
-  TITLE:    string
-  SUBTITLE: string
-  DESCR:    string
-  TYPE:     string
-}
-
-export type MediaResource = {
-  resourceCategory: string
-  resourceOrder:    number
-  config:           ConfigEntry[]
-}
-
-type RawResource = {
-  resourceCategory: string
-  resourceOrder:    number
-  config:           string
-}
-
-type MediaResponseDto = {
-  success:    boolean
-  message:    string
-  errorType?: string | null
-  data:       RawResource[]
-}
-
-export function parseConfig(raw: string): ConfigEntry[] {
-  try { return JSON.parse(raw) } catch { return [] }
-}
-
-export function getLocaleContent(entries: ConfigEntry[], locale: string): ConfigEntry | undefined {
-  const lang = locale.toUpperCase()
-  return entries.find(e => e.CODLANG === lang)
-    ?? entries.find(e => e.CODLANG === 'EN')
-    ?? entries[0]
-}
 
 function ResourceViewer({ content, title }: { content: ConfigEntry; title: string }) {
   const type = content.TYPE?.toLowerCase()
@@ -57,7 +18,20 @@ function ResourceViewer({ content, title }: { content: ConfigEntry; title: strin
   if (type === 'pdf') {
     const isDirectPdf = content.SRC.toLowerCase().includes('.pdf')
     return isDirectPdf
-      ? <PDFViewer config={{ src: content.SRC, theme: { preference: 'system' } }} style={{ height: '600px', width: '100%' }} />
+      ? (
+        <div className="flex h-64 flex-col items-center justify-center gap-4">
+          <p className="text-sm text-muted-foreground">{content.DESCR || title}</p>
+          <a
+            href={content.SRC}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+          >
+            <ExternalLink className="h-4 w-4" />
+            Open PDF
+          </a>
+        </div>
+      )
       : <ResponsiveIframe src={content.SRC} title={title} />
   }
 
@@ -107,28 +81,25 @@ type MediaPageProps = {
   i18nPrefix: string
 }
 
-async function fetchMediaResources(category: string, token: string): Promise<MediaResource[]> {
-  const res = await fetch(
-    `/api/application/v1/Application/getMediaResources?categories=${category}`,
-    { headers: { Authorization: `Bearer ${token}` } }
-  )
-  const response: MediaResponseDto = await res.json()
-  if (!response.success || !response.data) throw new Error(response.message)
-  return response.data.map(r => ({ ...r, config: parseConfig(r.config) }))
-}
-
 export function MediaPage({ category, i18nPrefix }: MediaPageProps) {
   const { locale = 'en' } = useParams<{ locale: string }>()
   const { t }   = useTranslation()
-  const token   = getToken()
   const [selected, setSelected] = useState(0)
 
-  const { data: resources = [], isLoading: loading } = useQuery({
-    queryKey: ['media-resources', category],
-    queryFn:  () => fetchMediaResources(category, token),
-    staleTime: 2 * 60 * 1000,
-    enabled:  !!token,
-  })
+  const { data: resources = [], isLoading: loading } = useGetMediaResources(
+    { categories: [category] },
+    {
+      query: {
+        staleTime: 2 * 60 * 1000,
+        enabled:   !!getToken(),
+        select: (response) => (response.data.data ?? []).map(r => ({
+          resourceCategory: r.resourceCategory ?? '',
+          resourceOrder:    r.resourceOrder    ?? 0,
+          config:           parseConfig(r.config ?? ''),
+        })),
+      },
+    },
+  )
 
   if (loading) {
     return (

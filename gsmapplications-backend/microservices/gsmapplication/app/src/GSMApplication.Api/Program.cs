@@ -56,6 +56,8 @@ builder.Services.AddSwaggerGen(options =>
         Description = "Microservicio de aplicación con soporte tenant database-per-tenant."
     });
 
+    options.CustomOperationIds(e => e.ActionDescriptor.RouteValues.TryGetValue("action", out var action) ? action : null);
+
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Description = "JWT Authorization header usando el esquema Bearer. Ejemplo: \"Bearer {token}\"",

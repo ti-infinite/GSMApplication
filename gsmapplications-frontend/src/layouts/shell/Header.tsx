@@ -1,5 +1,6 @@
-import { Globe, Menu, Search, LogOut } from 'lucide-react'
+import { Globe, Menu, Search, LogOut, Settings } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { useNavigate } from 'react-router-dom'
 import { useLocale } from '@/shared/hooks/useLocale'
 import {
   DropdownMenu,
@@ -24,6 +25,7 @@ type Props = {
 export default function Header({ locale, userName, onMenuToggle, onLogout }: Props) {
   const { t } = useTranslation()
   const { switchLocale } = useLocale()
+  const navigate = useNavigate()
 
   function switchLanguage() {
     const next = locale === 'en' ? 'es' : 'en'
@@ -91,8 +93,15 @@ export default function Header({ locale, userName, onMenuToggle, onLogout }: Pro
 
           <DropdownMenuSeparator />
 
+          <DropdownMenuItem onSelect={() => navigate(`/${locale}/dashboard/settings`)}>
+            <Settings className="h-4 w-4" />
+            {t('settings.title')}
+          </DropdownMenuItem>
+
+          <DropdownMenuSeparator />
+
           <DropdownMenuItem
-            className="text-primary focus:bg-primary/10 focus:text-primary"
+            className="text-destructive focus:bg-destructive/10 focus:text-destructive"
             onSelect={onLogout}
           >
             <LogOut className="h-4 w-4" />

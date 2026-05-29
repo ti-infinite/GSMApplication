@@ -1,4 +1,6 @@
 import Cookies from 'js-cookie'
+import { errorTypeToKey } from '@/shared/lib/errorType'
+import type { AuthenticatedUserDto } from '@/shared/api/auth/model'
 
 export type LoginCredentials = {
   companyId: string
@@ -13,22 +15,13 @@ export type LoginResult =
 type LoginDataDto = {
   token:        string
   expiresAtUtc: string
-  user?: {
-    idUser:                 string
-    username:               string
-    fullName:               string
-    email:                  string
-    idProfile:              number
-    passwordChangeRequired: boolean
-    location:               string
-    department:             string
-  }
+  user?:        AuthenticatedUserDto
 }
 
 type LoginResponseDto = {
   success:    boolean
   message:    string
-  errorType?: string | null
+  errorType?: number | null
   data:       LoginDataDto
 }
 
@@ -48,7 +41,11 @@ export async function login(credentials: LoginCredentials): Promise<LoginResult>
   }
 
   if (!response.success) {
-    return { success: false, error: response.message || 'errors.loginFailed' }
+    const errorType = response.errorType ?? undefined
+    // Login failures (user not found or wrong password) always map to invalid credentials
+    // regardless of errorType to prevent user enumeration
+    const isCredentialError = errorType === 1 || errorType === 2
+    return { success: false, error: isCredentialError ? 'errors.unauthorized' : errorTypeToKey(errorType) }
   }
 
   const token       = response.data?.token
@@ -64,17 +61,80 @@ export async function login(credentials: LoginCredentials): Promise<LoginResult>
   Cookies.set('gsm_token', token, { expires, sameSite: 'lax', path: '/' })
   Cookies.set('gsm_user_name', displayName ?? '', { expires, sameSite: 'lax', path: '/' })
 
+  if (response.data?.user) {
+    sessionStorage.setItem('gsm_user', JSON.stringify(response.data.user))
+  }
+
+  if (response.data?.user?.passwordChangeRequired) {
+    Cookies.set('gsm_pwd_change', '1', { expires, sameSite: 'lax', path: '/' })
+  } else {
+    Cookies.remove('gsm_pwd_change')
+  }
+
   return { success: true }
+}
+
+export type ChangePasswordResult =
+  | { success: true }
+  | { success: false; error: string }
+
+type ChangePasswordResponseDto = {
+  success:    boolean
+  message:    string
+  errorType?: number | null
+}
+
+export async function changePassword(
+  currentPassword: string,
+  newPassword: string,
+): Promise<ChangePasswordResult> {
+  const token = getToken()
+  let response: ChangePasswordResponseDto
+
+  try {
+    const res = await fetch('/api/security/v1/Auth/changePassword', {
+      method:  'POST',
+      headers: {
+        'Content-Type':  'application/json',
+        Authorization:   `Bearer ${token}`,
+      },
+      body: JSON.stringify({ CurrentPassword: currentPassword, NewPassword: newPassword }),
+    })
+    response = await res.json()
+  } catch {
+    return { success: false, error: 'errors.serverConnection' }
+  }
+
+  if (!response.success) {
+    return { success: false, error: errorTypeToKey(response.errorType ?? undefined) }
+  }
+
+  Cookies.remove('gsm_pwd_change')
+  return { success: true }
+}
+
+export function isPasswordChangeRequired(): boolean {
+  return Cookies.get('gsm_pwd_change') === '1'
 }
 
 export function getToken(): string {
   return Cookies.get('gsm_token') ?? ''
 }
 
+export function getStoredUser(): AuthenticatedUserDto | null {
+  try {
+    const raw = sessionStorage.getItem('gsm_user')
+    return raw ? (JSON.parse(raw) as AuthenticatedUserDto) : null
+  } catch {
+    return null
+  }
+}
+
 export function logout() {
   Cookies.remove('gsm_token')
   Cookies.remove('gsm_user_name')
   Cookies.remove('gsm_company')
+  sessionStorage.removeItem('gsm_user')
 }
 
 function decodeTokenPayload(token: string): Record<string, unknown> | null {

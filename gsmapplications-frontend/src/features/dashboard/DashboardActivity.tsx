@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { ExternalLink } from 'lucide-react'
 import { ResponsiveIframe } from '@/shared/ui/responsive-iframe'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/shared/ui/dialog'
-import { type ConfigEntry, getLocaleContent, type MediaResource } from '@/shared/components/MediaPage'
+import { type ConfigEntry, getLocaleContent, type MediaResource } from '@/shared/lib/mediaConfig'
 import { useDashboardActivity } from './hooks/useDashboardActivity'
 
 function ItemViewer({ content }: { content: ConfigEntry }) {

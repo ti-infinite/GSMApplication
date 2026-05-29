@@ -87,9 +87,48 @@
     "subtitle": "Procedimientos Operativos Estándar para tus procesos agrícolas",
     "noResources": "No hay SOPs disponibles."
   },
+  "settings": {
+    "title": "Configuración",
+    "subtitle": "Administra las preferencias de tu cuenta"
+  },
+  "profile": {
+    "title": "Perfil",
+    "subtitle": "Información de tu cuenta",
+    "fullName": "Nombre completo",
+    "username": "Usuario",
+    "email": "Correo electrónico",
+    "location": "Ubicación",
+    "department": "Departamento",
+    "idProfile": "ID de perfil"
+  },
+  "changePassword": {
+    "title": "Cambiar Contraseña",
+    "forcedBadge": "Acción requerida",
+    "forcedSubtitle": "Debes cambiar tu contraseña antes de acceder a la plataforma.",
+    "currentPassword": "Contraseña actual",
+    "newPassword": "Nueva contraseña",
+    "confirmPassword": "Confirmar nueva contraseña",
+    "submit": "Cambiar contraseña",
+    "submitting": "Guardando…",
+    "successMessage": "Contraseña cambiada exitosamente.",
+    "errors": {
+      "currentRequired": "Ingresa tu contraseña actual.",
+      "newRequired": "Ingresa una nueva contraseña.",
+      "minLength": "La contraseña debe tener al menos 8 caracteres.",
+      "sameAsCurrent": "La nueva contraseña debe ser diferente a la actual.",
+      "confirmRequired": "Confirma tu nueva contraseña.",
+      "mismatch": "Las contraseñas no coinciden."
+    }
+  },
   "errors": {
     "serverConnection": "Error de conexión. Intenta de nuevo.",
     "invalidCredentials": "Credenciales inválidas",
-    "loginFailed": "Error al iniciar sesión. Intenta de nuevo."
+    "loginFailed": "Error al iniciar sesión. Intenta de nuevo.",
+    "validation": "Por favor verifica los campos requeridos.",
+    "unauthorized": "Credenciales inválidas. Intenta de nuevo.",
+    "notFound": "Recurso no encontrado.",
+    "badRequest": "Solicitud inválida.",
+    "conflict": "Ocurrió un conflicto. Intenta de nuevo.",
+    "server": "Error del servidor. Intenta más tarde."
   }
 }

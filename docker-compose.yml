@@ -25,6 +25,12 @@ services:
       JWT_SECRET: ${JWT_SECRET:-gsm-auth-secret-key-change-in-production-2026}
       ReverseProxy__Clusters__gsmAuthCluster__Destinations__authDestination__Address: http://gsmauth:8081/
       ReverseProxy__Clusters__gsmApplicationCluster__Destinations__applicationDestination__Address: http://gsmapplication:8082/
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 -O /dev/null http://localhost:80/api/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
     depends_on:
       gsmauth:
         condition: service_healthy
@@ -45,6 +51,12 @@ services:
       JwtSettings__Audience: GSMClients
       JwtSettings__ExpirationMinutes: 240
       DB_MASTER_URL: ${DB_MASTER_URL:-}
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 -O /dev/null http://localhost:8081/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
     networks:
       - gsm-network
 
@@ -59,6 +71,12 @@ services:
       JwtSettings__Issuer: GSMAuth
       JwtSettings__Audience: GSMClients
       DB_MASTER_URL: ${DB_MASTER_URL:-}
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 -O /dev/null http://localhost:8082/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
     networks:
       - gsm-network
 

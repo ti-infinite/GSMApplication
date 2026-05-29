@@ -12,6 +12,7 @@ using GSMApplication.Api.Middleware;
 using GSMApplication.Api.Filters;
 using System.IdentityModel.Tokens.Jwt;
 using GSMApplication.Api;
+using System.Text.Json.Serialization;
 
 JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
 
@@ -35,7 +36,12 @@ builder.Services.AddApiServices();
 builder.Services.AddControllers(options =>
 {
     options.Filters.Add<ApiResponseFilter>();
+})
+.AddJsonOptions(options =>
+{
+    options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
 });
+
 builder.Services.AddEndpointsApiExplorer();
 
 // ------------------------------------------------------------

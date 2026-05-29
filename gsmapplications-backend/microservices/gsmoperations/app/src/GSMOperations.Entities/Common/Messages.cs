@@ -1,0 +1,22 @@
+﻿
+namespace GSMOperations.Entities.Common
+{
+    public static class Messages
+    {
+        public static class Operations
+        {
+            public const string ApiExecutedSuccessfully = "Api executed successfully.";
+            public const string ApiExecutionFailed = "The executed Api request failed.";
+            public const string Healthy = "Application is healthy.";
+            public const string EmptyFields = "The url endpoint and the operation fields are required.";
+            public const string HttpMethodUnknown = "Http method not implemented.";
+        }
+
+        public static class Tenant
+        {
+            public const string TenantHeaderMissing = "Tenant header is missing.";
+            public const string TenantValid = "Tenant is valid.";
+            public const string TenantInvalid = "Company is invalid or inactive.";
+        }
+    }
+}

@@ -1,17 +1,20 @@
-using GSMAuth.Business;
-using GSMAuth.Entities.Common;
-using Microsoft.AspNetCore.Authorization;
-using GSMAuth.DataAccess;
-using GSMAuth.Infrastructure;
-using GSMAuth.Tenant;
+using GSMOperations.Api;
+using GSMOperations.Api.Filters;
+using GSMOperations.Api.Middleware;
+using GSMOperations.Business;
+using GSMOperations.DataAccess;
+using GSMOperations.Entities.Common;
+using GSMOperations.Infrastructure;
+using GSMOperations.Tenant;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using System.IdentityModel.Tokens.Jwt;
 using System.Text;
-using GSMAuth.Api.Middleware;
-using GSMAuth.Api.Filters;
-using GSMAuth.Api;
 using System.Text.Json.Serialization;
+
+JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
 
 var builder = WebApplication.CreateBuilder(args);
 var config = builder.Configuration;
@@ -25,6 +28,7 @@ if (string.IsNullOrWhiteSpace(envSecret))
 
 config["JwtSettings:SecretKey"] = envSecret;
 
+
 // ------------------------------------------------------------
 // Controllers
 // ------------------------------------------------------------
@@ -37,6 +41,7 @@ builder.Services.AddControllers(options =>
 {
     options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
 });
+
 builder.Services.AddEndpointsApiExplorer();
 
 // ------------------------------------------------------------
@@ -46,9 +51,9 @@ builder.Services.AddSwaggerGen(options =>
 {
     options.SwaggerDoc("v1", new OpenApiInfo
     {
-        Title = "GSMAuth API",
+        Title = "GSMOperations API",
         Version = "v1",
-        Description = "Microservicio de autenticación con soporte tenant database-per-tenant."
+        Description = "Microservicio de operaciones con soporte tenant database-per-tenant."
     });
 
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
@@ -78,13 +83,13 @@ builder.Services.AddSwaggerGen(options =>
 });
 
 // ------------------------------------------------------------
-// Tenant Registry Connection
+// Tenant Registry Connection (ENV)
 // ------------------------------------------------------------
 var registryConnection = Environment.GetEnvironmentVariable("DB_MASTER_URL");
 
 if (string.IsNullOrWhiteSpace(registryConnection))
 {
-    throw new InvalidOperationException("No Tenant registry connection was found");
+    throw new InvalidOperationException("No Tenant registry connection was found.");
 }
 
 // ------------------------------------------------------------
@@ -98,7 +103,7 @@ builder.Services.AddDataAccess(registryConnection);
 builder.Services.AddTenantLayer();
 
 // ------------------------------------------------------------
-// Infrastructure (Repos, Hasher, Resolver, Token)
+// Infrastructure
 // ------------------------------------------------------------
 builder.Services.AddInfrastructure();
 
@@ -128,16 +133,16 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     {
         options.RequireHttpsMetadata = !builder.Environment.IsDevelopment();
         options.TokenValidationParameters = new TokenValidationParameters
-            {
-                ValidateIssuer = true,
-                ValidateAudience = true,
-                ValidateLifetime = true,
-                ValidateIssuerSigningKey = true,
-                ValidIssuer = issuer,
-                ValidAudience = audience,
-                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret)),
-                ClockSkew = TimeSpan.Zero
-            };
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = issuer,
+            ValidAudience = audience,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret)),
+            ClockSkew = TimeSpan.Zero
+        };
     });
 
 var app = builder.Build();
@@ -149,15 +154,16 @@ if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI(options =>
-        options.SwaggerEndpoint("/swagger/v1/swagger.json", "GSMAuth API v1"));
+        options.SwaggerEndpoint("/swagger/v1/swagger.json", "GSMOperations API v1"));
 }
 
-//app.UseHttpsRedirection();
 app.UseMiddleware<ExceptionMiddleware>();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseTenantLayer();
 
-app.MapGet("/health", [AllowAnonymous] () => Results.Ok(new { message = Messages.Auth.Healthy }));
+app.MapGet("/health", [AllowAnonymous] () => Results.Ok(new { message = Messages.Operations.Healthy }));
+
 app.MapControllers();
+
 await app.RunAsync();

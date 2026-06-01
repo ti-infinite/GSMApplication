@@ -12,6 +12,8 @@
 <ProjectReference Include="..\GSMAuth.Abstractions\GSMAuth.Abstractions.csproj" />
 <ProjectReference Include="..\GSMAuth.Entities\GSMAuth.Entities.csproj" />
 <ProjectReference Include="..\GSMAuth.Tenant\GSMAuth.Tenant.csproj" />
+<ProjectReference Include="..\GSMAuth.DataAccess\GSMAuth.DataAccess.csproj" />
+<ProjectReference Include="..\GSMAuth.Infrastructure\GSMAuth.Infrastructure.csproj" />
 
 
   </ItemGroup>

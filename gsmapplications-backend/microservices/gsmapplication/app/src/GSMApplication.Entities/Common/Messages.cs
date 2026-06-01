@@ -4,10 +4,13 @@ public static class Messages
 {
     public static class Application
     {
+        public const string PasswordUpdated = "Password updated successfully.";
+        public const string NewPasswordCannotBeSameAsOld = "The new password cannot be the same as the old password.";
+        public const string InvalidOldPassword = "The old password provided is incorrect.";
+        public const string UserNotFound = "User with the given id number was not found.";
         public const string MenuLoaded = "Menu response loaded successfully.";
         public const string ApiRuleEmpty = "An Api rule with the given id number was not found.";
         public const string ApiRuleUpdated = "Api rule updated succesfully.";
-        public const string ApiRuleExists = "There is already an existing configuration for that Api operation.";
         public const string ApiRuleCreated = "Api rule created succesfully.";
         public const string ApiRuleDeleted = "Api rule deleted succesfully.";
         public const string ApiRulesRetrieved = "Api rules retrieved successfully.";
@@ -16,6 +19,7 @@ public static class Messages
         public const string ResourcesEmpty = "No resources found for the given categories.";
         public const string ResourcesLoaded = "Resources loaded successfully.";
         public const string InvalidCategories = "Invalid categories. Please provide at least one category.";
+        public const string UserCreated = "User created successfully.";
     }
 
     public static class Tenant

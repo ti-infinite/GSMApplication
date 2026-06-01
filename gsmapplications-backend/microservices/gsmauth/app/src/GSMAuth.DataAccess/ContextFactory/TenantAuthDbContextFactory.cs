@@ -3,12 +3,14 @@ using Microsoft.EntityFrameworkCore;
 
 namespace GSMAuth.DataAccess.ContextFactory;
 
-public sealed class TenantAuthDbContextFactory
+public static class TenantAuthDbContextFactory
 {
-    public static TenantAuthDbContext Create(string tenantConnectionString)
+    public static TenantAuthDbContext Create(string connectionString)
     {
-        var optionsBuilder = new DbContextOptionsBuilder<TenantAuthDbContext>();
-        optionsBuilder.UseSqlServer(tenantConnectionString);
-        return new TenantAuthDbContext(optionsBuilder.Options);
+        var options = new DbContextOptionsBuilder<TenantAuthDbContext>()
+            .UseSqlServer(connectionString)
+            .Options;
+
+        return new TenantAuthDbContext(options);
     }
 }

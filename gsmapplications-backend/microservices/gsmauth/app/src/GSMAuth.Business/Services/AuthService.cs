@@ -1,24 +1,21 @@
 using GSMAuth.Abstractions;
 using GSMAuth.Entities.Common;
 using GSMAuth.Entities.DTOs;
-using GSMAuth.Tenant;
 
-namespace GSMAuth.Business;
+namespace GSMAuth.Business.Services;
 
 public sealed class AuthService : IAuthService
 {
     private readonly IUserAuthRepository _userAuthRepository;
     private readonly IPasswordHasher _passwordHasher;
     private readonly ITokenService _tokenService;
-    private readonly TenantContext _tenantContext;
 
     public AuthService(IUserAuthRepository userAuthRepository, IPasswordHasher passwordHasher, 
-            ITokenService tokenService, TenantContext tenantContext)
+            ITokenService tokenService)
     {
         _userAuthRepository = userAuthRepository;
         _passwordHasher = passwordHasher;
         _tokenService = tokenService;
-        _tenantContext = tenantContext;
     }
 
     public async Task<ApiResponse<LoginDto>> LoginAsync(LoginRequestDto request, CancellationToken cancellationToken = default)
@@ -39,8 +36,6 @@ public sealed class AuthService : IAuthService
             return ApiResponse<LoginDto>.FailResult(Messages.Auth.RequiredCredentials, ErrorType.Validation);
         }
 
-
-        _tenantContext.CompanyId = companyId;
         var username = request.User.Trim();
 
         var user = await _userAuthRepository.GetByUsernameAsync(companyId, username, cancellationToken);

@@ -16,7 +16,7 @@ public sealed class ApiRulesManagementService : IApiRulesManagementService
         _context = context;
     }
 
-    public async Task<ApiResponse<ApiRule>> CreateApiRule(ApiRuleDTO apiRule, CancellationToken cancellationToken = default)
+    public async Task<ApiResponse<ResponseApiRuleDTO>> CreateApiRule(ApiRuleDTO apiRule, CancellationToken cancellationToken = default)
     {
         var entity = new ApiRule
         {
@@ -30,16 +30,24 @@ public sealed class ApiRulesManagementService : IApiRulesManagementService
 
         await _context.SaveChangesAsync(cancellationToken);
 
-        return ApiResponse<ApiRule>.SuccessResult(entity, Messages.Application.ApiRuleCreated);
+        var response = new ResponseApiRuleDTO
+        {
+            ShortName = entity.ShortName,
+            Descr = entity.Descr,
+            UrlEndPoint = entity.UrlEndPoint,
+            Operation = entity.Operation
+        };
+
+        return ApiResponse<ResponseApiRuleDTO>.SuccessResult(response, Messages.Application.ApiRuleCreated);
     }
 
-    public async Task<ApiResponse<ApiRule>> UpdateApiRule(int idApiRule, ApiRuleDTO apiRule, CancellationToken cancellationToken = default)
+    public async Task<ApiResponse<ResponseApiRuleDTO>> UpdateApiRule(int idApiRule, ApiRuleDTO apiRule, CancellationToken cancellationToken = default)
     {
         var apiRuleRegister = await _context.ApiRules.FindAsync([idApiRule], cancellationToken);
 
         if (apiRuleRegister is null)
         {
-            return ApiResponse<ApiRule>.FailResult(Messages.Application.ApiRuleEmpty, ErrorType.NotFound);
+            return ApiResponse<ResponseApiRuleDTO>.FailResult(Messages.Application.ApiRuleEmpty, ErrorType.NotFound);
         }
 
         apiRuleRegister.ShortName = apiRule.ShortName;
@@ -49,33 +57,55 @@ public sealed class ApiRulesManagementService : IApiRulesManagementService
 
         await _context.SaveChangesAsync(cancellationToken);
 
-        return ApiResponse<ApiRule>.SuccessResult(apiRuleRegister, Messages.Application.ApiRuleUpdated);
+        var response = new ResponseApiRuleDTO
+        {
+            ShortName = apiRuleRegister.ShortName,
+            Descr = apiRuleRegister.Descr,
+            UrlEndPoint = apiRuleRegister.UrlEndPoint,
+            Operation = apiRuleRegister.Operation
+        };
+
+        return ApiResponse<ResponseApiRuleDTO>.SuccessResult(response, Messages.Application.ApiRuleUpdated);
     }
 
-    public async Task<ApiResponse<ApiRule>> DeleteApiRule(int idApiRule, CancellationToken cancellationToken = default)
+    public async Task<ApiResponse<ResponseApiRuleDTO>> DeleteApiRule(int idApiRule, CancellationToken cancellationToken = default)
     {
         var apiRuleRegisterExists = await _context.ApiRules.FindAsync([idApiRule], cancellationToken);
 
         if (apiRuleRegisterExists is null)
         {
-            return ApiResponse<ApiRule>.FailResult(Messages.Application.ApiRuleEmpty, ErrorType.NotFound);
+            return ApiResponse<ResponseApiRuleDTO>.FailResult(Messages.Application.ApiRuleEmpty, ErrorType.NotFound);
         }
 
         _context.ApiRules.Remove(apiRuleRegisterExists);
 
         await _context.SaveChangesAsync(cancellationToken);
 
-        return ApiResponse<ApiRule>.SuccessResult(apiRuleRegisterExists, Messages.Application.ApiRuleDeleted);
+        var response = new ResponseApiRuleDTO
+        {
+            IdApi = apiRuleRegisterExists.IdApi
+        };
+
+        return ApiResponse<ResponseApiRuleDTO>.SuccessResult(response, Messages.Application.ApiRuleDeleted);
     }
 
-    public async Task<ApiResponse<List<ApiRule>>> GetAllApiRules(CancellationToken cancellationToken = default)
+    public async Task<ApiResponse<List<ResponseApiRuleDTO>>> GetAllApiRules(CancellationToken cancellationToken = default)
     {
         var apiRules = await _context.ApiRules.AsNoTracking().ToListAsync(cancellationToken);
 
-        return ApiResponse<List<ApiRule>>.SuccessResult(apiRules, Messages.Application.ApiRulesRetrieved);
+        var response = apiRules.Select(apiRule => new ResponseApiRuleDTO
+        {
+            IdApi = apiRule.IdApi,
+            ShortName = apiRule.ShortName,
+            Descr = apiRule.Descr,
+            UrlEndPoint = apiRule.UrlEndPoint,
+            Operation = apiRule.Operation
+        }).ToList();
+
+        return ApiResponse<List<ResponseApiRuleDTO>>.SuccessResult(response, Messages.Application.ApiRulesRetrieved);
     }
 
-    public async Task<ApiResponse<ApiRule>> GetApiRuleById(int idApiRule, CancellationToken cancellationToken = default)
+    public async Task<ApiResponse<ResponseApiRuleDTO>> GetApiRuleById(int idApiRule, CancellationToken cancellationToken = default)
     {
         var apiRuleRegister = await _context.ApiRules
             .AsNoTracking()
@@ -83,10 +113,19 @@ public sealed class ApiRulesManagementService : IApiRulesManagementService
 
         if (apiRuleRegister is null)
         {
-            return ApiResponse<ApiRule>.FailResult(Messages.Application.ApiRuleEmpty, ErrorType.NotFound);
+            return ApiResponse<ResponseApiRuleDTO>.FailResult(Messages.Application.ApiRuleEmpty, ErrorType.NotFound);
         }
 
-        return ApiResponse<ApiRule>.SuccessResult(apiRuleRegister, Messages.Application.ApiRulesRetrieved);
+        var response = new ResponseApiRuleDTO
+        {
+            IdApi = apiRuleRegister.IdApi,
+            ShortName = apiRuleRegister.ShortName,
+            Descr = apiRuleRegister.Descr,
+            UrlEndPoint = apiRuleRegister.UrlEndPoint,
+            Operation = apiRuleRegister.Operation
+        };
+
+        return ApiResponse<ResponseApiRuleDTO>.SuccessResult(response, Messages.Application.ApiRulesRetrieved);
     }
 
 }

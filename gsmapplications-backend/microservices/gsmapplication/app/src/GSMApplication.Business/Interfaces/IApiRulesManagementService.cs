@@ -6,9 +6,9 @@ namespace GSMApplication.Entities.Interfaces;
 
 public interface IApiRulesManagementService
 {
-    Task<ApiResponse<ApiRule>> CreateApiRule(ApiRuleDTO apiRule, CancellationToken cancellationToken = default);
-    Task<ApiResponse<ApiRule>> UpdateApiRule(int idApiRule, ApiRuleDTO apiRule, CancellationToken cancellationToken = default);
-    Task<ApiResponse<ApiRule>> DeleteApiRule(int idApiRule, CancellationToken cancellationToken = default);
-    Task<ApiResponse<List<ApiRule>>> GetAllApiRules(CancellationToken cancellationToken = default);
-    Task<ApiResponse<ApiRule>> GetApiRuleById(int idApiRule, CancellationToken cancellationToken = default);
+    Task<ApiResponse<ResponseApiRuleDTO>> CreateApiRule(ApiRuleDTO apiRule, CancellationToken cancellationToken = default);
+    Task<ApiResponse<ResponseApiRuleDTO>> UpdateApiRule(int idApiRule, ApiRuleDTO apiRule, CancellationToken cancellationToken = default);
+    Task<ApiResponse<ResponseApiRuleDTO>> DeleteApiRule(int idApiRule, CancellationToken cancellationToken = default);
+    Task<ApiResponse<List<ResponseApiRuleDTO>>> GetAllApiRules(CancellationToken cancellationToken = default);
+    Task<ApiResponse<ResponseApiRuleDTO>> GetApiRuleById(int idApiRule, CancellationToken cancellationToken = default);
 }

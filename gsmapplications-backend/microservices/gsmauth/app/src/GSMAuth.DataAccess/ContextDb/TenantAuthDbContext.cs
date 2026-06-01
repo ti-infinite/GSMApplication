@@ -1,4 +1,4 @@
-using GSMAuth.Entities.Models;
+using GSMAuth.DataAccess.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace GSMAuth.DataAccess.ContextDb;

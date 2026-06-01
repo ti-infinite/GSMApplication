@@ -3,7 +3,7 @@ using GSMAuth.Abstractions;
 
 namespace GSMAuth.Infrastructure.Security;
 
-public sealed class IdentityPasswordHasher : IPasswordHasher
+public sealed class PasswordHasher : IPasswordHasher
 {
     private readonly PasswordHasher<object> _hasher = new();
 

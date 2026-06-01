@@ -1,8 +1,10 @@
-using GSMAuth.Entities.Models;
+
+
+using GSMAuth.Entities.DTOs;
 
 namespace GSMAuth.Abstractions;
 
 public interface IUserAuthRepository
 {
-    Task<User?> GetByUsernameAsync(string companyId, string username, CancellationToken cancellationToken = default);
+    Task<UserDTO?> GetByUsernameAsync(string companyId, string username, CancellationToken cancellationToken = default);
 }

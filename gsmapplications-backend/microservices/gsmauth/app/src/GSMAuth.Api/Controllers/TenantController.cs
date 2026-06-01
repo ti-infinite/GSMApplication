@@ -1,10 +1,12 @@
 ﻿using GSMAuth.Abstractions;
 using GSMAuth.Entities.Common;
 using GSMAuth.Entities.DTOs;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GSMAuth.Api.Controllers;
 
+[AllowAnonymous]
 [ApiController]
 [Route("api/v1/tenant")]
 public sealed class TenantController : ControllerBase

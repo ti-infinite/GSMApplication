@@ -4,7 +4,6 @@ using Microsoft.EntityFrameworkCore;
 
 namespace GSMApplication.DataAccess.Entities;
 
-[Keyless]
 [Table("ApiRules", Schema = "db_ms")]
 public partial class ApiRule
 {

@@ -1,5 +1,6 @@
 using GSMApplication.Abstractions;
 using GSMApplication.Infrastructure.Context;
+using GSMApplication.Infrastructure.Security;
 using GSMApplication.Infrastructure.Tenant;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -14,6 +15,8 @@ public static class DependencyInjection
 
         services.AddScoped<IRequestContext, RequestContext>();
         services.AddScoped<ITenantConnectionResolver, TenantConnectionResolver>();
+
+        services.AddScoped<IPasswordHasher, PasswordHasher>();
         return services;
     }
 }

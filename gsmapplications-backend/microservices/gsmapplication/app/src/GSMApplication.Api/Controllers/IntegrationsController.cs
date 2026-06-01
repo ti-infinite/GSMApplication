@@ -31,7 +31,6 @@ public sealed class IntegrationsController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<ApiRule>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<ApiRule>), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ApiResponse<ApiRule>), StatusCodes.Status400BadRequest)]
-
     public async Task<IActionResult> UpdateApiRule(int idApiRule, [FromBody] ApiRuleDTO apiRule, CancellationToken cancellationToken )
     {
         var response = await _apiRulesManagementService.UpdateApiRule(idApiRule, apiRule, cancellationToken);

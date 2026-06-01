@@ -57,6 +57,14 @@ public sealed class AuthService : IAuthService
             return ApiResponse<LoginDto>.FailResult(Messages.Auth.InvalidCredentials, ErrorType.Unauthorized);
         }
 
+        await _userAuthRepository.UpdateLastLoginAsync(
+            companyId,
+            user.IdUser,
+            DateTime.UtcNow,
+            cancellationToken
+        );
+
+
         var tokenClaims = new TokenClaimsDto
         {
             IdUser = user.IdUser,

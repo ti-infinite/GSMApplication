@@ -77,6 +77,7 @@ public sealed class UsersManagementService : IUsersManagementService
 
 
         entity.PasswordHash = _passwordHasher.Hash(userPasswordUpdated.NewPassword);
+        entity.PasswordUpdateDate = DateTime.UtcNow;
 
         await _context.SaveChangesAsync(cancellationToken);
 

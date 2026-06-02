@@ -1,6 +1,7 @@
 using GSMOperations.Api;
 using GSMOperations.Api.Filters;
 using GSMOperations.Api.Middleware;
+using Microsoft.AspNetCore.Mvc;
 using GSMOperations.Business;
 using GSMOperations.DataAccess;
 using GSMOperations.Entities.Common;
@@ -40,6 +41,13 @@ builder.Services.AddControllers(options =>
 .AddJsonOptions(options =>
 {
     options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+})
+.ConfigureApiBehaviorOptions(options =>
+{
+    options.InvalidModelStateResponseFactory = _ =>
+        new BadRequestObjectResult(
+            ApiResponse<object>.FailResult("Invalid request data.", ErrorType.Validation)
+        );
 });
 
 builder.Services.AddEndpointsApiExplorer();
@@ -55,6 +63,8 @@ builder.Services.AddSwaggerGen(options =>
         Version = "v1",
         Description = "Microservicio de operaciones con soporte tenant database-per-tenant."
     });
+
+    options.CustomOperationIds(e => e.ActionDescriptor.RouteValues.TryGetValue("action", out var action) ? action : null);
 
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {

@@ -74,7 +74,7 @@ public class ExceptionMiddleware
         var response = ApiResponse<object>.FailResult(
             message,
             errorType,
-            traceId,
+            _env.IsDevelopment() ? traceId : null,
             _env.IsDevelopment() ? exception.ToString() : null
         );
 

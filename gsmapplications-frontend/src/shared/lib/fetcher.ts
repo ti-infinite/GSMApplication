@@ -1,4 +1,3 @@
-import { getToken } from '@/shared/lib/auth'
 import { type ApiError } from '@/shared/lib/errorType'
 
 // Orval serializes array params as a single comma-joined string (String(array)).
@@ -18,17 +17,22 @@ async function serviceFetch<T>(
   url: string,
   options?: RequestInit,
 ): Promise<T> {
-  const token = getToken()
   const gatewayUrl = `${gatewayPrefix}${expandArrayParams(url).replace(/^\/api/, '')}`
 
   const response = await fetch(gatewayUrl, {
     ...options,
+    credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options?.headers,
     },
   })
+
+  if (response.status === 401) {
+    const locale = window.location.pathname.split('/')[1] || 'en'
+    window.location.replace(`/${locale}/login`)
+    throw new Error('Session expired')
+  }
 
   if (!response.ok) throw new Error(`${response.status} ${response.statusText}`)
 
@@ -36,7 +40,7 @@ async function serviceFetch<T>(
 
   if ('success' in json && !json.success) {
     const err = new Error(json.message ?? 'Request failed') as ApiError
-    err.errorType = json.errorType
+    err.errorType = json.errorType ?? undefined
     throw err
   }
 
@@ -48,6 +52,9 @@ export const applicationFetch = <T>(url: string, options?: RequestInit) =>
 
 export const authFetch = <T>(url: string, options?: RequestInit) =>
   serviceFetch<T>('/api/security', url, options)
+
+export const operationsFetch = <T>(url: string, options?: RequestInit) =>
+  serviceFetch<T>('/api/operations', url, options)
 
 // alias kept for any remaining generated files referencing customFetch
 export const customFetch = applicationFetch

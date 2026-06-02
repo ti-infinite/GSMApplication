@@ -3,7 +3,6 @@ import { Outlet, useParams, Navigate } from 'react-router-dom'
 import Cookies from 'js-cookie'
 import i18n from '@/app/i18n'
 import { TenantProvider } from '@/app/providers/TenantProvider'
-import { isTokenValid, getCompanyIdFromToken, getToken } from '@/shared/lib/auth'
 import { DEFAULT_TENANT_ID, getBrandingFromCompanyId } from '@/shared/lib/tenants'
 import { isSupportedLocale } from '@/shared/hooks/useLocale'
 
@@ -20,14 +19,7 @@ export default function LocaleLayout() {
     return <Navigate to="/en/login" replace />
   }
 
-  const token      = getToken()
-  const gsmCompany = Cookies.get('gsm_company')
-
-  const companyId = (token && isTokenValid(token) ? getCompanyIdFromToken(token) : null)
-    ?? gsmCompany
-    ?? DEFAULT_TENANT_ID
-    ?? ''
-
+  const companyId      = Cookies.get('gsm_company') ?? DEFAULT_TENANT_ID ?? ''
   const initialBranding = getBrandingFromCompanyId(companyId)
 
   return (

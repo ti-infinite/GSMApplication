@@ -6,5 +6,5 @@ namespace GSMApplication.Business.Interfaces;
 public interface IUsersManagementService
 {
     Task<ApiResponse<ResponseUserDTO>> CreateUser(CreateUserDTO userCreated, CancellationToken cancellationToken = default);
-    Task<ApiResponse<bool>> UpdateUserPassword(int idUser, UpdateUserPasswordDTO userPasswordUpdated, CancellationToken cancellationToken = default);
+    Task<ApiResponse<bool>> UpdateUserPassword(Guid idUser, UpdateUserPasswordDTO userPasswordUpdated, CancellationToken cancellationToken = default);
 }

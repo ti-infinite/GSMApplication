@@ -1,8 +1,8 @@
-using GSMApplication.DataAccess.ContextDb;
+﻿using GSMApplication.DataAccess.ContextDb;
 using GSMApplication.DataAccess.Entities;
 using GSMApplication.Entities.Common;
 using GSMApplication.Entities.DTOs;
-using GSMApplication.Entities.Interfaces;
+using GSMApplication.Business.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
 namespace GSMApplication.Business.Services;

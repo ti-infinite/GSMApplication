@@ -15,10 +15,6 @@ export default defineConfig({
           path: './src/shared/lib/fetcher.ts',
           name: 'applicationFetch',
         },
-        query: {
-          useQuery:         true,
-          useSuspenseQuery: false,
-        },
       },
     },
   },
@@ -36,9 +32,25 @@ export default defineConfig({
           path: './src/shared/lib/fetcher.ts',
           name: 'authFetch',
         },
-        query: {
-          useQuery:         true,
-          useSuspenseQuery: false,
+      },
+    },
+  },
+  gsmOperations: {
+    input: {
+      target: './swagger/gsm-operations.json',
+      filters: {
+        tags: ['Integrations'],
+      },
+    },
+    output: {
+      client:  'react-query',
+      target:  './src/shared/api/operations',
+      schemas: './src/shared/api/operations/model',
+      mode:    'tags-split',
+      override: {
+        mutator: {
+          path: './src/shared/lib/fetcher.ts',
+          name: 'operationsFetch',
         },
       },
     },

@@ -94,6 +94,16 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ),
             ClockSkew = TimeSpan.Zero
         };
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = ctx =>
+            {
+                if (string.IsNullOrEmpty(ctx.Token) &&
+                    ctx.Request.Cookies.TryGetValue("gsm_token", out var cookieToken))
+                    ctx.Token = cookieToken;
+                return Task.CompletedTask;
+            }
+        };
     });
 
 builder.Services.AddAuthorization(options =>

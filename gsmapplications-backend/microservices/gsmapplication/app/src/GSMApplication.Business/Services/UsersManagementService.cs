@@ -50,7 +50,7 @@ public sealed class UsersManagementService : IUsersManagementService
         );
     }
 
-    public async Task<ApiResponse<bool>> UpdateUserPassword(int idUser, UpdateUserPasswordDTO userPasswordUpdated, CancellationToken cancellationToken = default)
+    public async Task<ApiResponse<bool>> UpdateUserPassword(Guid idUser, UpdateUserPasswordDTO userPasswordUpdated, CancellationToken cancellationToken = default)
     {
         var entity = await _context.Users.FindAsync(new object[] { idUser } ,cancellationToken);
 
@@ -64,7 +64,7 @@ public sealed class UsersManagementService : IUsersManagementService
 
         if (!oldPasswordIsValid)
         {
-            return ApiResponse<bool>.FailResult(Messages.Application.InvalidOldPassword, ErrorType.BadRequest);
+            return ApiResponse<bool>.FailResult(Messages.Application.InvalidOldPassword, ErrorType.Unauthorized);
         }
 
         
@@ -76,8 +76,9 @@ public sealed class UsersManagementService : IUsersManagementService
         }
 
 
-        entity.PasswordHash = _passwordHasher.Hash(userPasswordUpdated.NewPassword);
-        entity.PasswordUpdateDate = DateTime.UtcNow;
+        entity.PasswordHash           = _passwordHasher.Hash(userPasswordUpdated.NewPassword);
+        entity.PasswordChangeRequired = false;
+        entity.PasswordUpdateDate     = DateTime.UtcNow;
 
         await _context.SaveChangesAsync(cancellationToken);
 

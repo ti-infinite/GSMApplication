@@ -1,16 +1,18 @@
-export type ApiError = Error & { errorType?: number }
+import { ErrorType } from '@/shared/api/auth/model'
 
-// Maps ErrorType enum (backend) to i18n keys
-// ErrorType: Validation=0, Unauthorized=1, NotFound=2, BadRequest=3, Conflict=4, Internal=5
-const ERROR_KEYS: Record<number, string> = {
-  0: 'errors.validation',
-  1: 'errors.unauthorized',
-  2: 'errors.notFound',
-  3: 'errors.badRequest',
-  4: 'errors.conflict',
-  5: 'errors.server',
+export type ApiError = Error & { errorType?: string }
+
+const ERROR_KEYS: Record<string, string> = {
+  [ErrorType.Validation]:   'errors.validation',
+  [ErrorType.Unauthorized]: 'errors.unauthorized',
+  [ErrorType.NotFound]:     'errors.notFound',
+  [ErrorType.BadRequest]:   'errors.badRequest',
+  [ErrorType.Conflict]:     'errors.conflict',
+  [ErrorType.Internal]:     'errors.server',
+  [ErrorType.Forbidden]:    'errors.forbidden',
 }
 
-export function errorTypeToKey(errorType?: number): string {
-  return ERROR_KEYS[errorType ?? 5] ?? 'errors.server'
+export function errorTypeToKey(errorType?: string): string {
+  if (!errorType) return 'errors.server'
+  return ERROR_KEYS[errorType] ?? 'errors.server'
 }

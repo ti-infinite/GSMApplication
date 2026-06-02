@@ -1,16 +1,13 @@
 import { useEffect } from 'react'
 import { Outlet, useNavigate, useParams } from 'react-router-dom'
-import Cookies from 'js-cookie'
-import { isTokenValid, getToken, isPasswordChangeRequired } from '@/shared/lib/auth'
+import { isSessionActive, isPasswordChangeRequired } from '@/shared/lib/auth'
 
 export default function AuthGuard() {
   const { locale } = useParams<{ locale: string }>()
   const navigate = useNavigate()
 
   useEffect(() => {
-    const token = getToken()
-    if (!token || !isTokenValid(token)) {
-      Cookies.remove('gsm_token')
+    if (!isSessionActive()) {
       navigate(`/${locale}/login`, { replace: true })
       return
     }
@@ -19,8 +16,7 @@ export default function AuthGuard() {
     }
   }, [locale, navigate])
 
-  const token = getToken()
-  if (!token || !isTokenValid(token)) return null
+  if (!isSessionActive()) return null
   if (isPasswordChangeRequired()) return null
 
   return <Outlet />

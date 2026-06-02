@@ -2,12 +2,10 @@ using GSMApplication.Abstractions;
 using GSMApplication.Business.Interfaces;
 using GSMApplication.Entities.Common;
 using GSMApplication.Entities.DTOs;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GSMApplication.Api.Controllers;
 
-[Authorize]
 [ApiController]
 [Route("api/v1/[controller]")]
 public sealed class ApplicationController : ControllerBase

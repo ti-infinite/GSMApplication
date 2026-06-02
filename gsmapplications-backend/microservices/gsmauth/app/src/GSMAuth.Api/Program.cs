@@ -1,6 +1,7 @@
 using GSMAuth.Business;
 using GSMAuth.Entities.Common;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using GSMAuth.DataAccess;
 using GSMAuth.Infrastructure;
 using GSMAuth.Tenant;
@@ -36,6 +37,13 @@ builder.Services.AddControllers(options =>
 .AddJsonOptions(options =>
 {
     options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+})
+.ConfigureApiBehaviorOptions(options =>
+{
+    options.InvalidModelStateResponseFactory = _ =>
+        new BadRequestObjectResult(
+            ApiResponse<object>.FailResult("Invalid request data.", ErrorType.Validation)
+        );
 });
 builder.Services.AddEndpointsApiExplorer();
 
@@ -140,6 +148,16 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                 IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret)),
                 ClockSkew = TimeSpan.Zero
             };
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = ctx =>
+            {
+                if (string.IsNullOrEmpty(ctx.Token) &&
+                    ctx.Request.Cookies.TryGetValue("gsm_token", out var cookieToken))
+                    ctx.Token = cookieToken;
+                return Task.CompletedTask;
+            }
+        };
     });
 
 var app = builder.Build();

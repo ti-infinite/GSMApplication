@@ -2,15 +2,17 @@ import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { ExternalLink } from 'lucide-react'
-import { getToken } from '@/shared/lib/auth'
-import { type ConfigEntry, type MediaResource, parseConfig, getLocaleContent } from '@/shared/lib/mediaConfig'
+import { isSessionActive } from '@/shared/lib/auth'
+import { type ConfigEntry, parseConfig, getLocaleContent } from '@/shared/lib/mediaConfig'
 import { useGetMediaResources } from '@/shared/api/application/application/application'
+import type { MultimediaResourceDtoListApiResponse } from '@/shared/api/application/model'
 import { Button } from '@/shared/ui/button'
 import { Skeleton } from '@/shared/ui/skeleton'
 import { ResponsiveIframe } from '@/shared/ui/responsive-iframe'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/ui/tooltip'
 
 function ResourceViewer({ content, title }: { content: ConfigEntry; title: string }) {
+  const { t } = useTranslation()
   const type = content.TYPE?.toLowerCase()
 
   if (!content.SRC) return null
@@ -28,7 +30,7 @@ function ResourceViewer({ content, title }: { content: ConfigEntry; title: strin
             className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
           >
             <ExternalLink className="h-4 w-4" />
-            Open PDF
+            {t('common.openPdf')}
           </a>
         </div>
       )
@@ -46,7 +48,7 @@ function ResourceViewer({ content, title }: { content: ConfigEntry; title: strin
           className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
         >
           <ExternalLink className="h-4 w-4" />
-          Open Resource
+          {t('common.openResource')}
         </a>
       </div>
     )
@@ -66,7 +68,7 @@ function ResourceViewer({ content, title }: { content: ConfigEntry; title: strin
           target="_blank"
           rel="noopener noreferrer"
           className="ml-3 shrink-0 rounded-md border border-primary/20 bg-primary/10 p-1.5 text-primary transition-colors hover:bg-primary/20"
-          title="Open in new tab"
+          title={t('common.openInNewTab')}
         >
           <ExternalLink className="h-3.5 w-3.5" />
         </a>
@@ -91,8 +93,8 @@ export function MediaPage({ category, i18nPrefix }: MediaPageProps) {
     {
       query: {
         staleTime: 2 * 60 * 1000,
-        enabled:   !!getToken(),
-        select: (response) => (response.data.data ?? []).map(r => ({
+        enabled:   isSessionActive(),
+        select: (response) => ((response.data as MultimediaResourceDtoListApiResponse).data ?? []).map(r => ({
           resourceCategory: r.resourceCategory ?? '',
           resourceOrder:    r.resourceOrder    ?? 0,
           config:           parseConfig(r.config ?? ''),

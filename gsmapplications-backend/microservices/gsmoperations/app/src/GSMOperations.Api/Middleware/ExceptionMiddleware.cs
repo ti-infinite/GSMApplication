@@ -41,7 +41,7 @@ public class ExceptionMiddleware
     {
         if (context.Response.HasStarted)
         {
-            _logger.LogWarning("Response already started. Cannot handle exception.");
+            _logger.LogWarning("Response already started. Cannot handle exception. TraceId: {TraceId}", traceId);
             return;
         }
 
@@ -75,7 +75,7 @@ public class ExceptionMiddleware
         var response = ApiResponse<object>.FailResult(
             message,
             errorType,
-            traceId,
+            _env.IsDevelopment() ? traceId : null,
             _env.IsDevelopment() ? exception.ToString() : null
         );
 

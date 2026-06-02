@@ -1,8 +1,7 @@
-using GSMApplication.DataAccess.Entities;
 using GSMApplication.Entities.Common;
 using GSMApplication.Entities.DTOs;
 
-namespace GSMApplication.Entities.Interfaces;
+namespace GSMApplication.Business.Interfaces;
 
 public interface IApiRulesManagementService
 {

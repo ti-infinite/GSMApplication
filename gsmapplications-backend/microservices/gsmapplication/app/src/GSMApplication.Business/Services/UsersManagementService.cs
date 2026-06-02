@@ -52,7 +52,7 @@ public sealed class UsersManagementService : IUsersManagementService
 
     public async Task<ApiResponse<bool>> UpdateUserPassword(Guid idUser, UpdateUserPasswordDTO userPasswordUpdated, CancellationToken cancellationToken = default)
     {
-        var entity = await _context.Users.FindAsync(new object[] { idUser } ,cancellationToken);
+        var entity = await _context.Users.FindAsync([idUser] ,cancellationToken);
 
         if (entity is null)
         {

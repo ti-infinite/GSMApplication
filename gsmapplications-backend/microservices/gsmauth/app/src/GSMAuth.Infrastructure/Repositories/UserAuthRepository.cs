@@ -56,7 +56,7 @@ public sealed class UserAuthRepository : IUserAuthRepository
 
         await using var tenantDb = TenantAuthDbContextFactory.Create(tenantConnection.BuildConnectionString());
 
-        var user = await tenantDb.Users.FindAsync(new object[] { idUser }, cancellationToken);
+        var user = await tenantDb.Users.FindAsync([idUser], cancellationToken);
 
         if (user is null)
             return;

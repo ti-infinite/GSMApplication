@@ -11,4 +11,18 @@ public sealed class OperationsController : ControllerBase
 
     }
 
+    [HttpGet("parameters")]
+    public Task<IActionResult> GetParameters(CancellationToken cancellationToken)
+    {
+
+        return Task.FromResult<IActionResult>(Ok());
+    }
+
+    [HttpGet("categories")]
+    public Task<IActionResult> GetCategories(CancellationToken cancellationToken)
+    {
+        return Task.FromResult<IActionResult>(Ok());
+    }
+
+
 }

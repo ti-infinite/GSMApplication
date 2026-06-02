@@ -50,7 +50,6 @@ export function buildThemeCSS(theme: TenantTheme, tenantSlug: string): string {
   return `${sel} {\n${toVars(theme.light)}\n}\n${sel}.dark {\n${toVars(theme.dark)}\n}`
 }
 
-export { isTokenValid, getCompanyIdFromToken, getUserNameFromToken } from '@/shared/lib/auth'
 
 const THEME_CACHE_KEY = 'gsm_theme_vars'
 

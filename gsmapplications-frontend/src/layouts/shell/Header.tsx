@@ -1,4 +1,4 @@
-import { Globe, Menu, Search, LogOut, Settings } from 'lucide-react'
+import { Globe, Menu, LogOut, Settings } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { useLocale } from '@/shared/hooks/useLocale'
@@ -49,12 +49,7 @@ export default function Header({ locale, userName, onMenuToggle, onLogout }: Pro
         <Menu className="h-5 w-5" />
       </button>
 
-      <div className="hidden flex-1 items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-1.5 text-sm text-muted-foreground sm:flex">
-        <Search className="h-4 w-4 shrink-0" />
-        <span>Search or type command...</span>
-      </div>
-
-      <div className="flex-1 sm:hidden" />
+      <div className="flex-1" />
 
       <button
         type="button"

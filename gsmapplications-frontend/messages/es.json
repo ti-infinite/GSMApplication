@@ -2,15 +2,15 @@
   "login": {
     "welcome": "Bienvenido a",
     "title": "Iniciar Sesión",
-    "subtitle": "Ingresa tus credenciales para acceder a la plataforma",
+    "subtitle": "Ingresa las credenciales para acceder a la plataforma",
     "companyId": "ID de Empresa",
     "companyIdPlaceholder": "ej. IH001",
     "username": "Usuario",
-    "usernamePlaceholder": "Tu nombre de usuario",
+    "usernamePlaceholder": "Nombre de usuario",
     "password": "Contraseña",
     "passwordPlaceholder": "••••••••",
-    "rememberMe": "Recuérdame",
-    "forgotPassword": "¿Olvidaste tu contraseña?",
+    "rememberMe": "Recordar sesión",
+    "forgotPassword": "¿Olvidaste la contraseña?",
     "submit": "Iniciar Sesión",
     "submitting": "Iniciando sesión…",
     "tagline": "Plataforma de Gestión Agrícola",
@@ -59,10 +59,21 @@
   "common": {
     "swipeHint": "Desliza para explorar",
     "open": "Abrir",
-    "cancel": "Cancelar"
+    "cancel": "Cancelar",
+    "loading": "Cargando...",
+    "openPdf": "Abrir PDF",
+    "openResource": "Abrir recurso",
+    "openInNewTab": "Abrir en nueva pestaña"
   },
   "newtab": {
-    "description": "Este contenido se abrirá en una nueva pestaña. Puedes volver a la app en cualquier momento."
+    "description": "Este contenido se abrirá en una nueva pestaña. Puedes volver a la app en cualquier momento.",
+    "open": "Abrir"
+  },
+  "biEmbed": {
+    "loading": "Cargando reporte...",
+    "error": "Error al cargar el reporte",
+    "ruleNotFound": "Regla de integración BI no encontrada.",
+    "invalidUrl": "El servicio no devolvió una URL de embed válida."
   },
   "activity": {
     "title": "Actividad de Versiones",
@@ -84,16 +95,16 @@
   },
   "sop": {
     "title": "SOP",
-    "subtitle": "Procedimientos Operativos Estándar para tus procesos agrícolas",
+    "subtitle": "Procedimientos Operativos Estándar para procesos agrícolas",
     "noResources": "No hay SOPs disponibles."
   },
   "settings": {
     "title": "Configuración",
-    "subtitle": "Administra las preferencias de tu cuenta"
+    "subtitle": "Preferencias de cuenta"
   },
   "profile": {
     "title": "Perfil",
-    "subtitle": "Información de tu cuenta",
+    "subtitle": "Información de cuenta",
     "fullName": "Nombre completo",
     "username": "Usuario",
     "email": "Correo electrónico",
@@ -104,31 +115,39 @@
   "changePassword": {
     "title": "Cambiar Contraseña",
     "forcedBadge": "Acción requerida",
-    "forcedSubtitle": "Debes cambiar tu contraseña antes de acceder a la plataforma.",
+    "forcedSubtitle": "Cambio de contraseña requerido antes de acceder a la plataforma.",
     "currentPassword": "Contraseña actual",
     "newPassword": "Nueva contraseña",
     "confirmPassword": "Confirmar nueva contraseña",
     "submit": "Cambiar contraseña",
     "submitting": "Guardando…",
-    "successMessage": "Contraseña cambiada exitosamente.",
+    "successMessage": "Contraseña actualizada.",
+    "redirectMessage": "Redirigiendo al inicio de sesión en {{seconds}}...",
+    "loginNow": "Ir al inicio de sesión",
     "errors": {
-      "currentRequired": "Ingresa tu contraseña actual.",
-      "newRequired": "Ingresa una nueva contraseña.",
+      "currentRequired": "Contraseña actual requerida.",
+      "newRequired": "Nueva contraseña requerida.",
       "minLength": "La contraseña debe tener al menos 8 caracteres.",
       "sameAsCurrent": "La nueva contraseña debe ser diferente a la actual.",
-      "confirmRequired": "Confirma tu nueva contraseña.",
+      "confirmRequired": "Confirmación de contraseña requerida.",
       "mismatch": "Las contraseñas no coinciden."
     }
   },
   "errors": {
     "serverConnection": "Error de conexión. Intenta de nuevo.",
-    "invalidCredentials": "Credenciales inválidas",
+    "invalidCredentials": "Credenciales inválidas.",
     "loginFailed": "Error al iniciar sesión. Intenta de nuevo.",
-    "validation": "Por favor verifica los campos requeridos.",
+    "validation": "Verifica los campos requeridos.",
     "unauthorized": "Credenciales inválidas. Intenta de nuevo.",
     "notFound": "Recurso no encontrado.",
     "badRequest": "Solicitud inválida.",
     "conflict": "Ocurrió un conflicto. Intenta de nuevo.",
-    "server": "Error del servidor. Intenta más tarde."
+    "forbidden": "Acceso no permitido.",
+    "server": "Error del servidor. Intenta más tarde.",
+    "boundary": {
+      "title": "Algo salió mal",
+      "subtitle": "Ocurrió un error inesperado. Recarga la página.",
+      "reload": "Recargar página"
+    }
   }
 }

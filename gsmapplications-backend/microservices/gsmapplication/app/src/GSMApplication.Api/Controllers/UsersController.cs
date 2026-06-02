@@ -14,12 +14,12 @@ public sealed class UsersController : ControllerBase
         _usersManagementService = usersManagementService; 
     }
 
-    [HttpPut("{idUser}/password")]
-    public async Task<IActionResult> UpdateUserPassword([FromRoute] int idUser, [FromBody] UpdateUserPasswordDTO userPasswordUpdated, CancellationToken cancellationToken)
+    [HttpPut("{idUser:guid}/password")]
+    public async Task<IActionResult> UpdateUserPassword([FromRoute] Guid idUser, [FromBody] UpdateUserPasswordDTO userPasswordUpdated, CancellationToken cancellationToken)
     {
         var result = await _usersManagementService.UpdateUserPassword(idUser, userPasswordUpdated, cancellationToken);
-        
-        return Ok(result); 
+
+        return Ok(result);
     }
 
 

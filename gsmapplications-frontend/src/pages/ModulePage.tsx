@@ -1,5 +1,6 @@
 import { lazy, Suspense } from 'react'
 import { useParams, useOutletContext } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import ComingSoon from '@/shared/components/ComingSoon'
 import ExternalPage from '@/shared/components/ExternalPage'
 import type { DashboardOutletCtx } from '@/shared/lib/menu'
@@ -21,6 +22,7 @@ function slugToTitle(slug: string): string {
 export default function ModulePage() {
   const { '*': slug = '' } = useParams()
   const { menuOptions } = useOutletContext<DashboardOutletCtx>()
+  const { t } = useTranslation()
 
   const option = menuOptions.find(o => o.Route?.endsWith(`/${slug}`))
 
@@ -38,7 +40,7 @@ export default function ModulePage() {
   if (!Component) return <ComingSoon title={slugToTitle(slug)} />
 
   return (
-    <Suspense fallback={<div className="p-8 text-muted-foreground">Loading...</div>}>
+    <Suspense fallback={<div className="p-8 text-muted-foreground">{t('common.loading')}</div>}>
       <Component />
     </Suspense>
   )

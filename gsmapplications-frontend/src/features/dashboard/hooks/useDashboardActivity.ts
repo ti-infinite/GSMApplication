@@ -1,6 +1,7 @@
-import { getToken } from '@/shared/lib/auth'
+import { isSessionActive } from '@/shared/lib/auth'
 import { parseConfig, type MediaResource } from '@/shared/lib/mediaConfig'
 import { useGetMediaResources } from '@/shared/api/application/application/application'
+import type { MultimediaResourceDtoListApiResponse } from '@/shared/api/application/model'
 
 type UseDashboardActivityResult = {
   activity: MediaResource[]
@@ -14,8 +15,8 @@ export function useDashboardActivity(): UseDashboardActivityResult {
     {
       query: {
         staleTime: 2 * 60 * 1000,
-        enabled:   !!getToken(),
-        select: (response) => (response.data.data ?? []).map(r => ({
+        enabled:   isSessionActive(),
+        select: (response) => ((response.data as MultimediaResourceDtoListApiResponse).data ?? []).map(r => ({
           resourceCategory: r.resourceCategory ?? '',
           resourceOrder:    r.resourceOrder    ?? 0,
           config:           parseConfig(r.config ?? ''),

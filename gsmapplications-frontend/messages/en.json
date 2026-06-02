@@ -2,11 +2,11 @@
   "login": {
     "welcome": "Welcome to",
     "title": "Sign In",
-    "subtitle": "Enter your credentials to access the platform",
+    "subtitle": "Enter credentials to access the platform",
     "companyId": "Company ID",
     "companyIdPlaceholder": "e.g. IH001",
     "username": "Username",
-    "usernamePlaceholder": "Your username",
+    "usernamePlaceholder": "Username",
     "password": "Password",
     "passwordPlaceholder": "••••••••",
     "rememberMe": "Remember me",
@@ -59,10 +59,21 @@
   "common": {
     "swipeHint": "Swipe to browse",
     "open": "Open",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "loading": "Loading...",
+    "openPdf": "Open PDF",
+    "openResource": "Open resource",
+    "openInNewTab": "Open in new tab"
   },
   "newtab": {
-    "description": "This content will open in a new tab. You can return to the app at any time."
+    "description": "This content opens in a new tab. Return to the app at any time.",
+    "open": "Open"
+  },
+  "biEmbed": {
+    "loading": "Loading report...",
+    "error": "Error loading report",
+    "ruleNotFound": "BI integration rule not found.",
+    "invalidUrl": "Service did not return a valid embed URL."
   },
   "activity": {
     "title": "Release Activity",
@@ -84,16 +95,16 @@
   },
   "sop": {
     "title": "SOP",
-    "subtitle": "Standard Operating Procedures for your agricultural processes",
+    "subtitle": "Standard Operating Procedures for agricultural processes",
     "noResources": "No SOPs available."
   },
   "settings": {
     "title": "Settings",
-    "subtitle": "Manage your account preferences"
+    "subtitle": "Account preferences"
   },
   "profile": {
     "title": "Profile",
-    "subtitle": "Your account information",
+    "subtitle": "Account information",
     "fullName": "Full name",
     "username": "Username",
     "email": "Email",
@@ -104,31 +115,39 @@
   "changePassword": {
     "title": "Change Password",
     "forcedBadge": "Action required",
-    "forcedSubtitle": "Your password must be changed before accessing the platform.",
+    "forcedSubtitle": "Password change required before accessing the platform.",
     "currentPassword": "Current password",
     "newPassword": "New password",
     "confirmPassword": "Confirm new password",
     "submit": "Change password",
     "submitting": "Saving…",
-    "successMessage": "Password changed successfully.",
+    "successMessage": "Password updated.",
+    "redirectMessage": "Redirecting to login in {{seconds}}...",
+    "loginNow": "Go to login",
     "errors": {
-      "currentRequired": "Enter your current password.",
-      "newRequired": "Enter a new password.",
+      "currentRequired": "Current password is required.",
+      "newRequired": "New password is required.",
       "minLength": "Password must be at least 8 characters.",
-      "sameAsCurrent": "New password must be different from the current one.",
-      "confirmRequired": "Confirm your new password.",
+      "sameAsCurrent": "New password must differ from the current one.",
+      "confirmRequired": "Password confirmation is required.",
       "mismatch": "Passwords do not match."
     }
   },
   "errors": {
     "serverConnection": "Connection error. Please try again.",
-    "invalidCredentials": "Invalid credentials",
-    "loginFailed": "Login failed. Please try again.",
-    "validation": "Please check the required fields.",
+    "invalidCredentials": "Invalid credentials.",
+    "loginFailed": "Sign in failed. Please try again.",
+    "validation": "Check the required fields.",
     "unauthorized": "Invalid credentials. Please try again.",
     "notFound": "Resource not found.",
     "badRequest": "Invalid request.",
     "conflict": "A conflict occurred. Please try again.",
-    "server": "Server error. Please try again later."
+    "forbidden": "Access not allowed.",
+    "server": "Server error. Please try again later.",
+    "boundary": {
+      "title": "Something went wrong",
+      "subtitle": "An unexpected error occurred. Please reload the page.",
+      "reload": "Reload page"
+    }
   }
 }

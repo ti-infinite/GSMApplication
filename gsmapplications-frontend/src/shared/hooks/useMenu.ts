@@ -1,7 +1,8 @@
 import { useTranslation } from 'react-i18next'
-import { getToken } from '@/shared/lib/auth'
+import { isSessionActive } from '@/shared/lib/auth'
 import type { MenuOption } from '@/shared/lib/menu'
 import { useGetMenu } from '@/shared/api/application/application/application'
+import type { GetMenuDtoApiResponse } from '@/shared/api/application/model'
 
 type RawItem = MenuOption & {
   Name?:       string
@@ -52,14 +53,13 @@ type UseMenuResult = {
 
 export function useMenu(): UseMenuResult {
   const { t } = useTranslation()
-  const token = getToken()
 
   const { data: rawItems = [], isLoading, isError } = useGetMenu({
     query: {
-      queryKey:  ['menu', token],
+      queryKey:  ['menu'],
       staleTime: 5 * 60 * 1000,
-      enabled:   !!token,
-      select:    (response) => parseMenu(response.data.data?.menu ?? ''),
+      enabled:   isSessionActive(),
+      select:    (response) => parseMenu((response.data as GetMenuDtoApiResponse).data?.menu ?? ''),
     },
   })
 

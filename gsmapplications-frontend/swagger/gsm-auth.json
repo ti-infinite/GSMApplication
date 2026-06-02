@@ -2,7 +2,7 @@
   "openapi": "3.0.1",
   "info": {
     "title": "GSMAuth API",
-    "description": "Microservicio de autenticaciÃ³n con soporte tenant database-per-tenant.",
+    "description": "Microservicio de autenticación con soporte tenant database-per-tenant.",
     "version": "v1"
   },
   "paths": {
@@ -131,6 +131,19 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/v1/Auth/logout": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "operationId": "Logout",
+        "responses": {
+          "200": {
+            "description": "OK"
           }
         }
       }
@@ -278,15 +291,15 @@
       },
       "ErrorType": {
         "enum": [
-          0,
-          1,
-          2,
-          3,
-          4,
-          5
+          "Validation",
+          "Unauthorized",
+          "NotFound",
+          "BadRequest",
+          "Conflict",
+          "Internal",
+          "Forbidden"
         ],
-        "type": "integer",
-        "format": "int32"
+        "type": "string"
       },
       "LoginDto": {
         "type": "object",
@@ -320,6 +333,14 @@
           },
           "errorType": {
             "$ref": "#/components/schemas/ErrorType"
+          },
+          "traceId": {
+            "type": "string",
+            "nullable": true
+          },
+          "details": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -375,6 +396,14 @@
           },
           "errorType": {
             "$ref": "#/components/schemas/ErrorType"
+          },
+          "traceId": {
+            "type": "string",
+            "nullable": true
+          },
+          "details": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false

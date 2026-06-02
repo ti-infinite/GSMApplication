@@ -1,6 +1,7 @@
 using GSMApplication.Business;
 using GSMApplication.Entities.Common;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using GSMApplication.DataAccess;
 using GSMApplication.Infrastructure;
 using GSMApplication.Tenant;
@@ -40,6 +41,13 @@ builder.Services.AddControllers(options =>
 .AddJsonOptions(options =>
 {
     options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+})
+.ConfigureApiBehaviorOptions(options =>
+{
+    options.InvalidModelStateResponseFactory = _ =>
+        new BadRequestObjectResult(
+            ApiResponse<object>.FailResult("Invalid request data.", ErrorType.Validation)
+        );
 });
 
 builder.Services.AddEndpointsApiExplorer();
@@ -128,10 +136,7 @@ var secret = jwt["SecretKey"] ?? throw new InvalidOperationException("JwtSetting
 // ------------------------------------------------------------
 // Auth + Authorization
 // ------------------------------------------------------------
-builder.Services.AddAuthorization(options =>
-{
-    options.FallbackPolicy = options.DefaultPolicy;
-});
+builder.Services.AddAuthorization();
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>

@@ -1,13 +1,15 @@
+import { useTranslation } from 'react-i18next'
 import { useBiEmbed } from '@/shared/hooks/useBiEmbed'
 import type { ExternalRendererProps } from '../ExternalPage'
 
 export default function NhBiRenderer({ url, title }: ExternalRendererProps) {
+  const { t } = useTranslation()
   const state = useBiEmbed(url)
 
   if (state.status === 'loading') {
     return (
       <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
-        Cargando reporte...
+        {t('biEmbed.loading')}
       </div>
     )
   }
@@ -15,7 +17,7 @@ export default function NhBiRenderer({ url, title }: ExternalRendererProps) {
   if (state.status === 'error') {
     return (
       <div className="flex flex-1 items-center justify-center text-sm text-destructive">
-        Error al cargar el reporte: {state.message}
+        {t('biEmbed.error')}: {state.message}
       </div>
     )
   }

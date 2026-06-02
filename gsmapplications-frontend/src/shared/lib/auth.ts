@@ -1,6 +1,6 @@
 import Cookies from 'js-cookie'
 import { errorTypeToKey } from '@/shared/lib/errorType'
-import type { AuthenticatedUserDto } from '@/shared/api/auth/model'
+import { ErrorType, type AuthenticatedUserDto } from '@/shared/api/auth/model'
 
 export type LoginCredentials = {
   companyId: string
@@ -21,7 +21,7 @@ type LoginDataDto = {
 type LoginResponseDto = {
   success:    boolean
   message:    string
-  errorType?: number | null
+  errorType?: string | null
   data:       LoginDataDto
 }
 
@@ -31,8 +31,9 @@ export async function login(credentials: LoginCredentials): Promise<LoginResult>
 
   try {
     const res = await fetch('/api/security/v1/Auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method:      'POST',
+      headers:     { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({ IDCompany: companyId, User: user, Password: password }),
     })
     response = await res.json()
@@ -42,31 +43,33 @@ export async function login(credentials: LoginCredentials): Promise<LoginResult>
 
   if (!response.success) {
     const errorType = response.errorType ?? undefined
-    // Login failures (user not found or wrong password) always map to invalid credentials
-    // regardless of errorType to prevent user enumeration
-    const isCredentialError = errorType === 1 || errorType === 2
+    // Unauthorized and NotFound both map to invalid credentials to prevent user enumeration
+    const isCredentialError = errorType === ErrorType.Unauthorized || errorType === ErrorType.NotFound
     return { success: false, error: isCredentialError ? 'errors.unauthorized' : errorTypeToKey(errorType) }
   }
 
-  const token       = response.data?.token
   const expiresAt   = response.data?.expiresAtUtc
   const displayName = response.data?.user?.fullName || response.data?.user?.username
 
-  if (!token || !expiresAt) {
+  if (!expiresAt) {
     console.error('[auth] Unexpected login response shape:', response)
     return { success: false, error: 'errors.serverConnection' }
   }
 
   const expires = new Date(expiresAt)
-  Cookies.set('gsm_token', token, { expires, sameSite: 'lax', path: '/' })
-  Cookies.set('gsm_user_name', displayName ?? '', { expires, sameSite: 'lax', path: '/' })
+  // Store only the expiry timestamp so AuthGuard can check session without reading the token
+  const expUnix = Math.floor(expires.getTime() / 1000).toString()
+
+  Cookies.set('gsm_exp',       expUnix,          { expires, sameSite: 'strict', path: '/' })
+  Cookies.set('gsm_user_name', displayName ?? '', { expires, sameSite: 'strict', path: '/' })
+  Cookies.set('gsm_company',   companyId,         { expires, sameSite: 'strict', path: '/' })
 
   if (response.data?.user) {
     sessionStorage.setItem('gsm_user', JSON.stringify(response.data.user))
   }
 
   if (response.data?.user?.passwordChangeRequired) {
-    Cookies.set('gsm_pwd_change', '1', { expires, sameSite: 'lax', path: '/' })
+    Cookies.set('gsm_pwd_change', '1', { expires, sameSite: 'strict', path: '/' })
   } else {
     Cookies.remove('gsm_pwd_change')
   }
@@ -88,17 +91,17 @@ export async function changePassword(
   currentPassword: string,
   newPassword: string,
 ): Promise<ChangePasswordResult> {
-  const token = getToken()
+  const idUser = getStoredUser()?.idUser
+  if (!idUser) return { success: false, error: 'errors.serverConnection' }
+
   let response: ChangePasswordResponseDto
 
   try {
-    const res = await fetch('/api/security/v1/Auth/changePassword', {
-      method:  'POST',
-      headers: {
-        'Content-Type':  'application/json',
-        Authorization:   `Bearer ${token}`,
-      },
-      body: JSON.stringify({ CurrentPassword: currentPassword, NewPassword: newPassword }),
+    const res = await fetch(`/api/application/v1/users/${idUser}/password`, {
+      method:      'PUT',
+      headers:     { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ oldPassword: currentPassword, newPassword }),
     })
     response = await res.json()
   } catch {
@@ -117,8 +120,10 @@ export function isPasswordChangeRequired(): boolean {
   return Cookies.get('gsm_pwd_change') === '1'
 }
 
-export function getToken(): string {
-  return Cookies.get('gsm_token') ?? ''
+export function isSessionActive(): boolean {
+  const exp = Cookies.get('gsm_exp')
+  if (!exp) return false
+  return parseInt(exp, 10) > Math.floor(Date.now() / 1000)
 }
 
 export function getStoredUser(): AuthenticatedUserDto | null {
@@ -130,40 +135,12 @@ export function getStoredUser(): AuthenticatedUserDto | null {
   }
 }
 
-export function logout() {
-  Cookies.remove('gsm_token')
+export function logout(): void {
+  Cookies.remove('gsm_exp')
   Cookies.remove('gsm_user_name')
   Cookies.remove('gsm_company')
-  sessionStorage.removeItem('gsm_user')
-}
-
-function decodeTokenPayload(token: string): Record<string, unknown> | null {
-  try {
-    const b64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')
-    return JSON.parse(atob(b64))
-  } catch {
-    return null
-  }
-}
-
-export function isTokenValid(token: string): boolean {
-  const payload = decodeTokenPayload(token)
-  return typeof payload?.exp === 'number' && payload.exp > Math.floor(Date.now() / 1000)
-}
-
-export function getCompanyIdFromToken(token: string): string | null {
-  const payload = decodeTokenPayload(token)
-  return (payload?.companyId as string) ?? null
-}
-
-export function getUserNameFromToken(token: string): string {
-  const payload = decodeTokenPayload(token)
-  if (!payload) return ''
-  return (
-    (payload.fullName as string) ??
-    (payload.name as string) ??
-    (payload.unique_name as string) ??
-    (payload.sub as string) ??
-    ''
-  )
+  Cookies.remove('gsm_pwd_change')
+  sessionStorage.clear()
+  // Fire-and-forget: tells the server to clear the httpOnly gsm_token cookie
+  fetch('/api/security/v1/Auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {})
 }

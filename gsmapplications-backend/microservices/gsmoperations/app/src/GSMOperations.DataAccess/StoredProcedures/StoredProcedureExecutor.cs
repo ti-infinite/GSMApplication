@@ -1,9 +1,6 @@
-﻿
-
-using GSMOperations.DataAccess.ContextFactory;
+﻿using GSMOperations.DataAccess.ContextDb;
 using GSMOperations.DataAccess.Interfaces;
 using GSMOperations.Entities.Models;
-using GSMOperations.Tenant;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
@@ -12,26 +9,18 @@ namespace GSMOperations.DataAccess.StoredProcedures
 {
     public sealed class StoredProcedureExecutor : IStoredProcedureExecutor
     {
-        private readonly TenantContext _tenantContext;
+        private readonly TenantOperationsDbContext _context;
 
-        public StoredProcedureExecutor(TenantContext tenantContext)
+        public StoredProcedureExecutor(TenantOperationsDbContext context)
         {
-            _tenantContext = tenantContext;
+            _context = context;
         }
 
         public async Task<string> ExecuteSpScalarAsync(StoredProcedureModel sp, CancellationToken cancellationToken = default)
         {
-            var connectionInfo = _tenantContext.ConnectionInfo ?? throw new InvalidOperationException("Tenant not initialized.");
-
-            var connectionString = connectionInfo.BuildConnectionString();
-
-            await using var context = TenantApplicationDbContextFactory.Create(connectionString);
-
             var (sql, parameters) = BuildSpExecution(sp);
 
-            await using var connection = context.Database.GetDbConnection();
-
-            await connection.OpenAsync(cancellationToken);
+            var connection = _context.Database.GetDbConnection();
 
             await using var command = connection.CreateCommand();
             command.CommandText = sql;
@@ -42,40 +31,29 @@ namespace GSMOperations.DataAccess.StoredProcedures
                 command.Parameters.Add(parameter);
             }
 
-            var result = await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
+            if (connection.State != System.Data.ConnectionState.Open)
+                await connection.OpenAsync(cancellationToken);
+
+            var result = await command.ExecuteScalarAsync(cancellationToken);
 
             return result?.ToString() ?? string.Empty;
         }
 
         public async Task<int> ExecuteSpAsyncNoReturn(StoredProcedureModel sp, CancellationToken cancellationToken = default)
         {
-            var connectionInfo = _tenantContext.ConnectionInfo
-                ?? throw new InvalidOperationException("Tenant not initialized.");
-
-            var connectionString = connectionInfo.BuildConnectionString();
-
-            await using var context = TenantApplicationDbContextFactory.Create(connectionString);
-
             var (sql, parameters) = BuildSpExecution(sp);
 
-            return await context.Database
+            return await _context.Database
                 .ExecuteSqlRawAsync(sql, parameters, cancellationToken)
                 .ConfigureAwait(false);
         }
 
         public async Task<List<T>> ExecuteSpAsyncWithReturn<T>(StoredProcedureModel sp, CancellationToken cancellationToken = default) where T : class
         {
-            var connectionInfo = _tenantContext.ConnectionInfo
-                ?? throw new InvalidOperationException("Tenant not initialized.");
-
-            var connectionString = connectionInfo.BuildConnectionString();
-
-            await using var context = TenantApplicationDbContextFactory.Create(connectionString);
-
             var (sql, parameters) = BuildSpExecution(sp);
 
-            return await context.Database
-                .SqlQueryRaw<T>(sql, (object[])parameters)
+            return await _context.Database
+                .SqlQueryRaw<T>(sql, parameters)
                 .AsNoTracking()
                 .ToListAsync(cancellationToken)
                 .ConfigureAwait(false);

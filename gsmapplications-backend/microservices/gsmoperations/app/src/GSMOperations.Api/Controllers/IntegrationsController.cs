@@ -1,12 +1,10 @@
 ﻿using GSMOperations.Business.Interfaces;
 using GSMOperations.Entities.Common;
 using GSMOperations.Entities.DTOs;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GSMOperations.Api.Controllers;
 
-[Authorize]
 [ApiController]
 [Route("api/v1/integrations")]
 public sealed class IntegrationsController : ControllerBase

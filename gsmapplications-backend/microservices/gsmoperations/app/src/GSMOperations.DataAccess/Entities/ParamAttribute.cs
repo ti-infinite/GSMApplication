@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
 
 namespace GSMOperations.DataAccess.Entities;
@@ -23,7 +24,5 @@ public partial class ParamAttribute
     [StringLength(500)]
     public string? Descr { get; set; }
 
-    [ForeignKey("IdParameter")]
-    [InverseProperty("ParamAttributes")]
-    public virtual GlobalParameter IdParameterNavigation { get; set; } = null!;
+    public GlobalParameter GlobalParameter { get; set; } = null!;
 }

@@ -158,6 +158,6 @@ app.UseTenantLayer();
 app.MapGet("/api/health", [AllowAnonymous] () =>
     Results.Ok(new { message = Messages.Gateway.Healthy }));
 
-app.MapReverseProxy();
+app.MapReverseProxy().RequireAuthorization();
 
 await app.RunAsync();

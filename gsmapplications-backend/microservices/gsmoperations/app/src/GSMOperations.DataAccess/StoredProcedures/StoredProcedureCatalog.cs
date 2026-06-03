@@ -7,7 +7,8 @@ namespace GSMOperations.DataAccess.StoredProcedures
         public static readonly IReadOnlyDictionary<string, string> Procedures =
             new Dictionary<string, string>
             {
-                    { "MENUOPTIONS", @"{""NameSp"":""SP_GetProfileOptionsAccess"",""Params"":[{""ParamName"":""@IDrol""}]}"}
+                    { "CATEGORIES", @"{""NameSp"":""SP_GetCategories"",""Params"":[]}"},
+                    { "SKUDEFINITIONS", @"{""NameSp"":""SP_GetSkuDefinition"",""Params"":[]}"}
             };
     }
 }

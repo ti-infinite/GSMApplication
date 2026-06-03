@@ -84,7 +84,7 @@ export type ChangePasswordResult =
 type ChangePasswordResponseDto = {
   success:    boolean
   message:    string
-  errorType?: number | null
+  errorType?: string | null
 }
 
 export async function changePassword(

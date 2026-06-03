@@ -21,6 +21,5 @@ public partial class GlobalParameter
     [StringLength(500)]
     public string? Descr { get; set; }
 
-    [InverseProperty("IdParameterNavigation")]
-    public virtual ICollection<ParamAttribute> ParamAttributes { get; set; } = new List<ParamAttribute>();
+    public ICollection<ParamAttribute> ParamAttributes { get; set; } = new List<ParamAttribute>();
 }

@@ -186,6 +186,32 @@
           }
         }
       }
+    },
+    "/api/v1/Operations/parameters": {
+      "get": {
+        "tags": [
+          "Operations"
+        ],
+        "operationId": "GetParameters",
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        }
+      }
+    },
+    "/api/v1/Operations/categories": {
+      "get": {
+        "tags": [
+          "Operations"
+        ],
+        "operationId": "GetCategories",
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        }
+      }
     }
   },
   "components": {

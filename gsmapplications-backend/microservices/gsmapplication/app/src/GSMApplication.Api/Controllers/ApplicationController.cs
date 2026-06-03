@@ -23,7 +23,7 @@ public sealed class ApplicationController : ControllerBase
 
     [HttpGet("getMenu")]
     [ProducesResponseType(typeof(ApiResponse<GetMenuDto>), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ApiResponse<MultimediaResourceDto>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<GetMenuDto>), StatusCodes.Status401Unauthorized)]
 
     public async Task<IActionResult> GetMenu(CancellationToken cancellationToken)
     {

@@ -84,7 +84,7 @@ public sealed class OperationsController : ControllerBase
     }
 
     [HttpPost("create-trx")]
-    public async Task<IActionResult> CreateTransaction([FromBody] CreateTransactionRequest request, CancellationToken cancellationToken)
+    public async Task<IActionResult> CreateTransaction([FromBody] string request, CancellationToken cancellationToken)
     {
         return Ok(ApiResponse<string>.SuccessResult("Transaction created successfully", "TransactionCreated"));
     }

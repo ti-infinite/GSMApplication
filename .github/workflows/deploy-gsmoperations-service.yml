@@ -100,7 +100,7 @@ jobs:
       - name: Get latest task definition and update image
         id: render
         env:
-          TASK_FAMILY: ${{ needs.determine-env.outputs.environment }}-${{ vars.APP_NAME }}-gsmoperations-task
+          TASK_FAMILY: ${{ needs.determine-env.outputs.environment }}-${{ vars.APP_NAME }}-operations-task
           CONTAINER_NAME: gsmoperations
           IMAGE_URI: ${{ steps.build-image.outputs.image }}
         run: |

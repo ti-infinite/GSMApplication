@@ -77,8 +77,8 @@ jobs:
       - name: Build
         working-directory: gsmapplications-frontend
         env:
-          VITE_TENANT_DEFAULT_EN: ${{ vars.TENANT_DEFAULT_EN }}
-          VITE_TENANT_DEFAULT_ES: ${{ vars.TENANT_DEFAULT_ES }}
+          VITE_TENANT_DEFAULT: ${{ vars.VITE_TENANT_DEFAULT }}
+          VITE_TENANT_IDS: ${{ vars.VITE_TENANT_IDS }}
         run: npm run build
 
       - name: Configure AWS credentials

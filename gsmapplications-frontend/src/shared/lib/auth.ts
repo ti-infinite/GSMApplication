@@ -87,6 +87,7 @@ type ChangePasswordResponseDto = {
   errorType?: string | null
 }
 
+
 export async function changePassword(
   currentPassword: string,
   newPassword: string,

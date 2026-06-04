@@ -24,7 +24,10 @@ export default class ErrorBoundary extends Component<Props, State> {
             <p className="mt-2 text-sm text-muted-foreground">{i18n.t('errors.boundary.subtitle')}</p>
             <button
               type="button"
-              onClick={() => window.location.reload()}
+              onClick={() => {
+                const locale = window.location.pathname.split('/')[1] || 'en'
+                window.location.replace(`/${locale}/dashboard`)
+              }}
               className="mt-6 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90"
             >
               {i18n.t('errors.boundary.reload')}

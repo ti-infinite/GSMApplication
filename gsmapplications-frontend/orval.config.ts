@@ -39,7 +39,7 @@ export default defineConfig({
     input: {
       target: './swagger/gsm-operations.json',
       filters: {
-        tags: ['Integrations'],
+        tags: ['Integrations', 'Operations'],
       },
     },
     output: {

@@ -25,11 +25,6 @@ export default function ExternalPage({ url, activeType, title }: Props) {
 
   return (
     <div className="flex h-full flex-col">
-      {title && (
-        <div className="mb-4">
-          <h1 className="text-2xl font-bold text-foreground">{title}</h1>
-        </div>
-      )}
       <Renderer url={url} title={title} />
     </div>
   )

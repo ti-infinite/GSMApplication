@@ -17,12 +17,14 @@ public sealed class OperationsController : ControllerBase
     private readonly IEmployeesService _employeesService;
     private readonly ISuppliersService _suppliersService;
     private readonly ICategoriesService _categoriesService;
-    public readonly ISkuDefinitionsService _skuDefinitionsService;
+    private readonly ISkuDefinitionsService _skuDefinitionsService;
+    private readonly IManageTransactionService _manageTransactionService;
+
 
 
     public OperationsController(IGlobalAndParamAttributeService paramAttributeService, IMasterHerbsService masterHerbsService, 
         IEmployeesService employeesService, ISuppliersService suppliersService, ICategoriesService categoriesService,
-        ISkuDefinitionsService skuDefinitionsService)
+        ISkuDefinitionsService skuDefinitionsService, IManageTransactionService manageTransactionService)
     {
         _paramAttributeService = paramAttributeService;
         _masterHerbsService = masterHerbsService;
@@ -30,6 +32,7 @@ public sealed class OperationsController : ControllerBase
         _suppliersService = suppliersService;
         _categoriesService = categoriesService;
         _skuDefinitionsService = skuDefinitionsService;
+        _manageTransactionService = manageTransactionService;
     }
 
     [HttpGet("parameters")]
@@ -84,11 +87,22 @@ public sealed class OperationsController : ControllerBase
     }
 
     [HttpPost("create-trx")]
-    public async Task<IActionResult> CreateTransaction([FromBody] string request, CancellationToken cancellationToken)
+    [ProducesResponseType(typeof(ApiResponse<string>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> CreateTransaction([FromBody] TrxCreateDTO  request, CancellationToken cancellationToken)
     {
-        return Ok(ApiResponse<string>.SuccessResult("Transaction created successfully", "TransactionCreated"));
+        var response = await _manageTransactionService.CreateTransaction(request, cancellationToken);
+        return Ok(response);
     }
 
+    [HttpPut("{idTrxHeader:long}")]
+    [ProducesResponseType(typeof(ApiResponse<string>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> UpdateTransaction(long idTrxHeader, [FromBody] TrxUpdateDTO updateRequest, CancellationToken cancellationToken)
+    {
+        var response = await _manageTransactionService.UpdateTrx(idTrxHeader, updateRequest, cancellationToken);
+        return Ok(response);
+    }
 
+    // [HttpGet()]
+    // public async Task<IActionResult> 
 
 }

@@ -2,6 +2,7 @@ namespace GSMOperations.Entities.DTOs;
 
 public sealed class EmployeeDTO
 {
+    public required int IdEmployee { get; set; }
     public string FullName { get; set; } = null!;
     public string? Location { get; set; }
     public string? ContactNumber { get; set; }

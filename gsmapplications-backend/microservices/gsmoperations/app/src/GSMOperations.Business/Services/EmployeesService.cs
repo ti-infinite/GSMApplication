@@ -38,6 +38,7 @@ public sealed class EmployeesService : IEmployeesService
             .OrderBy(e => e.FullName)
             .Select(e => new EmployeeDTO
             {
+                IdEmployee = e.IdEmployee,
                 FullName = e.FullName,
                 Location = e.Location,
                 ContactNumber = e.ContactNumber,

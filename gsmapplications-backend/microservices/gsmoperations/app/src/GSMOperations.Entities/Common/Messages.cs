@@ -5,6 +5,10 @@ namespace GSMOperations.Entities.Common
     {
         public static class Operations
         {
+            public const string TransactionAppend = "The values were appended to the TRX successfully";
+            public const string TransactionEmpty = "Transaction not found.";
+            public const string TransactionCreated = "Transaction created succesfully.";
+            public const string PrefixMissing = "The 'TRXPREFIX' field is required in the request.";
             public const string SkuDefinitionsEmpty = "No SKU definitions found.";
             public const string SkuDefinitionsLoaded = "SKU definitions loaded successfully.";
             public const string SuppliersLoaded = "Suppliers loaded successfully.";

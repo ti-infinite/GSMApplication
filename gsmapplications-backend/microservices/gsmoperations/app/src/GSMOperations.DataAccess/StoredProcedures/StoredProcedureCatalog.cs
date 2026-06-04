@@ -8,7 +8,8 @@ namespace GSMOperations.DataAccess.StoredProcedures
             new Dictionary<string, string>
             {
                     { "CATEGORIES", @"{""NameSp"":""SP_GetCategories"",""Params"":[]}"},
-                    { "SKUDEFINITIONS", @"{""NameSp"":""SP_GetSkuDefinition"",""Params"":[]}"}
+                    { "SKUDEFINITIONS", @"{""NameSp"":""SP_GetSkuDefinition"",""Params"":[]}"},
+                    { "GETTRXNUMBER", @"{""NameSp"":""SP_GetNextTrxNumber"",""Params"":[{""ParamName"":""@Prefix""}]}"},
             };
     }
 }

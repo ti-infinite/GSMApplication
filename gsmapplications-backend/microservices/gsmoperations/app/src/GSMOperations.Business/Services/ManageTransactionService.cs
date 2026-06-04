@@ -118,7 +118,7 @@ public sealed class ManageTransactionService : IManageTransactionService
 
             _context.TrxStates.Add(new TrxStates
             {
-                IdTrxHeader = trxRequest.IdTrxHeader,
+                IdTrxHeader = idTrxHeader,
                 TrxState = trxRequest.TrxStates.TrxState,
                 Comments = trxRequest.TrxStates.Comments,
                 StateDate = DateTime.UtcNow
@@ -130,7 +130,7 @@ public sealed class ManageTransactionService : IManageTransactionService
             _context.TrxAttributes.AddRange(
                 trxRequest.TrxAttributes.Select(a => new TrxAttribute
                 {
-                    IdTrxHeader = trxRequest.IdTrxHeader,
+                    IdTrxHeader = idTrxHeader,
                     AttributeKey = a.AttributeKey,
                     AttributeValue = a.AttributeValue
                 }));
@@ -140,7 +140,7 @@ public sealed class ManageTransactionService : IManageTransactionService
             _context.TrxProducts.AddRange(
                 trxRequest.TrxProducts.Select(p => new TrxProduct
                 {
-                    IdTrxHeader = trxRequest.IdTrxHeader,
+                    IdTrxHeader = idTrxHeader,
                     IdVariety = p.IdVariety,
                     VarietyName = p.VarietyName,
                     Sku = p.SKU,
@@ -153,7 +153,7 @@ public sealed class ManageTransactionService : IManageTransactionService
             _context.TrxDetails.AddRange(
                 trxRequest.TrxDetails.Select(d => new TrxDetail
                 {
-                    IdTrxHeader = trxRequest.IdTrxHeader,
+                    IdTrxHeader = idTrxHeader,
                     DetailType = d.DetailType,
                     DetailValue = d.DetailValue
                 }));

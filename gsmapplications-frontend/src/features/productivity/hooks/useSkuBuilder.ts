@@ -87,7 +87,8 @@ export function useSkuBuilder(
         merged.set(product.SKU, { ...product, MV: [...product.MV] })
       }
     }
-    return Array.from(merged.values())
+    // Hide products without varieties — they can't be assigned downstream
+    return Array.from(merged.values()).filter(p => p.MV.length > 0)
   }, [skuPrefix, allParamsSelected, masterProducts])
 
   // Auto-select when only one product matches
@@ -157,7 +158,7 @@ export function useSkuBuilder(
     skuPrefix,
     matchingProducts,
     allParamsSelected,
-    isComplete:          !!selectedProduct && !!selectedVariety,
+    isComplete:          !!selectedProduct && !!selectedVariety && !!initialQty && initialQty > 0,
     getParameter,
     isParamEnabled,
     selectCategory,

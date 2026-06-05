@@ -1,9 +1,26 @@
 import { useState, useEffect, useRef } from 'react'
-import { Plus, CheckCircle2, TrendingUp, Users, XCircle } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import { Plus, CheckCircle2, TrendingUp, Users, XCircle, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@/shared/ui/button'
 import type { UnitCheckout } from './types'
 
-const COLORS = ['bg-blue-500', 'bg-purple-500', 'bg-green-500', 'bg-orange-500', 'bg-pink-500', 'bg-teal-500']
+const COLORS        = ['bg-blue-500', 'bg-purple-500', 'bg-green-500', 'bg-orange-500', 'bg-pink-500', 'bg-teal-500']
+const ROWS_PER_PAGE = 2
+
+function usePageSize(): number {
+  const compute = (): number => {
+    const w    = window.innerWidth
+    const cols = w >= 1536 ? 4 : w >= 1280 ? 3 : w >= 640 ? 2 : 1
+    return Math.max(cols * ROWS_PER_PAGE, 4) // min 4 on mobile
+  }
+  const [size, setSize] = useState(compute)
+  useEffect(() => {
+    const handler = () => setSize(compute())
+    window.addEventListener('resize', handler)
+    return () => window.removeEventListener('resize', handler)
+  }, [])
+  return size
+}
 
 function formatTime(d: Date) {
   return d.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })
@@ -13,15 +30,20 @@ interface Props {
   units:      UnitCheckout[]
   onLap:      (trxId: string, amount: number) => void
   onWaste:    (trxId: string, waste: number) => void
-  onComplete: (trxId: string) => void
+  onComplete: (trxId: string, finalLapAmount: number) => void
   onCancel:   (trxId: string) => void
   onFinish:   () => void
 }
 
 export function CheckoutView({ units, onLap, onWaste, onComplete, onCancel, onFinish }: Props) {
-  const [amounts,      setAmounts]      = useState<Record<string, string>>({})
-  const [wasteInputs,  setWasteInputs]  = useState<Record<string, string>>({})
-  const [completedIds, setCompletedIds] = useState<Set<string>>(new Set())
+  const { t } = useTranslation()
+  const [amounts,       setAmounts]       = useState<Record<string, string>>({})
+  const [wasteInputs,   setWasteInputs]   = useState<Record<string, string>>({})
+  const [completedIds,  setCompletedIds]  = useState<Set<string>>(new Set())
+  const [completingIds, setCompletingIds] = useState<Set<string>>(new Set())
+  const [errors,        setErrors]        = useState<Record<string, string>>({})
+  const [page,          setPage]          = useState(0)
+  const pageSize = usePageSize()
   const onFinishRef = useRef(onFinish)
   onFinishRef.current = onFinish
 
@@ -32,12 +54,48 @@ export function CheckoutView({ units, onLap, onWaste, onComplete, onCancel, onFi
     }
   }, [completedIds.size, units.length])
 
+  // Clamp page when a unit is cancelled or pageSize changes (resize)
+  useEffect(() => {
+    const maxPage = Math.max(0, Math.ceil(units.length / pageSize) - 1)
+    setPage(p => Math.min(p, maxPage))
+  }, [units.length, pageSize])
+
+  const clearError = (trxId: string) =>
+    setErrors(prev => { const n = { ...prev }; delete n[trxId]; return n })
+
   const registerLap = (trxId: string) => {
-    const raw    = amounts[trxId] ?? ''
-    const amount = parseInt(raw, 10)
+    const raw       = amounts[trxId] ?? ''
+    const amount    = parseInt(raw, 10)
     if (!raw || isNaN(amount) || amount <= 0) return
+    const unit      = units.find(u => u.unit.trxId === trxId)
+    const remaining = unit ? unit.unit.initialQty - unit.totalQty : Infinity
+    if (amount > remaining) {
+      setErrors(prev => ({ ...prev, [trxId]: t('productivity.checkout.exceedsLimit', { remaining }) }))
+      return
+    }
+    clearError(trxId)
     onLap(trxId, amount)
     setAmounts(prev => ({ ...prev, [trxId]: '' }))
+  }
+
+  const registerComplete = (trxId: string) => {
+    const raw       = amounts[trxId] ?? ''
+    const amount    = parseInt(raw, 10)
+    if (!raw || isNaN(amount) || amount <= 0) return
+    const unit      = units.find(u => u.unit.trxId === trxId)
+    const remaining = unit ? unit.unit.initialQty - unit.totalQty : Infinity
+    if (amount > remaining) {
+      setErrors(prev => ({ ...prev, [trxId]: t('productivity.checkout.exceedsLimit', { remaining }) }))
+      return
+    }
+    clearError(trxId)
+    // Start exit animation, then mark as fully completed after transition
+    setCompletingIds(prev => new Set([...prev, trxId]))
+    onComplete(trxId, amount)
+    setTimeout(() => {
+      setCompletingIds(prev => { const n = new Set(prev); n.delete(trxId); return n })
+      setCompletedIds(prev => new Set([...prev, trxId]))
+    }, 350)
   }
 
   const handleWasteChange = (trxId: string, val: string) => {
@@ -47,13 +105,13 @@ export function CheckoutView({ units, onLap, onWaste, onComplete, onCancel, onFi
     onWaste(trxId, isNaN(v) ? 0 : v)
   }
 
-  const handleComplete = (trxId: string) => {
-    setCompletedIds(prev => new Set([...prev, trxId]))
-    onComplete(trxId)
-  }
-
-  const totalAmount = units.reduce((s, u) => s + u.totalQty, 0)
-  const activeCount = units.filter(u => u.laps.length > 0).length
+  const totalAmount    = units.reduce((s, u) => s + u.totalQty, 0)
+  const activeCount    = units.filter(u => u.laps.length > 0 && !completedIds.has(u.unit.trxId)).length
+  // Only show units not yet fully completed (completingIds still visible — they're animating out)
+  const activeUnits    = units.filter(u => !completedIds.has(u.unit.trxId))
+  const totalPages     = Math.ceil(activeUnits.length / pageSize)
+  const paginated      = activeUnits.slice(page * pageSize, (page + 1) * pageSize)
+  const showPagination = activeUnits.length > pageSize
 
   return (
     <div className="flex flex-col gap-6">
@@ -63,15 +121,20 @@ export function CheckoutView({ units, onLap, onWaste, onComplete, onCancel, onFi
         <div className="flex items-center gap-3 text-sm">
           <span className="flex items-center gap-1.5 font-medium text-foreground">
             <span className="h-2 w-2 animate-pulse rounded-full bg-green-500" />
-            En curso
+            {t('productivity.checkout.inProgress')}
           </span>
           <span className="text-muted-foreground">
-            {units.length} {units.length === 1 ? 'unidad' : 'unidades'}
+            {t('productivity.checkout.unit', { count: units.length })}
           </span>
+          {showPagination && (
+            <span className="text-muted-foreground/60">
+              · {t('productivity.checkout.pageShort', { page: page + 1, total: totalPages })}
+            </span>
+          )}
         </div>
         {completedIds.size > 0 && completedIds.size < units.length && (
           <span className="rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
-            {completedIds.size}/{units.length} completadas
+            {t('productivity.checkout.completedCount', { done: completedIds.size, total: units.length })}
           </span>
         )}
       </div>
@@ -82,13 +145,13 @@ export function CheckoutView({ units, onLap, onWaste, onComplete, onCancel, onFi
           <div className="flex flex-1 items-center gap-3 px-6 py-4">
             <TrendingUp className="h-5 w-5 shrink-0 text-primary" />
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Total producido</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{t('productivity.checkout.totalProduced')}</p>
               <p className="text-2xl font-bold tabular-nums text-foreground">{totalAmount}</p>
             </div>
           </div>
           <div className="flex flex-1 items-center gap-3 border-l border-border px-6 py-4">
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Activas</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{t('productivity.checkout.active')}</p>
               <p className="text-2xl font-bold tabular-nums text-foreground">
                 {activeCount}
                 <span className="text-base font-normal text-muted-foreground">/{units.length}</span>
@@ -98,111 +161,156 @@ export function CheckoutView({ units, onLap, onWaste, onComplete, onCancel, onFi
         </div>
       )}
 
-      {/* ── Unit cards ── */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {units.map((u, idx) => (
-          <UnitCard
+      {/* ── Unit cards (paginated) ── */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+        {paginated.map((u, idx) => (
+          <div
             key={u.unit.trxId}
-            unitCheckout={u}
-            colorClass={COLORS[idx % COLORS.length]}
-            inputValue={amounts[u.unit.trxId] ?? ''}
-            wasteValue={wasteInputs[u.unit.trxId] ?? (u.waste > 0 ? String(u.waste) : '')}
-            isCompleted={completedIds.has(u.unit.trxId)}
-            onInputChange={val => setAmounts(prev => ({ ...prev, [u.unit.trxId]: val }))}
-            onRegister={() => registerLap(u.unit.trxId)}
-            onWasteChange={val => handleWasteChange(u.unit.trxId, val)}
-            onComplete={() => handleComplete(u.unit.trxId)}
-            onCancel={() => onCancel(u.unit.trxId)}
-          />
+            className={`transition-all duration-300 ease-in-out ${
+              completingIds.has(u.unit.trxId)
+                ? 'pointer-events-none scale-95 opacity-0'
+                : 'scale-100 opacity-100'
+            }`}
+          >
+            <UnitCard
+              unitCheckout={u}
+              colorClass={COLORS[(page * pageSize + idx) % COLORS.length]}
+              inputValue={amounts[u.unit.trxId] ?? ''}
+              wasteValue={wasteInputs[u.unit.trxId] ?? (u.waste > 0 ? String(u.waste) : '')}
+              error={errors[u.unit.trxId]}
+              onInputChange={val => {
+                setAmounts(prev => ({ ...prev, [u.unit.trxId]: val }))
+                clearError(u.unit.trxId)
+              }}
+              onRegister={() => registerLap(u.unit.trxId)}
+              onWasteChange={val => handleWasteChange(u.unit.trxId, val)}
+              onComplete={() => registerComplete(u.unit.trxId)}
+              onCancel={() => onCancel(u.unit.trxId)}
+            />
+          </div>
         ))}
       </div>
+
+      {/* ── Pagination bar ── */}
+      {showPagination && (
+        <div className="flex items-center justify-between rounded-xl border border-border bg-card px-4 py-2.5">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setPage(p => p - 1)}
+            disabled={page === 0}
+            className="gap-1.5 text-sm">
+            <ChevronLeft className="h-4 w-4" />
+            <span className="hidden sm:inline">{t('productivity.common.previous')}</span>
+          </Button>
+
+          {/* Dots (< 5 pages) or numeric text (≥ 5 pages) */}
+          {totalPages < 5 ? (
+            <div className="flex items-center gap-2">
+              {Array.from({ length: totalPages }).map((_, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => setPage(i)}
+                  className={`h-2 rounded-full transition-all duration-200 ${
+                    i === page
+                      ? 'w-5 bg-primary'
+                      : 'w-2 bg-border hover:bg-muted-foreground/40'
+                  }`}
+                />
+              ))}
+            </div>
+          ) : (
+            <span className="text-sm font-medium text-foreground">
+              {page + 1}
+              <span className="text-muted-foreground"> / {totalPages}</span>
+            </span>
+          )}
+
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setPage(p => p + 1)}
+            disabled={page >= totalPages - 1}
+            className="gap-1.5 text-sm">
+            <span className="hidden sm:inline">{t('productivity.common.next')}</span>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
     </div>
   )
 }
 
 function UnitCard({
-  unitCheckout, colorClass, inputValue, wasteValue, isCompleted,
+  unitCheckout, colorClass, inputValue, wasteValue, error,
   onInputChange, onRegister, onWasteChange, onComplete, onCancel,
 }: {
   unitCheckout:  UnitCheckout
   colorClass:    string
   inputValue:    string
   wasteValue:    string
-  isCompleted:   boolean
+  error?:        string
   onInputChange: (v: string) => void
   onRegister:    () => void
   onWasteChange: (v: string) => void
   onComplete:    () => void
   onCancel:      () => void
 }) {
+  const { t } = useTranslation()
   const { unit, laps, totalQty, waste } = unitCheckout
-  const isMulti = unit.employees.length > 1
-  const hasLaps = laps.length > 0
+  const isMulti   = unit.employees.length > 1
+  const hasLaps   = laps.length > 0
+  const remaining = unit.initialQty - totalQty
+  const lapAmount = parseInt(inputValue, 10)
+  const lapValid  = !isNaN(lapAmount) && lapAmount > 0 && lapAmount <= remaining
 
   return (
-    <div className={`flex flex-col overflow-hidden rounded-xl border bg-card shadow-sm transition-all ${
-      isCompleted ? 'border-green-500/40' : 'border-border'
-    }`}>
+    <div className="flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm">
 
       {/* ── 1. Identity + metrics corner ── */}
-      <div className={`flex items-start justify-between gap-3 p-4 pb-3 ${isCompleted ? 'bg-green-500/5' : ''}`}>
+      <div className="flex items-start justify-between gap-3 p-4 pb-3">
 
-        {/* Left: badge + name + employees */}
-        <div className="flex min-w-0 items-center gap-2.5">
-          <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-xs font-bold text-white transition-colors ${
-            isCompleted ? 'bg-green-500' : colorClass
-          }`}>
-            {isCompleted
-              ? <CheckCircle2 className="h-5 w-5" />
-              : isMulti ? <Users className="h-4 w-4" />
-                        : unit.name.slice(0, 2).toUpperCase()
-            }
+        {/* Left: badge + name + personas + member chips */}
+        <div className="flex min-w-0 items-start gap-2.5">
+          <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-xs font-bold text-white ${colorClass}`}>
+            {isMulti ? <Users className="h-4 w-4" /> : unit.name.slice(0, 2).toUpperCase()}
           </span>
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold leading-tight text-foreground">{unit.name}</p>
             <p className="text-xs text-muted-foreground">
-              {unit.employees.length} {unit.employees.length === 1 ? 'persona' : 'personas'}
+              {t('productivity.checkout.person', { count: unit.employees.length })}
             </p>
+            <div className="mt-1.5 flex flex-wrap gap-1">
+              {unit.employees.map(e => (
+                <span key={e.id} className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                  {e.name}
+                </span>
+              ))}
+            </div>
           </div>
         </div>
 
-        {/* Right: cancel (top) + metrics recuadro (bottom) — stacked, right-aligned */}
+        {/* Right: cancel (top) + metrics box (bottom) */}
         <div className="flex shrink-0 flex-col items-end gap-1.5">
-          {!isCompleted && (
-            <button
-              type="button"
-              onClick={onCancel}
-              title="Cancelar transacción"
-              className="flex h-5 w-5 items-center justify-center rounded text-muted-foreground/40 transition-colors hover:bg-destructive/10 hover:text-destructive"
-            >
-              <XCircle className="h-3.5 w-3.5" />
-            </button>
-          )}
-          <div className={`rounded-lg border px-2.5 py-1.5 text-right ${
-            isCompleted
-              ? 'border-green-500/30 bg-green-500/10'
-              : 'border-border bg-muted/20'
-          }`}>
-            <p className={`text-base font-bold tabular-nums leading-tight ${
-              isCompleted ? 'text-green-600 dark:text-green-400' : 'text-foreground'
-            }`}>{totalQty}</p>
+          <button
+            type="button"
+            onClick={onCancel}
+            title={t('productivity.checkout.cancelTrx')}
+            className="flex h-5 w-5 items-center justify-center rounded text-muted-foreground/40 transition-colors hover:bg-destructive/10 hover:text-destructive"
+          >
+            <XCircle className="h-3.5 w-3.5" />
+          </button>
+          <div className="rounded-lg border border-border bg-muted/20 px-2.5 py-1.5 text-right">
+            <p className="text-xl font-bold tabular-nums leading-none text-foreground">{totalQty}</p>
             <p className={`text-[10px] font-semibold tabular-nums leading-tight ${
               waste > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground/30'
-            }`}>{waste || 0} <span className="font-normal opacity-70">waste</span></p>
+            }`}>{waste || 0} <span className="font-normal opacity-70">{t('productivity.checkout.waste')}</span></p>
           </div>
         </div>
       </div>
 
-      {/* ── 2. Members ── */}
-      <div className="flex flex-wrap gap-1 px-4 pb-3">
-        {unit.employees.map(e => (
-          <span key={e.id} className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-            {e.name}
-          </span>
-        ))}
-      </div>
-
-      {/* ── 3. Product context ── */}
+      {/* ── 2. Product context ── */}
       <div className="mx-4 mb-4 rounded-lg border border-border/50 bg-muted/10 px-3 py-2">
         <p className="truncate text-xs font-medium text-foreground" title={unit.varietyName}>
           {unit.varietyName}
@@ -210,75 +318,78 @@ function UnitCard({
         <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground">
           <span className="font-mono">{unit.sku}</span>
           <span className="select-none text-border">·</span>
-          <span>Ini: <strong className="text-foreground">{unit.initialQty}</strong></span>
+          <span>{t('productivity.checkout.initialShort')} <strong className="text-foreground">{unit.initialQty}</strong></span>
+          {remaining > 0 && (
+            <span className="text-primary/70">· {t('productivity.checkout.remainingShort')} <strong className="text-primary">{remaining}</strong></span>
+          )}
         </div>
       </div>
 
-      {/* ── 5. Action zone — the functional hero of the card ── */}
-      {!isCompleted ? (
-        <div className="flex flex-col gap-2 px-4 pb-4">
+      {/* ── 3. Action zone ── */}
+      <div className="flex flex-col gap-2 px-4 pb-4">
 
-          {/* Row 1: fields — cantidad (left) · desperdicio (right) */}
-          <div className="grid grid-cols-2 gap-2">
-            <div className="flex flex-col gap-1">
-              <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Cantidad
-              </label>
-              <input
-                type="number" min="1" step="1" inputMode="numeric"
-                placeholder="0"
-                value={inputValue}
-                onChange={e => onInputChange(e.target.value.replace(/[^0-9]/g, ''))}
-                onKeyDown={e => e.key === 'Enter' && onRegister()}
-                className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Desperdicio
-              </label>
-              <input
-                type="number" min="0" step="1" inputMode="numeric"
-                placeholder="0"
-                value={wasteValue}
-                onChange={e => onWasteChange(e.target.value)}
-                className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-              />
-            </div>
+        {/* Row 1: Cantidad | Desperdicio */}
+        <div className="grid grid-cols-2 gap-2">
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              {t('productivity.checkout.quantity')}
+            </label>
+            <input
+              type="number" min="1" step="1" inputMode="numeric"
+              placeholder="0"
+              value={inputValue}
+              onChange={e => onInputChange(e.target.value.replace(/[^0-9]/g, ''))}
+              onKeyDown={e => e.key === 'Enter' && onRegister()}
+              className={`w-full rounded-lg border bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring ${
+                error ? 'border-destructive focus:ring-destructive/40' : 'border-border'
+              }`}
+            />
           </div>
-
-          {/* Row 2: buttons — +Lap (left, aligns with Cantidad) · Completar (right, aligns with Desperdicio) */}
-          <div className="grid grid-cols-2 gap-2">
-            <Button
-              size="sm"
-              onClick={onRegister}
-              disabled={!inputValue || parseInt(inputValue, 10) <= 0}
-              className="h-auto w-full gap-1.5 py-2.5">
-              <Plus className="h-3.5 w-3.5" />
-              Lap
-            </Button>
-            <Button
-              variant="ghost"
-              onClick={onComplete}
-              disabled={!hasLaps}
-              className="h-auto w-full gap-1.5 border border-green-500/30 py-2.5 text-sm text-green-600 hover:bg-green-500/10 hover:text-green-600 disabled:opacity-40 dark:text-green-400 dark:hover:text-green-400">
-              <CheckCircle2 className="h-3.5 w-3.5" />
-              Completar
-            </Button>
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              {t('productivity.checkout.wasteLabel')}
+            </label>
+            <input
+              type="number" min="0" step="1" inputMode="numeric"
+              placeholder="0"
+              value={wasteValue}
+              onChange={e => onWasteChange(e.target.value)}
+              className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            />
           </div>
         </div>
-      ) : (
-        <div className="flex items-center justify-center gap-2 px-4 pb-4 text-sm font-medium text-green-600 dark:text-green-400">
-          <CheckCircle2 className="h-4 w-4" />
-          Unidad completada
-        </div>
-      )}
 
-      {/* ── 5. Lap history — secondary, at the bottom ── */}
+        {/* Error message */}
+        {error && (
+          <p className="text-xs font-medium text-destructive">{error}</p>
+        )}
+
+        {/* Row 2: +Lap | Completar */}
+        <div className="grid grid-cols-2 gap-2">
+          <Button
+            size="sm"
+            onClick={onRegister}
+            disabled={!lapValid}
+            className="h-auto w-full gap-1.5 py-2.5">
+            <Plus className="h-3.5 w-3.5" />
+            {t('productivity.checkout.lap')}
+          </Button>
+          <Button
+            variant="ghost"
+            onClick={onComplete}
+            disabled={!lapValid}
+            className="h-auto w-full gap-1.5 border border-green-500/30 py-2.5 text-sm text-green-600 hover:bg-green-500/10 hover:text-green-600 disabled:opacity-40 dark:text-green-400 dark:hover:text-green-400">
+            <CheckCircle2 className="h-3.5 w-3.5" />
+            {t('productivity.checkout.complete')}
+          </Button>
+        </div>
+      </div>
+
+      {/* ── 4. Lap history ── */}
       {hasLaps && (
         <div className="mx-4 mb-4 overflow-hidden rounded-lg border border-border">
           <div className="flex items-center justify-between border-b border-border bg-muted/40 px-3 py-1.5">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Laps</p>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{t('productivity.checkout.laps')}</p>
             <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold text-foreground">{laps.length}</span>
           </div>
           <div className="flex max-h-28 flex-col overflow-y-auto">
@@ -294,8 +405,8 @@ function UnitCard({
         </div>
       )}
 
-      {!hasLaps && !isCompleted && (
-        <p className="mb-4 text-center text-xs text-muted-foreground">Sin laps registradas</p>
+      {!hasLaps && (
+        <p className="mb-4 text-center text-xs text-muted-foreground">{t('productivity.checkout.noLaps')}</p>
       )}
     </div>
   )

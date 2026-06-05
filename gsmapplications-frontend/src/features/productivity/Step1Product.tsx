@@ -1,5 +1,6 @@
 ﻿import { CheckCircle2, ChevronDown, ChevronUp } from 'lucide-react'
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/shared/ui/button'
 import { Combobox } from '@/shared/ui/combobox'
 import type { AssignmentWizardConfig, MasterProduct, ProductVariety } from './types'
@@ -14,6 +15,7 @@ interface Props {
 }
 
 export function Step1Product({ data, sku, onNext }: Props) {
+  const { t } = useTranslation()
   const selectedCatHasChildren =
     sku.selectedCategory?.Children && sku.selectedCategory.Children.length > 0
 
@@ -29,10 +31,10 @@ export function Step1Product({ data, sku, onNext }: Props) {
       <div className="grid grid-cols-1 items-start gap-6 md:grid-cols-2">
 
         <div className="flex flex-col gap-4 rounded-xl border border-border bg-card p-6 shadow-sm md:sticky md:top-4">
-          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Parametros</p>
+          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">{t('productivity.step1.parameters')}</p>
 
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-foreground">Categoria</label>
+            <label className="text-sm font-medium text-foreground">{t('productivity.step1.category')}</label>
             <Combobox
               options={data.categories.map(c => ({ value: String(c.IdCategory), label: c.Descr, badge: c.Code }))}
               value={String(sku.selectedCategory?.IdCategory ?? '')}
@@ -40,13 +42,13 @@ export function Step1Product({ data, sku, onNext }: Props) {
                 const cat = data.categories.find(c => String(c.IdCategory) === val) ?? null
                 sku.selectCategory(cat)
               }}
-              placeholder="Selecciona una categoria"
+              placeholder={t('productivity.step1.categoryPlaceholder')}
             />
           </div>
 
           {selectedCatHasChildren && (
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-foreground">Sub-categoria</label>
+              <label className="text-sm font-medium text-foreground">{t('productivity.step1.subcategory')}</label>
               <Combobox
                 options={sku.selectedCategory!.Children!.map(c => ({ value: String(c.IdCategory), label: c.Descr, badge: c.Code }))}
                 value={String(sku.selectedChildCategory?.IdCategory ?? '')}
@@ -54,7 +56,7 @@ export function Step1Product({ data, sku, onNext }: Props) {
                   const child = sku.selectedCategory!.Children!.find(c => String(c.IdCategory) === val) ?? null
                   sku.selectChildCategory(child)
                 }}
-                placeholder="Selecciona sub-categoria"
+                placeholder={t('productivity.step1.subcategoryPlaceholder')}
               />
             </div>
           )}
@@ -76,8 +78,7 @@ export function Step1Product({ data, sku, onNext }: Props) {
                     const attr = param?.paramAttributes.find(a => a.code === val) ?? null
                     sku.selectParam(rule.IdParameter, attr)
                   }}
-                  placeholder={`Selecciona ${rule.RuleName.toLowerCase()}`}
-                  searchPlaceholder={`Buscar ${rule.RuleName.toLowerCase()}...`}
+                  placeholder={t('productivity.step1.selectParam', { name: rule.RuleName.toLowerCase() })}
                 />
               </div>
             )
@@ -88,20 +89,20 @@ export function Step1Product({ data, sku, onNext }: Props) {
           {sku.allParamsSelected ? (
             <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
               <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                Productos Encontrados
+                {t('productivity.step1.productsFound')}
                 {sku.matchingProducts.length > 0 && (
                   <span className="ml-2 rounded-full bg-primary/10 px-2 py-0.5 text-primary">{sku.matchingProducts.length}</span>
                 )}
               </p>
               {sku.matchingProducts.length === 0 ? (
-                <p className="py-4 text-center text-sm text-muted-foreground">No se encontraron productos para este SKU.</p>
+                <p className="py-4 text-center text-sm text-muted-foreground">{t('productivity.step1.noProducts')}</p>
               ) : (
                 <div className="flex flex-col gap-2">
                   {/* InitialQTY — shown when a product is selected */}
                   {sku.selectedProduct && (
                     <div className="flex items-center gap-3 rounded-lg border border-primary/20 bg-primary/5 px-3.5 py-2.5">
                       <label className="shrink-0 text-sm font-medium text-foreground">
-                        Cantidad inicial
+                        {t('productivity.step1.initialQty')}
                       </label>
                       <input
                         type="number"
@@ -133,12 +134,12 @@ export function Step1Product({ data, sku, onNext }: Props) {
             </div>
           ) : (
             <div className="flex items-center justify-center rounded-xl border border-dashed border-border bg-card p-8">
-              <p className="text-sm text-muted-foreground">Completa los parametros para ver los productos disponibles</p>
+              <p className="text-sm text-muted-foreground">{t('productivity.step1.completeParams')}</p>
             </div>
           )}
 
           <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-            <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">SKU Generado</p>
+            <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">{t('productivity.step1.skuGenerated')}</p>
             {skuChips.length > 0 ? (
               <div className="flex flex-wrap items-center gap-2">
                 {skuChips.map((chip, i) => (
@@ -148,7 +149,7 @@ export function Step1Product({ data, sku, onNext }: Props) {
                 <span className="ml-2 text-base font-bold tracking-wider text-foreground">{sku.skuPrefix || '-'}</span>
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">Selecciona los parametros para construir el SKU</p>
+              <p className="text-sm text-muted-foreground">{t('productivity.step1.selectParamsForSku')}</p>
             )}
           </div>
         </div>
@@ -161,11 +162,13 @@ export function Step1Product({ data, sku, onNext }: Props) {
             <span className="font-medium">{sku.selectedProduct?.MasterProductName} - <strong>{sku.selectedVariety?.Name}</strong></span>
           </div>
         ) : sku.selectedProduct && !sku.selectedVariety ? (
-          <span className="text-sm text-amber-600 dark:text-amber-400">Selecciona una variedad para continuar</span>
+          <span className="text-sm text-amber-600 dark:text-amber-400">{t('productivity.step1.hintSelectVariety')}</span>
+        ) : sku.selectedProduct && sku.selectedVariety && !sku.initialQty ? (
+          <span className="text-sm text-amber-600 dark:text-amber-400">{t('productivity.step1.hintInitialQty')}</span>
         ) : (
-          <span className="text-sm text-muted-foreground">Selecciona un producto para continuar</span>
+          <span className="text-sm text-muted-foreground">{t('productivity.step1.hintSelectProduct')}</span>
         )}
-        <Button onClick={onNext} disabled={!sku.isComplete}>Empleados</Button>
+        <Button onClick={onNext} disabled={!sku.isComplete}>{t('productivity.step1.next')}</Button>
       </div>
     </div>
   )
@@ -176,6 +179,7 @@ function ProductCard({ product, selected, selectedVariety, onSelect, onSelectVar
   onSelect: () => void; onSelectVariety: (v: ProductVariety | null) => void
 }) {
   const [expanded, setExpanded] = useState(false)
+  const { t } = useTranslation()
 
   return (
     <div className={`rounded-lg border transition-colors ${selected ? 'border-primary bg-primary/10' : 'border-border bg-background'}`}>
@@ -193,7 +197,7 @@ function ProductCard({ product, selected, selectedVariety, onSelect, onSelectVar
       {selected && (
         <div className="border-t border-border/60 px-3 pb-3 pt-2">
           <p className="mb-2 text-xs font-medium text-muted-foreground">
-            {product.MV.length > 1 ? 'Selecciona la variedad:' : 'Variedad:'}
+            {product.MV.length > 1 ? t('productivity.step1.selectVarietyTitle') : t('productivity.step1.varietyTitle')}
           </p>
           <div className="flex flex-col gap-1.5">
             {product.MV.map(v => (
@@ -217,7 +221,7 @@ function ProductCard({ product, selected, selectedVariety, onSelect, onSelectVar
           <button type="button" onClick={() => setExpanded(v => !v)}
             className="flex w-full items-center gap-1.5 border-t border-border/50 px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted/20">
             {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-            {product.MV.length} {product.MV.length === 1 ? 'variedad' : 'variedades'}
+            {t('productivity.step1.variety', { count: product.MV.length })}
           </button>
           {expanded && (
             <div className="flex flex-col gap-1 border-t border-border/50 px-3 pb-3 pt-2">

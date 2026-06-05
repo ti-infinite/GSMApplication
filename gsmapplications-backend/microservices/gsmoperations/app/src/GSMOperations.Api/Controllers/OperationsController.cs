@@ -94,7 +94,7 @@ public sealed class OperationsController : ControllerBase
         return Ok(response);
     }
 
-    [HttpPut("{idTrxHeader:long}")]
+    [HttpPatch("{idTrxHeader:long}")]
     [ProducesResponseType(typeof(ApiResponse<string>), StatusCodes.Status200OK)]
     public async Task<IActionResult> UpdateTransaction(long idTrxHeader, [FromBody] TrxUpdateDTO updateRequest, CancellationToken cancellationToken)
     {
@@ -102,7 +102,11 @@ public sealed class OperationsController : ControllerBase
         return Ok(response);
     }
 
-    // [HttpGet()]
-    // public async Task<IActionResult> 
+    [HttpGet("getTrx")]
+    public async Task<IActionResult> GetTransaction([FromBody] SearchTrx searchTrx, CancellationToken cancellationToken)
+    {
+        var response = await _manageTransactionService.GetTrx(searchTrx, cancellationToken);
+        return Ok(response);
+    }
 
 }

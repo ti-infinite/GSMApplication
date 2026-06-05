@@ -33,6 +33,9 @@ public partial class TrxHeader
     [StringLength(100)]
     public string? Username { get; set; }
 
+    [StringLength(100)]
+    public string? Location { get; set; }
+
     public  ICollection<TrxAttribute> TrxAttributes { get; set; } = new List<TrxAttribute>();
 
     public  ICollection<TrxProduct> TrxProducts { get; set; } = new List<TrxProduct>();

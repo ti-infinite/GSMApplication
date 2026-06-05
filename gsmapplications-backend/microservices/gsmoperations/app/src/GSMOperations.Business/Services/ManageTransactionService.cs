@@ -34,22 +34,6 @@ public sealed class ManageTransactionService : IManageTransactionService
         return ApiResponse<string>.SuccessResult(trxDoc, Messages.Operations.TransactionCreated);
     }
 
-    public async Task<long> GetNextTransactionNumber(string prefix, CancellationToken cancellationToken = default)
-    {
-        var sp = new StoredProcedureModel
-        (
-            "GETTRXNUMBER",
-            new Dictionary<string, object?>
-            {
-                { "@Prefix", prefix }
-            }
-        ); 
-
-        var result = await _spExecutor.ExecuteSpScalarAsync<long?>(sp, cancellationToken);
-        
-        return result ?? throw new InvalidOperationException("Stored procedure returned null");    
-    }
-
     public async Task<string> CreateTrx(TrxCreateDTO trxRequest, CancellationToken cancellationToken = default)
     {
         string prefix = trxRequest.TrxPrefix;
@@ -66,6 +50,7 @@ public sealed class ManageTransactionService : IManageTransactionService
             TrxDate = DateTime.UtcNow,
             Status = trxRequest.TrxStates!.TrxState,
             Username = trxRequest.Username,
+            Location = trxRequest.Location,
             TrxAttributes = trxRequest.TrxAttributes.Select(a => new TrxAttribute
             {
                 AttributeKey = a.AttributeKey,
@@ -100,7 +85,6 @@ public sealed class ManageTransactionService : IManageTransactionService
 
         return entity.TrxDocument;
     }
-
 
     public async Task<ApiResponse<string>> UpdateTrx(long idTrxHeader, TrxUpdateDTO trxRequest, CancellationToken cancellationToken = default)
     {
@@ -166,6 +150,87 @@ public sealed class ManageTransactionService : IManageTransactionService
         return ApiResponse<string>.SuccessResultWithoutData(Messages.Operations.TransactionAppend);
     }
 
+    public async Task<ApiResponse<List<TrxResponseDTO>>> GetTrx(SearchTrx searchTrx, CancellationToken cancellationToken = default)
+    {
+        var query = _context.TrxHeaders.AsQueryable();
 
+        if (!string.IsNullOrWhiteSpace(searchTrx.TrxPrefix))
+        {
+            query = query.Where(x => x.TrxPrefix == searchTrx.TrxPrefix);
+        }
+        if (!string.IsNullOrWhiteSpace(searchTrx.Status))
+        {
+            query = query.Where(x => x.Status == searchTrx.Status);
+        }
+        if (!string.IsNullOrWhiteSpace(searchTrx.Location))
+        {
+            query = query.Where(x => x.Location == searchTrx.Location);
+        }
+
+        var result = await query
+            .Select(x => new TrxResponseDTO
+            {
+                IdTrxHeader = x.IdTrxHeader,
+                TrxPrefix = x.TrxPrefix,
+                TrxDocument = x.TrxDocument, 
+                Descr = x.Descr,
+                TrxDate = x.TrxDate,
+                Status = x.Status!,
+                Location = x.Location,
+                Username = x.Username!, 
+                TrxAttributes = x.TrxAttributes
+                    .OrderBy(x => x.AttributeKey)
+                    .Select(x => new TrxResponseAttributeDTO
+                    {
+                        IdTrxAttribute = x.IdTrxAttribute,
+                        AttributeKey = x.AttributeKey,
+                        AttributeValue = x.AttributeValue
+                    }).ToList(),
+                TrxProducts = x.TrxProducts
+                    .OrderBy(x => x.VarietyName)
+                    .Select(x => new TrxResponseProductDTO
+                    {
+                        IdTrxProduct = x.IdTrxProduct,
+                        IdVariety = x.IdVariety,
+                        VarietyName = x.VarietyName,
+                        Sku = x.Sku,
+                        Qty = x.Qty
+                    }).ToList(),
+                TrxStates = x.TrxStates
+                    .OrderBy(x => x.TrxState)
+                    .Select(x => new TrxResponseStateDTO
+                    {
+                        IdTrxState = x.IdTrxState,
+                        TrxState = x.TrxState,
+                        StateDate = x.StateDate,
+                        Comments = x.Comments
+                    }).ToList(),
+                TrxDetails = x.TrxDetails
+                    .Select(x => new TrxResponseDetailDTO
+                    {
+                        IdTrxDetail = x.IdTrxDetail,
+                        DetailType = x.DetailType,
+                        DetailValue = x.DetailValue
+                    }).ToList()
+            }).ToListAsync(cancellationToken);
+
+            return ApiResponse<List<TrxResponseDTO>>.SuccessResult(result,Messages.Operations.TransactionLoaded);
+    }
+
+    public async Task<long> GetNextTransactionNumber(string prefix, CancellationToken cancellationToken = default)
+    {
+        var sp = new StoredProcedureModel
+        (
+            "GETTRXNUMBER",
+            new Dictionary<string, object?>
+            {
+                { "@Prefix", prefix }
+            }
+        ); 
+
+        var result = await _spExecutor.ExecuteSpScalarAsync<long?>(sp, cancellationToken);
+        
+        return result ?? throw new InvalidOperationException("Stored procedure returned null");    
+    }
 
 }

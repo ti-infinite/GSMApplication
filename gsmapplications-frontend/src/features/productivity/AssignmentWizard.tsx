@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { WizardStepper } from './WizardStepper'
 import { Step1Product } from './Step1Product'
 import { Step2Employees } from './Step2Employees'
@@ -9,20 +10,21 @@ import { useWizardData } from './hooks/useWizardData'
 import { Skeleton } from '@/shared/ui/skeleton'
 import type { AssignmentResult, Grower } from './types'
 
-const STEPS = [
-  { id: 1, label: 'Producto' },
-  { id: 2, label: 'Empleados' },
-  { id: 3, label: 'Grower' },
-]
-
 interface Props {
   onComplete: (result: AssignmentResult) => void
 }
 
 export function AssignmentWizard({ onComplete }: Props) {
+  const { t } = useTranslation()
   const [step,           setStep]           = useState(1)
   const [itc,            setItc]            = useState('')
   const [productionType, setProductionType] = useState('')
+
+  const STEPS = [
+    { id: 1, label: t('productivity.wizard.stepProduct') },
+    { id: 2, label: t('productivity.wizard.stepEmployees') },
+    { id: 3, label: t('productivity.wizard.stepGrower') },
+  ]
 
   const { data, isLoading, isError } = useWizardData()
 
@@ -43,10 +45,13 @@ export function AssignmentWizard({ onComplete }: Props) {
       initialQty:     sku.initialQty ?? 0,
       skuPrefix:      sku.skuPrefix,
       mode:           groups.mode,
-      employeeGroups: groups.groups,
+      employeeGroups: groups.groups.filter(g => g.employees.length > 0),
       grower,
       itc,
       productionType,
+      // TODO(backend): el backend devolverá los TRX IDs vía GET trx tras create-trx.
+      // Por ahora va vacío; ProductivityPage los sobreescribe con los IDs reales.
+      trxIds:         [],
     })
   }
 
@@ -70,7 +75,7 @@ export function AssignmentWizard({ onComplete }: Props) {
     return (
       <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-6">
         <p className="text-sm text-destructive">
-          Error al cargar los datos. Verifica la conexión e intenta de nuevo.
+          {t('productivity.wizard.loadError')}
         </p>
       </div>
     )
@@ -107,7 +112,7 @@ export function AssignmentWizard({ onComplete }: Props) {
           onProductionTypeChange={setProductionType}
           product={sku.selectedProduct}
           mode={groups.mode}
-          employeeGroups={groups.groups}
+          employeeGroups={groups.groups.filter(g => g.employees.length > 0)}
           onBack={() => setStep(2)}
           onConfirm={handleConfirm}
         />

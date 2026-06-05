@@ -1,16 +1,10 @@
 import { useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Search, Calendar, Users, User } from 'lucide-react'
 import { DataTable, type TableColumn } from '@/shared/ui/data-table'
 import type { UnitCheckout } from './types'
 
 type DateFilter = 'today' | 'yesterday' | 'week' | 'all'
-
-const DATE_OPTIONS: { value: DateFilter; label: string }[] = [
-  { value: 'today',     label: 'Hoy' },
-  { value: 'yesterday', label: 'Ayer' },
-  { value: 'week',      label: 'Esta semana' },
-  { value: 'all',       label: 'Todos' },
-]
 
 function startOfDay(d: Date) {
   const r = new Date(d); r.setHours(0, 0, 0, 0); return r
@@ -52,8 +46,16 @@ interface Props {
 }
 
 export function HistorialView({ units }: Props) {
+  const { t } = useTranslation()
   const [dateFilter, setDateFilter] = useState<DateFilter>('today')
   const [search,     setSearch]     = useState('')
+
+  const DATE_OPTIONS: { value: DateFilter; label: string }[] = [
+    { value: 'today',     label: t('productivity.history.today') },
+    { value: 'yesterday', label: t('productivity.history.yesterday') },
+    { value: 'week',      label: t('productivity.history.week') },
+    { value: 'all',       label: t('productivity.history.all') },
+  ]
 
   const rows = useMemo(() => {
     const now  = new Date()
@@ -80,7 +82,7 @@ export function HistorialView({ units }: Props) {
 
   const columns: TableColumn<HistorialRow>[] = [
     {
-      key: 'name', header: 'Unidad', sortable: true,
+      key: 'name', header: t('productivity.history.colUnit'), sortable: true,
       render: r => (
         <div className="flex items-center gap-2">
           {r.laps > 0
@@ -94,21 +96,21 @@ export function HistorialView({ units }: Props) {
       ),
     },
     {
-      key: 'laps', header: 'Laps', sortable: true,
+      key: 'laps', header: t('productivity.history.colLaps'), sortable: true,
       render: r => <span className="text-sm text-foreground">{r.laps}</span>,
       hideMobile: true,
     },
     {
-      key: 'totalQty', header: 'Producido', sortable: true,
+      key: 'totalQty', header: t('productivity.history.colProduced'), sortable: true,
       render: r => <span className="text-sm font-bold text-foreground">{r.totalQty}</span>,
     },
     {
-      key: 'waste', header: 'Desperdicio', sortable: true,
+      key: 'waste', header: t('productivity.history.colWaste'), sortable: true,
       render: r => <span className="text-sm text-muted-foreground">{r.waste}</span>,
       hideMobile: true,
     },
     {
-      key: 'lastLap', header: 'Último lap',
+      key: 'lastLap', header: t('productivity.history.colLastLap'),
       render: r => r.lastLap
         ? <span className="text-xs text-muted-foreground">{formatDate(r.lastLap)}</span>
         : <span className="text-xs text-muted-foreground">—</span>,
@@ -122,9 +124,9 @@ export function HistorialView({ units }: Props) {
       {/* Stats */}
       {rows.length > 0 && (
         <div className="flex flex-wrap gap-4 rounded-xl border border-border bg-card px-6 py-3">
-          <Stat label="Unidades" value={String(rows.length)} />
-          <Stat label="Total producido" value={String(totalProduced)} />
-          <Stat label="Total desperdicio" value={String(totalWaste)} />
+          <Stat label={t('productivity.history.statUnits')} value={String(rows.length)} />
+          <Stat label={t('productivity.history.statTotalProduced')} value={String(totalProduced)} />
+          <Stat label={t('productivity.history.statTotalWaste')} value={String(totalWaste)} />
         </div>
       )}
 
@@ -148,7 +150,7 @@ export function HistorialView({ units }: Props) {
 
         <div className="relative flex-1 sm:max-w-xs">
           <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-          <input type="text" placeholder="Buscar unidad o empleado..." value={search} onChange={e => setSearch(e.target.value)}
+          <input type="text" placeholder={t('productivity.history.searchPlaceholder')} value={search} onChange={e => setSearch(e.target.value)}
             className="w-full rounded-lg border border-border bg-card py-2 pl-8 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
           />
         </div>
@@ -160,8 +162,8 @@ export function HistorialView({ units }: Props) {
         rowKey={r => r.id}
         emptyMessage={
           units.length === 0
-            ? 'No hay registros. Completa una asignación y usa el Checkout.'
-            : 'No hay registros que coincidan con los filtros.'
+            ? t('productivity.history.emptyNoRecords')
+            : t('productivity.history.emptyNoMatch')
         }
       />
     </div>

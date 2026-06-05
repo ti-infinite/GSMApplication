@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { CheckCircle2, MapPin, Search, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@/shared/ui/button'
 import { Combobox } from '@/shared/ui/combobox'
@@ -29,6 +30,7 @@ export function Step3Grower({
   productionType, productionTypes, onProductionTypeChange,
   product, mode, employeeGroups, onBack, onConfirm,
 }: Props) {
+  const { t } = useTranslation()
   const [selected, setSelected] = useState<Grower | null>(null)
   const [search,   setSearch]   = useState('')
   const [page,     setPage]     = useState(0)
@@ -56,7 +58,7 @@ export function Step3Grower({
         {/* ── Left: supplier table with pagination ── */}
         <div className="flex flex-col gap-3">
           <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-            Productores Disponibles
+            {t('productivity.step3.availableGrowers')}
             <span className="ml-2 font-normal text-muted-foreground/60">({filtered.length})</span>
           </p>
 
@@ -64,7 +66,7 @@ export function Step3Grower({
             <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <input
               type="text"
-              placeholder="Buscar por nombre, país, categoría..."
+              placeholder={t('productivity.step3.searchPlaceholder')}
               value={search}
               onChange={e => handleSearch(e.target.value)}
               className="w-full rounded-lg border border-border bg-card py-2.5 pl-8 pr-3.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
@@ -78,16 +80,16 @@ export function Step3Grower({
                 <thead>
                   <tr className="border-b border-border bg-muted/40">
                     <th className="w-8 px-4 py-2.5" />
-                    <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Nombre</th>
-                    <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">ID</th>
-                    <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">País</th>
-                    <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Categoría</th>
+                    <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t('productivity.step3.colName')}</th>
+                    <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t('productivity.step3.colId')}</th>
+                    <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t('productivity.step3.colCountry')}</th>
+                    <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t('productivity.step3.colCategory')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border bg-card">
                   {paginated.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="px-4 py-8 text-center text-sm text-muted-foreground">Sin resultados</td>
+                      <td colSpan={5} className="px-4 py-8 text-center text-sm text-muted-foreground">{t('productivity.step3.noResults')}</td>
                     </tr>
                   ) : (
                     paginated.map(grower => (
@@ -142,7 +144,11 @@ export function Step3Grower({
           {totalPages > 1 && (
             <div className="flex items-center justify-between rounded-lg border border-border bg-card px-4 py-2">
               <span className="text-xs text-muted-foreground">
-                {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, filtered.length)} de {filtered.length}
+                {t('productivity.step3.paginationRange', {
+                  from:  page * PAGE_SIZE + 1,
+                  to:    Math.min((page + 1) * PAGE_SIZE, filtered.length),
+                  total: filtered.length,
+                })}
               </span>
               <div className="flex items-center gap-1">
                 <button type="button" onClick={() => setPage(p => p - 1)} disabled={page === 0}
@@ -162,9 +168,14 @@ export function Step3Grower({
         {/* ── Right: selection + fields + summary ── */}
         <div className="flex flex-col gap-4">
 
+          {/* Section header — levels with "Productores disponibles" on the left */}
+          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+            {t('productivity.step3.detailsTitle')}
+          </p>
+
           {/* Selected grower */}
           <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-            <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">Grower Seleccionado</p>
+            <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">{t('productivity.step3.selectedGrower')}</p>
             {selected ? (
               <div className="flex items-center gap-3">
                 <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/20 text-sm font-bold text-primary">
@@ -180,31 +191,30 @@ export function Step3Grower({
                 </div>
               </div>
             ) : (
-              <p className="py-3 text-center text-sm text-muted-foreground">Selecciona un productor de la tabla</p>
+              <p className="py-3 text-center text-sm text-muted-foreground">{t('productivity.step3.selectGrowerHint')}</p>
             )}
           </div>
 
           {/* Production Type */}
           <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
             <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-              Tipo de Producción
+              {t('productivity.step3.productionType')}
             </label>
             <Combobox
               options={productionTypes.map(a => ({ value: a.code, label: a.shortName, description: a.descr }))}
               value={productionType}
               onChange={onProductionTypeChange}
-              placeholder="Selecciona el tipo"
-              searchPlaceholder="Buscar tipo..."
-              emptyMessage="No hay tipos disponibles"
+              placeholder={t('productivity.step3.selectType')}
+              emptyMessage={t('productivity.step3.noTypes')}
             />
           </div>
 
           {/* ITC */}
           <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-            <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-muted-foreground">ITC</label>
+            <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-muted-foreground">{t('productivity.step3.itc')}</label>
             <input
               type="text"
-              placeholder="Ej. 149275"
+              placeholder={t('productivity.step3.itcPlaceholder')}
               value={itc}
               onChange={e => onItcChange(e.target.value)}
               className="w-full rounded-lg border border-border bg-background px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
@@ -213,15 +223,15 @@ export function Step3Grower({
 
           {/* Summary */}
           <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-            <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">Resumen</p>
+            <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">{t('productivity.step3.summary')}</p>
             <dl className="flex flex-col gap-2">
               {[
-                { label: 'SKU',       value: product.SKU },
-                { label: 'Producto',  value: product.MasterProductName },
-                { label: 'Modalidad', value: mode === 'groups' ? `Grupos (${employeeGroups.length})` : 'Individual' },
-                { label: 'Empleados', value: String(totalEmployees) },
-                { label: 'Tipo',      value: productionTypes.find(t => t.code === productionType)?.shortName ?? '—' },
-                { label: 'ITC',       value: itc || '—' },
+                { label: t('productivity.step3.sumSku'),        value: product.SKU },
+                { label: t('productivity.step3.sumProduct'),    value: product.MasterProductName },
+                { label: t('productivity.step3.sumAssignment'), value: mode === 'groups' ? t('productivity.step3.assignmentGroups', { count: employeeGroups.length }) : t('productivity.step3.assignmentIndividual') },
+                { label: t('productivity.step3.sumEmployees'),  value: String(totalEmployees) },
+                { label: t('productivity.step3.sumProduction'), value: productionTypes.find(pt => pt.code === productionType)?.shortName ?? '—' },
+                { label: t('productivity.step3.sumItc'),        value: itc || '—' },
               ].map(({ label, value }) => (
                 <div key={label} className="flex items-start justify-between gap-3 text-sm">
                   <dt className="shrink-0 text-muted-foreground">{label}</dt>
@@ -235,14 +245,14 @@ export function Step3Grower({
 
       {/* Bottom bar */}
       <div className="flex flex-col gap-3 rounded-xl border border-border bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-        <Button variant="ghost" onClick={onBack}>← Atrás</Button>
+        <Button variant="ghost" onClick={onBack}>{t('productivity.common.back')}</Button>
         <div className="flex items-center gap-3">
-          {!selected           && <span className="text-xs text-muted-foreground">Selecciona un productor</span>}
-          {selected && !productionType && <span className="text-xs text-amber-600">Selecciona el tipo de producción</span>}
-          {selected && productionType && !itc.trim() && <span className="text-xs text-amber-600">Ingresa el ITC</span>}
+          {!selected           && <span className="text-xs text-muted-foreground">{t('productivity.step3.hintSelectGrower')}</span>}
+          {selected && !productionType && <span className="text-xs text-amber-600">{t('productivity.step3.hintSelectType')}</span>}
+          {selected && productionType && !itc.trim() && <span className="text-xs text-amber-600">{t('productivity.step3.hintEnterItc')}</span>}
           <Button onClick={() => selected && onConfirm(selected)} disabled={!canConfirm} className="gap-2">
             <CheckCircle2 className="h-4 w-4" />
-            Confirmar
+            {t('productivity.step3.confirm')}
           </Button>
         </div>
       </div>

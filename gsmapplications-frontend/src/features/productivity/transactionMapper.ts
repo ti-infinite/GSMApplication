@@ -24,6 +24,7 @@ export interface TransactionPayload {
   TRXPREFIX:      string
   DESCR:          string
   Username:       string
+  Location:       string
   TrxAttributes:  TrxAttribute[]
   TrxProducts:    TrxProduct[]
   TrxStates:      TrxState[]
@@ -50,7 +51,6 @@ export function buildTransactionPayload(
   const location = user?.location ?? ''
 
   const commonAttrs = (employees: { Id: number; FullName: string }[]): TrxAttribute[] => [
-    { ATTRIBUTEKEY: 'Location',       ATTRIBUTEVALUE: location },
     { ATTRIBUTEKEY: 'Employee',       ATTRIBUTEVALUE: JSON.stringify(employees) },
     { ATTRIBUTEKEY: 'Supplier',       ATTRIBUTEVALUE: JSON.stringify([{ IdGrower: assignment.grower.idThirdSupplier, NameGrower: assignment.grower.name }]) },
     { ATTRIBUTEKEY: 'InitialQTY',     ATTRIBUTEVALUE: String(assignment.initialQty) },
@@ -74,6 +74,7 @@ export function buildTransactionPayload(
         TRXPREFIX:     'PRDLBR',
         DESCR:         'PRDLBR',
         Username:      username,
+        Location:      location,
         TrxAttributes: commonAttrs([{ Id: emp.idEmployee ?? 0, FullName: emp.name }]),
         TrxProducts:   [trxProduct],
         TrxStates:     [{ TRXSTATE: 'INPROGRESS', COMMENTS: '' }],
@@ -85,6 +86,7 @@ export function buildTransactionPayload(
     TRXPREFIX:     'PRDLBR',
     DESCR:         'PRDLBR',
     Username:      username,
+    Location:      location,
     TrxAttributes: commonAttrs(
       group.employees.map(e => ({ Id: e.idEmployee ?? 0, FullName: e.name })),
     ),
@@ -104,8 +106,57 @@ export function buildUpdatePayload(
     TrxAttributes: [
       { ATTRIBUTEKEY: 'FinalQTY', ATTRIBUTEVALUE: String(unitCheckout.totalQty) },
       { ATTRIBUTEKEY: 'Waste',    ATTRIBUTEVALUE: String(unitCheckout.waste) },
-      { ATTRIBUTEKEY: 'EndDate',  ATTRIBUTEVALUE: endDate.toISOString().replace('T', ' ').split('.')[0] },
+      { ATTRIBUTEKEY: 'EndDate',  ATTRIBUTEVALUE: formatUtc(endDate) },
     ],
+    TrxStates: [{ TRXSTATE: 'Complete', COMMENTS: '' }],
+  }
+}
+
+// ── Phase 3 (per-unit, real-time) ─────────────────────────────────
+
+interface TrxDetail {
+  ATTRIBUTEKEY:   string
+  ATTRIBUTEVALUE: string
+}
+
+export interface LapPayload {
+  IdTRX:      string
+  TrxDetails: TrxDetail[]
+}
+
+export interface CompletePayload {
+  IdTRX:         string
+  TrxAttributes: TrxAttribute[]
+  TrxDetails:    TrxDetail[]
+  TrxStates:     TrxState[]
+}
+
+export function buildLapPayload(trxId: string, amount: number, timestamp: Date): LapPayload {
+  return {
+    IdTRX: trxId,
+    TrxDetails: [{
+      ATTRIBUTEKEY:   'LAP',
+      ATTRIBUTEVALUE: JSON.stringify({ RecordDate: formatUtc(timestamp), QTY: amount }),
+    }],
+  }
+}
+
+export function buildCompletePayload(
+  unitCheckout:   UnitCheckout,
+  finalLapAmount: number,
+  endDate:        Date,
+): CompletePayload {
+  return {
+    IdTRX: unitCheckout.unit.trxId,
+    TrxAttributes: [
+      { ATTRIBUTEKEY: 'FinalQTY', ATTRIBUTEVALUE: String(unitCheckout.totalQty + finalLapAmount) },
+      { ATTRIBUTEKEY: 'Waste',    ATTRIBUTEVALUE: String(unitCheckout.waste) },
+      { ATTRIBUTEKEY: 'EndDate',  ATTRIBUTEVALUE: formatUtc(endDate) },
+    ],
+    TrxDetails: [{
+      ATTRIBUTEKEY:   'LAP',
+      ATTRIBUTEVALUE: JSON.stringify({ RecordDate: formatUtc(endDate), QTY: finalLapAmount }),
+    }],
     TrxStates: [{ TRXSTATE: 'Complete', COMMENTS: '' }],
   }
 }

@@ -7,6 +7,7 @@ import {
   useGetFilteredEmployees,
   useGetFilteredSuppliers,
 } from '@/shared/api/operations/operations/operations'
+import { getStoredUser } from '@/shared/lib/auth'
 import type {
   GlobalParameterListApiResponse,
   MasterProductDTOListApiResponse,
@@ -83,16 +84,21 @@ export function useWizardData() {
     },
   })
 
-  // ── Employees ───────────────────────────────────────────────────
+  // ── Employees — filtered by the current user's location ─────────
   const { data: employees = [], isLoading: l5, isError: e5 } = useGetFilteredEmployees(undefined, {
     query: {
       staleTime: 2 * 60 * 1000,
-      select: res => ((res.data as EmployeeDTOListApiResponse).data ?? []).map((e, i) => ({
-        id:   `emp-${i}`,
-        name: e.fullName ?? '',
-        role: e.location ?? 'Harvester',
-        // idEmployee: pending backend — EmployeeDTO needs Id field for create-trx
-      }) satisfies Employee),
+      select: res => {
+        const userLocation = (getStoredUser()?.location ?? '').toLowerCase()
+        return ((res.data as EmployeeDTOListApiResponse).data ?? [])
+          .filter(e => !userLocation || (e.location ?? '').toLowerCase() === userLocation)
+          .map((e, i) => ({
+            id:   `emp-${i}`,
+            name: e.fullName ?? '',
+            role: e.location ?? 'Harvester',
+            // idEmployee: pending backend — EmployeeDTO needs Id field for create-trx
+          }) satisfies Employee)
+      },
     },
   })
 

@@ -2,38 +2,46 @@ import { useState, useCallback } from 'react'
 import type { Employee, EmployeeGroup, AssignmentMode } from '../types'
 
 interface UseEmployeeGroupsResult {
-  mode:            AssignmentMode
-  groups:          EmployeeGroup[]
-  available:       Employee[]
-  groupCount:      number
-  searchQuery:     string
+  mode:              AssignmentMode
+  groups:            EmployeeGroup[]
+  available:         Employee[]
+  groupCount:        number
+  searchQuery:       string
   filteredAvailable: Employee[]
-  isComplete:      boolean
-  setMode:         (mode: AssignmentMode) => void
-  setGroupCount:   (count: number) => void
-  setSearchQuery:  (q: string) => void
-  addToGroup:      (employee: Employee, groupId: string) => void
-  removeFromGroup: (employeeId: string, groupId: string) => void
-  reset:           () => void
+  isComplete:        boolean
+  setMode:           (mode: AssignmentMode) => void
+  setGroupCount:     (count: number) => void
+  setSearchQuery:    (q: string) => void
+  addToGroup:        (employee: Employee, groupId: string) => void
+  removeFromGroup:   (employeeId: string, groupId: string) => void
+  reset:             () => void
 }
 
+function buildGroups(count: number): EmployeeGroup[] {
+  return Array.from({ length: count }, (_, i) => ({
+    id:        `group-${i + 1}`,
+    name:      `Grupo ${i + 1}`,
+    employees: [],
+  }))
+}
+
+const INDIVIDUAL_GROUP: EmployeeGroup = { id: 'individual', name: 'Individual', employees: [] }
+
 export function useEmployeeGroups(allEmployees: Employee[]): UseEmployeeGroupsResult {
-  const [mode,         setModeState]  = useState<AssignmentMode>('groups')
-  const [groupCount,   setGroupCount] = useState(2)
-  const [groups,       setGroups]     = useState<EmployeeGroup[]>(() => buildGroups(2))
-  const [searchQuery,  setSearchQuery] = useState('')
+  const [mode,        setModeState]  = useState<AssignmentMode>('groups')
+  const [groupCount,  setGroupCount] = useState(2)
+  const [searchQuery, setSearchQuery] = useState('')
 
-  function buildGroups(count: number): EmployeeGroup[] {
-    return Array.from({ length: count }, (_, i) => ({
-      id:        `group-${i + 1}`,
-      name:      `Grupo ${i + 1}`,
-      employees: [],
-    }))
-  }
+  // Each mode stores its assignments independently — switching modes never loses data
+  const [modeGroups, setModeGroups] = useState<Record<AssignmentMode, EmployeeGroup[]>>({
+    groups:     buildGroups(2),
+    individual: [{ ...INDIVIDUAL_GROUP }],
+  })
 
-  const assigned = groups.flatMap(g => g.employees.map(e => e.id))
-  const available = allEmployees.filter(e => !assigned.includes(e.id))
+  const groups = modeGroups[mode]
 
+  const assigned         = groups.flatMap(g => g.employees.map(e => e.id))
+  const available        = allEmployees.filter(e => !assigned.includes(e.id))
   const filteredAvailable = searchQuery.trim()
     ? available.filter(e =>
         e.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -41,46 +49,52 @@ export function useEmployeeGroups(allEmployees: Employee[]): UseEmployeeGroupsRe
       )
     : available
 
+  // Switching mode just changes the view — both modes retain their own assignments
   const setMode = useCallback((m: AssignmentMode) => {
     setModeState(m)
-    setGroups(m === 'individual' ? [{ id: 'individual', name: 'Individual', employees: [] }] : buildGroups(groupCount))
-  }, [groupCount])
+  }, [])
 
   const handleGroupCount = useCallback((count: number) => {
     if (count < 1) return
     setGroupCount(count)
-    setGroups(prev => {
-      if (count > prev.length) {
-        const extra = Array.from({ length: count - prev.length }, (_, i) => ({
-          id:        `group-${prev.length + i + 1}`,
-          name:      `Grupo ${prev.length + i + 1}`,
+    setModeGroups(prev => {
+      const current = prev.groups
+      if (count > current.length) {
+        const extra = Array.from({ length: count - current.length }, (_, i) => ({
+          id:        `group-${current.length + i + 1}`,
+          name:      `Grupo ${current.length + i + 1}`,
           employees: [],
         }))
-        return [...prev, ...extra]
+        return { ...prev, groups: [...current, ...extra] }
       }
-      // Move employees from removed groups back to available
-      return prev.slice(0, count)
+      return { ...prev, groups: current.slice(0, count) }
     })
   }, [])
 
   const addToGroup = useCallback((employee: Employee, groupId: string) => {
-    setGroups(prev =>
-      prev.map(g => g.id === groupId ? { ...g, employees: [...g.employees, employee] } : g),
-    )
-  }, [])
+    setModeGroups(prev => ({
+      ...prev,
+      [mode]: prev[mode].map(g =>
+        g.id === groupId ? { ...g, employees: [...g.employees, employee] } : g,
+      ),
+    }))
+  }, [mode])
 
   const removeFromGroup = useCallback((employeeId: string, groupId: string) => {
-    setGroups(prev =>
-      prev.map(g =>
-        g.id === groupId ? { ...g, employees: g.employees.filter(e => e.id !== employeeId) } : g,
+    setModeGroups(prev => ({
+      ...prev,
+      [mode]: prev[mode].map(g =>
+        g.id === groupId
+          ? { ...g, employees: g.employees.filter(e => e.id !== employeeId) }
+          : g,
       ),
-    )
-  }, [])
+    }))
+  }, [mode])
 
   const reset = useCallback(() => {
     setModeState('groups')
     setGroupCount(2)
-    setGroups(buildGroups(2))
+    setModeGroups({ groups: buildGroups(2), individual: [{ ...INDIVIDUAL_GROUP }] })
     setSearchQuery('')
   }, [])
 
@@ -93,9 +107,9 @@ export function useEmployeeGroups(allEmployees: Employee[]): UseEmployeeGroupsRe
     groupCount,
     searchQuery,
     filteredAvailable,
-    isComplete:      totalAssigned > 0,
+    isComplete:    totalAssigned > 0,
     setMode,
-    setGroupCount:   handleGroupCount,
+    setGroupCount: handleGroupCount,
     setSearchQuery,
     addToGroup,
     removeFromGroup,

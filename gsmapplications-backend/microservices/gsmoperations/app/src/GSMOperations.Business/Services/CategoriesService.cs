@@ -21,7 +21,7 @@ public sealed class CategoriesService : ICategoriesService
             "CATEGORIES"
         );
 
-        var json = await _spExecutor.ExecuteSpScalarAsync(sp, cancellationToken);
+        var json = await _spExecutor.ExecuteSpScalarAsync<string?>(sp, cancellationToken);
 
         if (string.IsNullOrWhiteSpace(json))
         {

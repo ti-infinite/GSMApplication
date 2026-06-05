@@ -19,6 +19,7 @@ namespace GSMOperations.Business
             services.AddScoped<ISuppliersService, SuppliersService>();
             services.AddScoped<ICategoriesService, CategoriesService>();
             services.AddScoped<ISkuDefinitionsService, SkuDefinitionsService>();
+            services.AddScoped<IManageTransactionService, ManageTransactionService>();
 
             return services;
         }

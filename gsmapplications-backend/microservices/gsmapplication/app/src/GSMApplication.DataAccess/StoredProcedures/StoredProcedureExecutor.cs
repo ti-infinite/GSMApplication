@@ -17,7 +17,7 @@ public sealed class StoredProcedureExecutor : IStoredProcedureExecutor
         _context = context;
     }
 
-    public async Task<string> ExecuteSpScalarAsync(StoredProcedureModel sp, CancellationToken cancellationToken = default)
+    public async Task<T?> ExecuteSpScalarAsync<T>(StoredProcedureModel sp, CancellationToken cancellationToken = default)
     {
         var (sql, parameters) = BuildSpExecution(sp);
 
@@ -37,7 +37,11 @@ public sealed class StoredProcedureExecutor : IStoredProcedureExecutor
 
         var result = await command.ExecuteScalarAsync(cancellationToken);
 
-        return result?.ToString() ?? string.Empty;
+        if (result == null || result == DBNull.Value)
+            return default;
+
+        var targetType = Nullable.GetUnderlyingType(typeof(T)) ?? typeof(T);
+        return (T)Convert.ChangeType(result, targetType);
     }
 
     public async Task<int> ExecuteSpAsyncNoReturn(StoredProcedureModel sp, CancellationToken cancellationToken = default)

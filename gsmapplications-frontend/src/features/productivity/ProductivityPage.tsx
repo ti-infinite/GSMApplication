@@ -48,19 +48,24 @@ export default function ProductivityPage() {
 
   const handleComplete = async (result: AssignmentResult) => {
     setAssignment(result)
+    // Move to the checkout right away and show the skeleton while the TRX are being
+    // created and then loaded — no waiting on the assignment screen.
+    setView('checkout')
+    setCheckoutLoading(true)
     startDateRef.current = new Date()
     const payloads = buildTransactionPayload(result, startDateRef.current)
-    console.log('[Productivity] create-trx payloads:', JSON.stringify(payloads, null, 2))
 
     // One create-trx call per unit (Promise.all preserves order).
     try {
-      const responses = await Promise.all(payloads.map(p => createTransaction(p)))
-      console.log('[Productivity] created TRX ids:', responses.map(r => r.data?.data))
+      await Promise.all(payloads.map(p => createTransaction(p)))
     } catch (err) {
       console.error('[Productivity] create-trx error:', err)
     }
 
-    goToCheckout()   // navigate + load the freshly created TRX from the DB
+    // Load the freshly created TRX from the DB, then drop the skeleton.
+    try { setUnits(await loadActiveCheckout()) }
+    catch (err) { console.error('[Productivity] getTrx error:', err) }
+    finally { setCheckoutLoading(false) }
   }
 
   const handleLap = (trxId: string, amount: number) => {
@@ -73,7 +78,6 @@ export default function ProductivityPage() {
     ))
     // PATCH appends one LAP detail. idTrxHeader (numeric) comes from getTrx.
     const payload = buildLapPayload(amount, timestamp)
-    console.log('[Productivity] lap PATCH', trxId, JSON.stringify(payload))
     updateTransaction(Number(trxId), payload).catch(err =>
       console.error('[Productivity] lap error:', err),
     )
@@ -94,7 +98,6 @@ export default function ProductivityPage() {
       ))
     }
     const payload = buildCompletePayload(unit, finalLapAmount, endDate)
-    console.log('[Productivity] complete PATCH', trxId, JSON.stringify(payload))
     updateTransaction(Number(trxId), payload).catch(err =>
       console.error('[Productivity] complete error:', err),
     )
@@ -108,7 +111,6 @@ export default function ProductivityPage() {
     setUnits(prev => prev.filter(u => u.unit.trxId !== trxId))
     // PATCH flips the TRX state to CANCELLED so it leaves the INPROGRESS set.
     const payload = buildCancelPayload()
-    console.log('[Productivity] cancel PATCH', trxId, JSON.stringify(payload))
     updateTransaction(Number(trxId), payload).catch(err =>
       console.error('[Productivity] cancel error:', err),
     )

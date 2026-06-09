@@ -218,7 +218,10 @@
       "activeGroups": "Grupos activos:",
       "range": "Rango:",
       "perGroup": "{{min}}–{{max}} por grupo",
-      "next": "Productor →"
+      "next": "Productor →",
+      "individualEmpty": "Aún no hay personas asignadas",
+      "addIndividual": "Agregar",
+      "individualsAssigned": "Individuos"
     },
     "step3": {
       "availableGrowers": "Productores disponibles",
@@ -284,10 +287,10 @@
       "exceedsLimit": "Excede el límite — disponibles: {{remaining}}",
       "empty": "No hay unidades activas en el checkout",
       "confirmDeviationTitle": "Cantidad distinta a la esperada",
-      "confirmLessBody": "El total producido ({{total}}) es menor a lo esperado ({{expected}}). ¿Completar de todas formas?",
-      "confirmMoreBody": "El total producido ({{total}}) supera lo esperado ({{expected}}). ¿Completar de todas formas?",
+      "confirmLessBody": "El total producido <b>{{total}}</b> es menor a lo esperado <b>{{expected}}</b>. ¿Completar de todas formas?",
+      "confirmMoreBody": "El total producido <b>{{total}}</b> supera lo esperado <b>{{expected}}</b>. ¿Completar de todas formas?",
       "confirmLapTitle": "¿Completar la unidad?",
-      "confirmLapBody": "Alcanzaste la cantidad esperada ({{expected}}). ¿Quieres completar la unidad ahora?",
+      "confirmLapBody": "Alcanzaste la cantidad esperada <b>{{expected}}</b>. ¿Quieres completar la unidad ahora?",
       "confirmAccept": "Completar",
       "confirmCancel": "Cancelar"
     }

@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react'
-import { useTranslation } from 'react-i18next'
+import { useState, useEffect, useRef, type ReactNode } from 'react'
+import { useTranslation, Trans } from 'react-i18next'
 import { Plus, CheckCircle2, TrendingUp, Users, XCircle, ChevronLeft, ChevronRight, AlertTriangle } from 'lucide-react'
 import { Button } from '@/shared/ui/button'
 import type { UnitCheckout } from './types'
@@ -8,7 +8,7 @@ import type { UnitCheckout } from './types'
 interface CardConfirmation {
   tone:        'warning' | 'success'
   title:       string
-  body:        string
+  body:        ReactNode
   onAccept:    () => void
   onCancel:    () => void
 }
@@ -141,20 +141,23 @@ export function CheckoutView({ units, onLap, onWaste, onComplete, onCancel, onFi
     if (!confirm || confirm.trxId !== trxId) return undefined
     const onAccept = acceptConfirm
     const onCancel = () => setConfirm(null)
+    const bold = { b: <strong className="font-semibold text-foreground" /> }  // numbers in bold, not parentheses
     if (confirm.type === 'lapComplete') {
       return {
         tone:  'success',
         title: t('productivity.checkout.confirmLapTitle'),
-        body:  t('productivity.checkout.confirmLapBody', { expected: confirm.expected }),
+        body:  <Trans i18nKey="productivity.checkout.confirmLapBody" values={{ expected: confirm.expected }} components={bold} />,
         onAccept, onCancel,
       }
     }
     return {
       tone:  'warning',
       title: t('productivity.checkout.confirmDeviationTitle'),
-      body:  confirm.deviation === 'less'
-        ? t('productivity.checkout.confirmLessBody', { total: confirm.total, expected: confirm.expected })
-        : t('productivity.checkout.confirmMoreBody', { total: confirm.total, expected: confirm.expected }),
+      body:  <Trans
+        i18nKey={confirm.deviation === 'less' ? 'productivity.checkout.confirmLessBody' : 'productivity.checkout.confirmMoreBody'}
+        values={{ total: confirm.total, expected: confirm.expected }}
+        components={bold}
+      />,
       onAccept, onCancel,
     }
   }
@@ -176,9 +179,9 @@ export function CheckoutView({ units, onLap, onWaste, onComplete, onCancel, onFi
   }
 
   const totalAmount    = units.reduce((s, u) => s + u.totalQty, 0)
-  const activeCount    = units.filter(u => u.laps.length > 0 && !completedIds.has(u.unit.trxId)).length
-  // Only show units not yet fully completed (completingIds still visible — they're animating out)
+  // Units not yet completed (completingIds are still visible — animating out).
   const activeUnits    = units.filter(u => !completedIds.has(u.unit.trxId))
+  const activeCount    = activeUnits.length   // "Active" = still open; drops as units are completed
   const totalPages     = Math.ceil(activeUnits.length / pageSize)
   const paginated      = activeUnits.slice(page * pageSize, (page + 1) * pageSize)
   const showPagination = activeUnits.length > pageSize
@@ -397,7 +400,9 @@ function UnitCard({
             <p className="text-xs text-muted-foreground">
               {t('productivity.checkout.person', { count: unit.employees.length })}
             </p>
-            <div className="mt-1.5 flex flex-wrap gap-1">
+            {/* Member chips capped to ~2 rows with hidden scroll so the card height stays
+                consistent regardless of group size (the count above gives the total). */}
+            <div className="mt-1.5 flex max-h-[3.25rem] flex-wrap gap-1 overflow-y-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {unit.employees.map(e => (
                 <span key={e.id} className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
                   {e.name}

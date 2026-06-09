@@ -218,7 +218,10 @@
       "activeGroups": "Active groups:",
       "range": "Range:",
       "perGroup": "{{min}}–{{max}} per group",
-      "next": "Grower →"
+      "next": "Grower →",
+      "individualEmpty": "No people assigned yet",
+      "addIndividual": "Add",
+      "individualsAssigned": "Individuals"
     },
     "step3": {
       "availableGrowers": "Available growers",
@@ -284,10 +287,10 @@
       "exceedsLimit": "Exceeds the limit — available: {{remaining}}",
       "empty": "No active units in checkout",
       "confirmDeviationTitle": "Amount differs from expected",
-      "confirmLessBody": "The produced total ({{total}}) is below the expected ({{expected}}). Complete anyway?",
-      "confirmMoreBody": "The produced total ({{total}}) exceeds the expected ({{expected}}). Complete anyway?",
+      "confirmLessBody": "The produced total <b>{{total}}</b> is below the expected <b>{{expected}}</b>. Complete anyway?",
+      "confirmMoreBody": "The produced total <b>{{total}}</b> exceeds the expected <b>{{expected}}</b>. Complete anyway?",
       "confirmLapTitle": "Complete the unit?",
-      "confirmLapBody": "You reached the expected amount ({{expected}}). Do you want to complete the unit now?",
+      "confirmLapBody": "You reached the expected amount <b>{{expected}}</b>. Do you want to complete the unit now?",
       "confirmAccept": "Complete",
       "confirmCancel": "Cancel"
     }

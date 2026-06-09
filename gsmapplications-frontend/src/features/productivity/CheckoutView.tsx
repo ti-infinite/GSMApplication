@@ -1,8 +1,23 @@
 import { useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Plus, CheckCircle2, TrendingUp, Users, XCircle, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Plus, CheckCircle2, TrendingUp, Users, XCircle, ChevronLeft, ChevronRight, AlertTriangle } from 'lucide-react'
 import { Button } from '@/shared/ui/button'
 import type { UnitCheckout } from './types'
+
+// Per-card confirmation rendered as an overlay on the card itself (not a full-screen modal).
+interface CardConfirmation {
+  tone:        'warning' | 'success'
+  title:       string
+  body:        string
+  onAccept:    () => void
+  onCancel:    () => void
+}
+
+// A pending confirmation that needs the user's decision before completing a unit.
+type Confirm =
+  | { type: 'deviation'; trxId: string; finalLapAmount: number; deviation: 'less' | 'more'; expected: number; total: number }
+  | { type: 'lapComplete'; trxId: string; expected: number }
+  | null
 
 const COLORS        = ['bg-blue-500', 'bg-purple-500', 'bg-green-500', 'bg-orange-500', 'bg-pink-500', 'bg-teal-500']
 const ROWS_PER_PAGE = 2
@@ -42,6 +57,7 @@ export function CheckoutView({ units, onLap, onWaste, onComplete, onCancel, onFi
   const [completedIds,  setCompletedIds]  = useState<Set<string>>(new Set())
   const [completingIds, setCompletingIds] = useState<Set<string>>(new Set())
   const [errors,        setErrors]        = useState<Record<string, string>>({})
+  const [confirm,       setConfirm]       = useState<Confirm>(null)
   const [page,          setPage]          = useState(0)
   const pageSize = usePageSize()
   const onFinishRef = useRef(onFinish)
@@ -63,6 +79,7 @@ export function CheckoutView({ units, onLap, onWaste, onComplete, onCancel, onFi
   const clearError = (trxId: string) =>
     setErrors(prev => { const n = { ...prev }; delete n[trxId]; return n })
 
+  // +Lap is strict: it can never exceed the remaining quantity.
   const registerLap = (trxId: string) => {
     const raw       = amounts[trxId] ?? ''
     const amount    = parseInt(raw, 10)
@@ -76,25 +93,78 @@ export function CheckoutView({ units, onLap, onWaste, onComplete, onCancel, onFi
     clearError(trxId)
     onLap(trxId, amount)
     setAmounts(prev => ({ ...prev, [trxId]: '' }))
+    // If this lap reaches the expected amount, suggest completing so the TRX doesn't stay open.
+    if (unit && amount === remaining) {
+      setConfirm({ type: 'lapComplete', trxId, expected: unit.unit.initialQty })
+    }
   }
 
+  // Complete is flexible: it may close with the laps already registered (no input) or
+  // register a final lap — and it MAY exceed the expected amount (with confirmation).
   const registerComplete = (trxId: string) => {
-    const raw       = amounts[trxId] ?? ''
-    const amount    = parseInt(raw, 10)
-    if (!raw || isNaN(amount) || amount <= 0) return
-    const unit      = units.find(u => u.unit.trxId === trxId)
-    const remaining = unit ? unit.unit.initialQty - unit.totalQty : Infinity
-    if (amount > remaining) {
-      setErrors(prev => ({ ...prev, [trxId]: t('productivity.checkout.exceedsLimit', { remaining }) }))
-      return
-    }
+    const unit = units.find(u => u.unit.trxId === trxId)
+    if (!unit) return
+    const raw            = amounts[trxId] ?? ''
+    const finalLapAmount = raw ? parseInt(raw, 10) : 0
+    if (raw && (isNaN(finalLapAmount) || finalLapAmount <= 0)) return   // invalid input
+    if (finalLapAmount <= 0 && unit.laps.length === 0) return           // nothing to complete
     clearError(trxId)
-    // Start exit animation, then mark as fully completed after transition
+
+    const expected = unit.unit.initialQty
+    const total    = unit.totalQty + finalLapAmount
+    // Confirm only when the total deviates from what was expected.
+    if (total < expected) { setConfirm({ type: 'deviation', trxId, finalLapAmount, deviation: 'less', expected, total }); return }
+    if (total > expected) { setConfirm({ type: 'deviation', trxId, finalLapAmount, deviation: 'more', expected, total }); return }
+    doComplete(trxId, finalLapAmount)
+  }
+
+  // Runs the actual completion (after confirmation, or directly when there's no deviation).
+  const doComplete = (trxId: string, finalLapAmount: number) => {
+    setConfirm(null)
+    clearError(trxId)
     setCompletingIds(prev => new Set([...prev, trxId]))
-    onComplete(trxId, amount)
+    onComplete(trxId, finalLapAmount)
+    setAmounts(prev => ({ ...prev, [trxId]: '' }))
     setTimeout(() => {
       setCompletingIds(prev => { const n = new Set(prev); n.delete(trxId); return n })
       setCompletedIds(prev => new Set([...prev, trxId]))
+    }, 350)
+  }
+
+  const acceptConfirm = () => {
+    if (!confirm) return
+    doComplete(confirm.trxId, confirm.type === 'lapComplete' ? 0 : confirm.finalLapAmount)
+  }
+
+  // Build the overlay confirmation for the card that currently has one pending.
+  const confirmationFor = (trxId: string): CardConfirmation | undefined => {
+    if (!confirm || confirm.trxId !== trxId) return undefined
+    const onAccept = acceptConfirm
+    const onCancel = () => setConfirm(null)
+    if (confirm.type === 'lapComplete') {
+      return {
+        tone:  'success',
+        title: t('productivity.checkout.confirmLapTitle'),
+        body:  t('productivity.checkout.confirmLapBody', { expected: confirm.expected }),
+        onAccept, onCancel,
+      }
+    }
+    return {
+      tone:  'warning',
+      title: t('productivity.checkout.confirmDeviationTitle'),
+      body:  confirm.deviation === 'less'
+        ? t('productivity.checkout.confirmLessBody', { total: confirm.total, expected: confirm.expected })
+        : t('productivity.checkout.confirmMoreBody', { total: confirm.total, expected: confirm.expected }),
+      onAccept, onCancel,
+    }
+  }
+
+  // Same exit animation as complete, then remove the unit from the list.
+  const registerCancel = (trxId: string) => {
+    setCompletingIds(prev => new Set([...prev, trxId]))
+    setTimeout(() => {
+      setCompletingIds(prev => { const n = new Set(prev); n.delete(trxId); return n })
+      onCancel(trxId)
     }, 350)
   }
 
@@ -112,6 +182,18 @@ export function CheckoutView({ units, onLap, onWaste, onComplete, onCancel, onFi
   const totalPages     = Math.ceil(activeUnits.length / pageSize)
   const paginated      = activeUnits.slice(page * pageSize, (page + 1) * pageSize)
   const showPagination = activeUnits.length > pageSize
+
+  // Checkout is always reachable now; show an empty state when there's nothing active.
+  if (units.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border bg-card py-16 text-center">
+        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+          <Users className="h-6 w-6 text-muted-foreground" />
+        </div>
+        <p className="text-sm text-muted-foreground">{t('productivity.checkout.empty')}</p>
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -185,7 +267,8 @@ export function CheckoutView({ units, onLap, onWaste, onComplete, onCancel, onFi
               onRegister={() => registerLap(u.unit.trxId)}
               onWasteChange={val => handleWasteChange(u.unit.trxId, val)}
               onComplete={() => registerComplete(u.unit.trxId)}
-              onCancel={() => onCancel(u.unit.trxId)}
+              onCancel={() => registerCancel(u.unit.trxId)}
+              confirmation={confirmationFor(u.unit.trxId)}
             />
           </div>
         ))}
@@ -198,7 +281,7 @@ export function CheckoutView({ units, onLap, onWaste, onComplete, onCancel, onFi
             variant="ghost"
             size="sm"
             onClick={() => setPage(p => p - 1)}
-            disabled={page === 0}
+            disabled={page === 0 || confirm !== null}
             className="gap-1.5 text-sm">
             <ChevronLeft className="h-4 w-4" />
             <span className="hidden sm:inline">{t('productivity.common.previous')}</span>
@@ -231,7 +314,7 @@ export function CheckoutView({ units, onLap, onWaste, onComplete, onCancel, onFi
             variant="ghost"
             size="sm"
             onClick={() => setPage(p => p + 1)}
-            disabled={page >= totalPages - 1}
+            disabled={page >= totalPages - 1 || confirm !== null}
             className="gap-1.5 text-sm">
             <span className="hidden sm:inline">{t('productivity.common.next')}</span>
             <ChevronRight className="h-4 w-4" />
@@ -243,7 +326,7 @@ export function CheckoutView({ units, onLap, onWaste, onComplete, onCancel, onFi
 }
 
 function UnitCard({
-  unitCheckout, colorClass, inputValue, wasteValue, error,
+  unitCheckout, colorClass, inputValue, wasteValue, error, confirmation,
   onInputChange, onRegister, onWasteChange, onComplete, onCancel,
 }: {
   unitCheckout:  UnitCheckout
@@ -251,6 +334,7 @@ function UnitCard({
   inputValue:    string
   wasteValue:    string
   error?:        string
+  confirmation?: CardConfirmation
   onInputChange: (v: string) => void
   onRegister:    () => void
   onWasteChange: (v: string) => void
@@ -263,10 +347,42 @@ function UnitCard({
   const hasLaps   = laps.length > 0
   const remaining = unit.initialQty - totalQty
   const lapAmount = parseInt(inputValue, 10)
-  const lapValid  = !isNaN(lapAmount) && lapAmount > 0 && lapAmount <= remaining
+  const hasInput  = !isNaN(lapAmount) && lapAmount > 0
+  const lapValid      = hasInput && lapAmount <= remaining  // +Lap: strict, never exceeds
+  const completeValid = hasInput || hasLaps                 // Complete: registers a final lap OR closes with existing laps
 
   return (
-    <div className="flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+    <div className="relative flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+
+      {/* ── Confirmation overlay — anchored to the card, not the screen ── */}
+      {confirmation && (
+        <div className="absolute inset-0 z-20 flex animate-in fade-in zoom-in-95 flex-col items-center justify-center gap-3 rounded-xl bg-card/95 p-4 text-center backdrop-blur-sm duration-150">
+          <span className={`flex h-11 w-11 items-center justify-center rounded-full ${
+            confirmation.tone === 'success'
+              ? 'bg-green-500/15 text-green-600 dark:text-green-400'
+              : 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
+          }`}>
+            {confirmation.tone === 'success'
+              ? <CheckCircle2 className="h-6 w-6" />
+              : <AlertTriangle className="h-6 w-6" />}
+          </span>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-foreground">{confirmation.title}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">{confirmation.body}</p>
+          </div>
+          <div className="flex w-full max-w-[260px] gap-2">
+            <Button variant="ghost" size="sm" onClick={confirmation.onCancel}
+              className="flex-1 border border-border">
+              {t('productivity.checkout.confirmCancel')}
+            </Button>
+            <Button size="sm" onClick={confirmation.onAccept} className="flex-1 gap-1.5">
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              {t('productivity.checkout.confirmAccept')}
+            </Button>
+          </div>
+        </div>
+      )}
+
 
       {/* ── 1. Identity + metrics corner ── */}
       <div className="flex items-start justify-between gap-3 p-4 pb-3">
@@ -377,7 +493,7 @@ function UnitCard({
           <Button
             variant="ghost"
             onClick={onComplete}
-            disabled={!lapValid}
+            disabled={!completeValid}
             className="h-auto w-full gap-1.5 border border-green-500/30 py-2.5 text-sm text-green-600 hover:bg-green-500/10 hover:text-green-600 disabled:opacity-40 dark:text-green-400 dark:hover:text-green-400">
             <CheckCircle2 className="h-3.5 w-3.5" />
             {t('productivity.checkout.complete')}

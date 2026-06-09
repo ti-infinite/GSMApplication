@@ -102,7 +102,7 @@ public sealed class OperationsController : ControllerBase
         return Ok(response);
     }
 
-    [HttpGet("getTrx")]
+    [HttpPost("getTrx")]
     public async Task<IActionResult> GetTransaction([FromBody] SearchTrx searchTrx, CancellationToken cancellationToken)
     {
         var response = await _manageTransactionService.GetTrx(searchTrx, cancellationToken);

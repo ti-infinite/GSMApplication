@@ -117,6 +117,12 @@ export interface AssignmentWizardConfig {
   growers:         Grower[]
 }
 
+// A grower the user picked, with its own ITC value
+export interface SelectedGrower {
+  grower: Grower
+  itc:    string
+}
+
 export interface AssignmentResult {
   product:        MasterProduct
   variety:        ProductVariety
@@ -124,8 +130,7 @@ export interface AssignmentResult {
   skuPrefix:      string
   mode:           AssignmentMode
   employeeGroups: EmployeeGroup[]
-  grower:         Grower
-  itc:            string
-  productionType: string      // code from PRDTYPE parameter
-  trxIds:         string[]    // IDs returned by backend after create-trx (one per group/individual)
+  growers:        SelectedGrower[]   // one or more growers, each with its ITC
+  productionType: string             // code from PRDTYPE parameter
+  trxIds:         string[]           // IDs returned by backend after create-trx (one per group/individual)
 }

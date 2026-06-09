@@ -93,10 +93,10 @@ export function useWizardData() {
         return ((res.data as EmployeeDTOListApiResponse).data ?? [])
           .filter(e => !userLocation || (e.location ?? '').toLowerCase() === userLocation)
           .map((e, i) => ({
-            id:   `emp-${i}`,
-            name: e.fullName ?? '',
-            role: e.location ?? 'Harvester',
-            // idEmployee: pending backend — EmployeeDTO needs Id field for create-trx
+            id:         `emp-${i}`,
+            idEmployee: e.idEmployee,   // real backend Id → used in create-trx Employee attr
+            name:       e.fullName ?? '',
+            role:       e.location ?? 'Harvester',
           }) satisfies Employee)
       },
     },

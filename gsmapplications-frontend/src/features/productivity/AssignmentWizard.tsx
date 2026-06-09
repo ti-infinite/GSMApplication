@@ -8,7 +8,7 @@ import { useSkuBuilder } from './hooks/useSkuBuilder'
 import { useEmployeeGroups } from './hooks/useEmployeeGroups'
 import { useWizardData } from './hooks/useWizardData'
 import { Skeleton } from '@/shared/ui/skeleton'
-import type { AssignmentResult, Grower } from './types'
+import type { AssignmentResult, SelectedGrower } from './types'
 
 interface Props {
   onComplete: (result: AssignmentResult) => void
@@ -17,8 +17,9 @@ interface Props {
 export function AssignmentWizard({ onComplete }: Props) {
   const { t } = useTranslation()
   const [step,           setStep]           = useState(1)
-  const [itc,            setItc]            = useState('')
   const [productionType, setProductionType] = useState('')
+  // Lifted here so the grower selection survives moving between steps
+  const [growerSel,      setGrowerSel]      = useState<Record<string, SelectedGrower>>({})
 
   const STEPS = [
     { id: 1, label: t('productivity.wizard.stepProduct') },
@@ -37,7 +38,7 @@ export function AssignmentWizard({ onComplete }: Props) {
 
   const groups = useEmployeeGroups(data?.employees ?? [])
 
-  const handleConfirm = (grower: Grower) => {
+  const handleConfirm = (selectedGrowers: SelectedGrower[]) => {
     if (!sku.selectedProduct || !sku.selectedVariety) return
     onComplete({
       product:        sku.selectedProduct,
@@ -46,8 +47,7 @@ export function AssignmentWizard({ onComplete }: Props) {
       skuPrefix:      sku.skuPrefix,
       mode:           groups.mode,
       employeeGroups: groups.groups.filter(g => g.employees.length > 0),
-      grower,
-      itc,
+      growers:        selectedGrowers,
       productionType,
       // TODO(backend): el backend devolverá los TRX IDs vía GET trx tras create-trx.
       // Por ahora va vacío; ProductivityPage los sobreescribe con los IDs reales.
@@ -105,8 +105,8 @@ export function AssignmentWizard({ onComplete }: Props) {
       {step === 3 && sku.selectedProduct && (
         <Step3Grower
           growers={data.growers}
-          itc={itc}
-          onItcChange={setItc}
+          selected={growerSel}
+          onSelectedChange={setGrowerSel}
           productionType={productionType}
           productionTypes={data.productionTypes}
           onProductionTypeChange={setProductionType}

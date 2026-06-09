@@ -154,13 +154,11 @@
     "title": "Productividad",
     "subtitles": {
       "assignment": "Asignación de productos, empleados y productor",
-      "checkout": "Medición de rendimiento en tiempo real",
-      "history": "Historial de registros"
+      "checkout": "Medición de rendimiento en tiempo real"
     },
     "tabs": {
       "assignment": "Asignación",
-      "checkout": "Checkout",
-      "history": "Historial"
+      "checkout": "Checkout"
     },
     "tabLocked": "Completa una asignación primero",
     "common": {
@@ -251,7 +249,17 @@
       "hintSelectGrower": "Selecciona un productor",
       "hintSelectType": "Selecciona el tipo de producción",
       "hintEnterItc": "Ingresa el ITC",
-      "confirm": "Confirmar registro"
+      "confirm": "Confirmar registro",
+      "selectedElsewhere": "Seleccionado: {{name}}",
+      "viewOnPage": "Ver · pág. {{page}}",
+      "selectedHiddenSearch": "Seleccionado fuera del filtro: {{name}}",
+      "clearFilter": "Limpiar filtro",
+      "colItc": "ITC",
+      "selectedGrowers": "Productores seleccionados",
+      "selectGrowersHint": "Selecciona productores de la lista",
+      "hintMissingItc": "Ingresa el ITC de cada productor",
+      "sumGrowers": "Productores",
+      "itcRow": "ITC"
     },
     "checkout": {
       "inProgress": "En curso",
@@ -273,24 +281,15 @@
       "complete": "Completar",
       "laps": "Laps",
       "noLaps": "Sin laps registradas",
-      "exceedsLimit": "Excede el límite — disponibles: {{remaining}}"
-    },
-    "history": {
-      "today": "Hoy",
-      "yesterday": "Ayer",
-      "week": "Esta semana",
-      "all": "Todos",
-      "colUnit": "Unidad",
-      "colLaps": "Laps",
-      "colProduced": "Producido",
-      "colWaste": "Desperdicio",
-      "colLastLap": "Último lap",
-      "statUnits": "Unidades",
-      "statTotalProduced": "Total producido",
-      "statTotalWaste": "Total desperdicio",
-      "searchPlaceholder": "Buscar unidad o empleado...",
-      "emptyNoRecords": "No hay registros. Completa una asignación y usa el Checkout.",
-      "emptyNoMatch": "No hay registros que coincidan con los filtros."
+      "exceedsLimit": "Excede el límite — disponibles: {{remaining}}",
+      "empty": "No hay unidades activas en el checkout",
+      "confirmDeviationTitle": "Cantidad distinta a la esperada",
+      "confirmLessBody": "El total producido ({{total}}) es menor a lo esperado ({{expected}}). ¿Completar de todas formas?",
+      "confirmMoreBody": "El total producido ({{total}}) supera lo esperado ({{expected}}). ¿Completar de todas formas?",
+      "confirmLapTitle": "¿Completar la unidad?",
+      "confirmLapBody": "Alcanzaste la cantidad esperada ({{expected}}). ¿Quieres completar la unidad ahora?",
+      "confirmAccept": "Completar",
+      "confirmCancel": "Cancelar"
     }
   }
 }

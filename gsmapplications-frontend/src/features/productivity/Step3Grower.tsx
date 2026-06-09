@@ -1,16 +1,16 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { CheckCircle2, MapPin, Search, ChevronLeft, ChevronRight } from 'lucide-react'
+import { CheckCircle2, MapPin, Search, ChevronLeft, ChevronRight, Check } from 'lucide-react'
 import { Button } from '@/shared/ui/button'
 import { Combobox } from '@/shared/ui/combobox'
-import type { Grower, MasterProduct, EmployeeGroup, AssignmentMode, ParameterAttribute } from './types'
+import type { Grower, MasterProduct, EmployeeGroup, AssignmentMode, ParameterAttribute, SelectedGrower } from './types'
 
 const PAGE_SIZE = 10
 
 interface Props {
   growers:                Grower[]
-  itc:                    string
-  onItcChange:            (v: string) => void
+  selected:               Record<string, SelectedGrower>   // lifted to the wizard so it survives step changes
+  onSelectedChange:       (next: Record<string, SelectedGrower>) => void
   productionType:         string
   productionTypes:        ParameterAttribute[]
   onProductionTypeChange: (v: string) => void
@@ -18,7 +18,7 @@ interface Props {
   mode:                   AssignmentMode
   employeeGroups:         EmployeeGroup[]
   onBack:                 () => void
-  onConfirm:              (grower: Grower) => void
+  onConfirm:              (growers: SelectedGrower[]) => void
 }
 
 function initials(name: string) {
@@ -26,20 +26,18 @@ function initials(name: string) {
 }
 
 export function Step3Grower({
-  growers, itc, onItcChange,
+  growers, selected, onSelectedChange,
   productionType, productionTypes, onProductionTypeChange,
   product, mode, employeeGroups, onBack, onConfirm,
 }: Props) {
   const { t } = useTranslation()
-  const [selected, setSelected] = useState<Grower | null>(null)
-  const [search,   setSearch]   = useState('')
-  const [page,     setPage]     = useState(0)
+  const [search, setSearch] = useState('')
+  const [page,   setPage]   = useState(0)
 
   const filtered = search.trim()
     ? growers.filter(g =>
         g.name.toLowerCase().includes(search.toLowerCase()) ||
-        (g.country ?? '').toLowerCase().includes(search.toLowerCase()) ||
-        (g.categorySupplier ?? '').toLowerCase().includes(search.toLowerCase()),
+        (g.country ?? '').toLowerCase().includes(search.toLowerCase()),
       )
     : growers
 
@@ -48,8 +46,30 @@ export function Step3Grower({
 
   const handleSearch = (v: string) => { setSearch(v); setPage(0) }
 
+  const toggleGrower = (grower: Grower) => {
+    const next = { ...selected }
+    if (next[grower.id]) delete next[grower.id]
+    else next[grower.id] = { grower, itc: '' }
+    onSelectedChange(next)
+  }
+
+  const setGrowerItc = (growerId: string, itc: string) => {
+    if (selected[growerId]) onSelectedChange({ ...selected, [growerId]: { ...selected[growerId], itc } })
+  }
+
+  const selectedList   = Object.values(selected)
+  const selectedCount  = selectedList.length
+  const missingItc     = selectedList.filter(s => !s.itc.trim()).length
   const totalEmployees = employeeGroups.reduce((s, g) => s + g.employees.length, 0)
-  const canConfirm     = !!selected && itc.trim().length > 0 && productionType.length > 0
+  const canConfirm     = selectedCount > 0 && missingItc === 0 && productionType.length > 0
+
+  // Page index where a selected grower lives → lets the panel jump to its ITC input.
+  const pageOfGrower = (growerId: string) => {
+    const idx = filtered.findIndex(g => g.id === growerId)
+    return idx >= 0 ? Math.floor(idx / PAGE_SIZE) : -1
+  }
+
+  const itcInputCls = 'w-24 rounded-md border border-border bg-background px-2 py-1 text-xs text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-ring'
 
   return (
     <div className="flex flex-col gap-6">
@@ -83,7 +103,7 @@ export function Step3Grower({
                     <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t('productivity.step3.colName')}</th>
                     <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t('productivity.step3.colId')}</th>
                     <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t('productivity.step3.colCountry')}</th>
-                    <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t('productivity.step3.colCategory')}</th>
+                    <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t('productivity.step3.colItc')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border bg-card">
@@ -92,29 +112,41 @@ export function Step3Grower({
                       <td colSpan={5} className="px-4 py-8 text-center text-sm text-muted-foreground">{t('productivity.step3.noResults')}</td>
                     </tr>
                   ) : (
-                    paginated.map(grower => (
-                      <tr key={grower.id} onClick={() => setSelected(grower)}
-                        className={`cursor-pointer transition-colors hover:bg-muted/30 ${selected?.id === grower.id ? 'bg-primary/10' : ''}`}>
-                        <td className="px-4 py-3">
-                          <div className={`flex h-4 w-4 items-center justify-center rounded-full border-2 transition-colors ${selected?.id === grower.id ? 'border-primary bg-primary' : 'border-muted-foreground/40'}`}>
-                            {selected?.id === grower.id && <div className="h-1.5 w-1.5 rounded-full bg-white" />}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 font-medium text-foreground">{grower.name}</td>
-                        <td className="px-4 py-3 text-xs text-muted-foreground">{grower.idThirdSupplier}</td>
-                        <td className="px-4 py-3 text-muted-foreground">
-                          <div className="flex items-center gap-1">
-                            {grower.country && <MapPin className="h-3 w-3 shrink-0" />}
-                            {grower.country ?? '—'}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          {grower.categorySupplier && (
-                            <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">{grower.categorySupplier}</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))
+                    paginated.map(grower => {
+                      const isSel = !!selected[grower.id]
+                      return (
+                        <tr key={grower.id} onClick={() => toggleGrower(grower)}
+                          className={`cursor-pointer transition-colors hover:bg-muted/30 ${isSel ? 'bg-primary/10' : ''}`}>
+                          <td className="px-4 py-3">
+                            <div className={`flex h-4 w-4 items-center justify-center rounded border-2 transition-colors ${isSel ? 'border-primary bg-primary' : 'border-muted-foreground/40'}`}>
+                              {isSel && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 font-medium text-foreground">{grower.name}</td>
+                          <td className="px-4 py-3 text-xs text-muted-foreground">{grower.idThirdSupplier}</td>
+                          <td className="px-4 py-3 text-muted-foreground">
+                            <div className="flex items-center gap-1">
+                              {grower.country && <MapPin className="h-3 w-3 shrink-0" />}
+                              {grower.country ?? '—'}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            {isSel ? (
+                              <input
+                                type="text" inputMode="numeric"
+                                value={selected[grower.id].itc}
+                                onClick={e => e.stopPropagation()}
+                                onChange={e => setGrowerItc(grower.id, e.target.value.replace(/[^0-9]/g, ''))}
+                                placeholder={t('productivity.step3.itcPlaceholder')}
+                                className={itcInputCls}
+                              />
+                            ) : (
+                              <span className="text-muted-foreground/40">—</span>
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    })
                   )}
                 </tbody>
               </table>
@@ -122,21 +154,35 @@ export function Step3Grower({
 
             {/* Mobile */}
             <div className="flex flex-col divide-y divide-border md:hidden">
-              {paginated.map(grower => (
-                <button key={grower.id} type="button" onClick={() => setSelected(grower)}
-                  className={`flex items-center gap-3 px-4 py-3 text-left transition-colors ${selected?.id === grower.id ? 'bg-primary/10' : 'hover:bg-muted/30'}`}>
-                  <div className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 ${selected?.id === grower.id ? 'border-primary bg-primary' : 'border-muted-foreground/40'}`}>
-                    {selected?.id === grower.id && <div className="h-1.5 w-1.5 rounded-full bg-white" />}
+              {paginated.map(grower => {
+                const isSel = !!selected[grower.id]
+                return (
+                  <div key={grower.id}
+                    className={`flex flex-col gap-2 px-4 py-3 transition-colors ${isSel ? 'bg-primary/10' : ''}`}>
+                    <button type="button" onClick={() => toggleGrower(grower)} className="flex items-center gap-3 text-left">
+                      <div className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border-2 ${isSel ? 'border-primary bg-primary' : 'border-muted-foreground/40'}`}>
+                        {isSel && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
+                      </div>
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/20 text-xs font-bold text-primary">
+                        {initials(grower.name)}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-foreground">{grower.name}</p>
+                        <p className="text-xs text-muted-foreground">{grower.country ?? grower.idThirdSupplier}</p>
+                      </div>
+                    </button>
+                    {isSel && (
+                      <input
+                        type="text" inputMode="numeric"
+                        value={selected[grower.id].itc}
+                        onChange={e => setGrowerItc(grower.id, e.target.value.replace(/[^0-9]/g, ''))}
+                        placeholder={t('productivity.step3.itcPlaceholder')}
+                        className="ml-7 w-32 rounded-md border border-border bg-background px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-ring"
+                      />
+                    )}
                   </div>
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/20 text-xs font-bold text-primary">
-                    {initials(grower.name)}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-foreground">{grower.name}</p>
-                    <p className="text-xs text-muted-foreground">{grower.country ?? grower.idThirdSupplier}</p>
-                  </div>
-                </button>
-              ))}
+                )
+              })}
             </div>
           </div>
 
@@ -173,25 +219,37 @@ export function Step3Grower({
             {t('productivity.step3.detailsTitle')}
           </p>
 
-          {/* Selected grower */}
+          {/* Selected growers */}
           <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-            <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">{t('productivity.step3.selectedGrower')}</p>
-            {selected ? (
-              <div className="flex items-center gap-3">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/20 text-sm font-bold text-primary">
-                  {initials(selected.name)}
-                </div>
-                <div className="min-w-0">
-                  <p className="font-semibold text-foreground">{selected.name}</p>
-                  {selected.country && (
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <MapPin className="h-3 w-3" />{selected.country}
-                    </div>
-                  )}
-                </div>
-              </div>
+            <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+              {t('productivity.step3.selectedGrowers')}
+              {selectedCount > 0 && <span className="ml-1.5 text-primary">({selectedCount})</span>}
+            </p>
+            {selectedCount === 0 ? (
+              <p className="py-3 text-center text-sm text-muted-foreground">{t('productivity.step3.selectGrowersHint')}</p>
             ) : (
-              <p className="py-3 text-center text-sm text-muted-foreground">{t('productivity.step3.selectGrowerHint')}</p>
+              <div className="flex flex-col gap-1.5">
+                {selectedList.map(({ grower, itc }) => {
+                  const gp = pageOfGrower(grower.id)
+                  return (
+                    <button
+                      key={grower.id}
+                      type="button"
+                      onClick={() => gp >= 0 && setPage(gp)}
+                      title={gp >= 0 ? `pág. ${gp + 1}` : undefined}
+                      className="flex items-center gap-2 rounded-lg bg-muted/40 px-2.5 py-1.5 text-left transition-colors hover:bg-muted"
+                    >
+                      <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${itc.trim() ? 'bg-green-500/15 text-green-600 dark:text-green-400' : 'bg-amber-500/15 text-amber-600 dark:text-amber-400'}`}>
+                        {itc.trim() ? <Check className="h-3 w-3" strokeWidth={3} /> : '!'}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-medium text-foreground">{grower.name}</span>
+                        {itc.trim() && <span className="block text-xs text-muted-foreground">ITC {itc}</span>}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
             )}
           </div>
 
@@ -209,18 +267,6 @@ export function Step3Grower({
             />
           </div>
 
-          {/* ITC */}
-          <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-            <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-muted-foreground">{t('productivity.step3.itc')}</label>
-            <input
-              type="text"
-              placeholder={t('productivity.step3.itcPlaceholder')}
-              value={itc}
-              onChange={e => onItcChange(e.target.value)}
-              className="w-full rounded-lg border border-border bg-background px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-            />
-          </div>
-
           {/* Summary */}
           <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
             <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">{t('productivity.step3.summary')}</p>
@@ -231,7 +277,7 @@ export function Step3Grower({
                 { label: t('productivity.step3.sumAssignment'), value: mode === 'groups' ? t('productivity.step3.assignmentGroups', { count: employeeGroups.length }) : t('productivity.step3.assignmentIndividual') },
                 { label: t('productivity.step3.sumEmployees'),  value: String(totalEmployees) },
                 { label: t('productivity.step3.sumProduction'), value: productionTypes.find(pt => pt.code === productionType)?.shortName ?? '—' },
-                { label: t('productivity.step3.sumItc'),        value: itc || '—' },
+                { label: t('productivity.step3.sumGrowers'),    value: String(selectedCount) },
               ].map(({ label, value }) => (
                 <div key={label} className="flex items-start justify-between gap-3 text-sm">
                   <dt className="shrink-0 text-muted-foreground">{label}</dt>
@@ -247,10 +293,10 @@ export function Step3Grower({
       <div className="flex flex-col gap-3 rounded-xl border border-border bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
         <Button variant="ghost" onClick={onBack}>{t('productivity.common.back')}</Button>
         <div className="flex items-center gap-3">
-          {!selected           && <span className="text-xs text-muted-foreground">{t('productivity.step3.hintSelectGrower')}</span>}
-          {selected && !productionType && <span className="text-xs text-amber-600">{t('productivity.step3.hintSelectType')}</span>}
-          {selected && productionType && !itc.trim() && <span className="text-xs text-amber-600">{t('productivity.step3.hintEnterItc')}</span>}
-          <Button onClick={() => selected && onConfirm(selected)} disabled={!canConfirm} className="gap-2">
+          {selectedCount === 0     && <span className="text-xs text-muted-foreground">{t('productivity.step3.hintSelectGrower')}</span>}
+          {selectedCount > 0 && missingItc > 0 && <span className="text-xs text-amber-600">{t('productivity.step3.hintMissingItc')}</span>}
+          {selectedCount > 0 && missingItc === 0 && !productionType && <span className="text-xs text-amber-600">{t('productivity.step3.hintSelectType')}</span>}
+          <Button onClick={() => canConfirm && onConfirm(selectedList)} disabled={!canConfirm} className="gap-2">
             <CheckCircle2 className="h-4 w-4" />
             {t('productivity.step3.confirm')}
           </Button>

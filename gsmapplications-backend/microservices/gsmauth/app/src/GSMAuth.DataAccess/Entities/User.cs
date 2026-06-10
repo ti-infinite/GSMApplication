@@ -33,7 +33,7 @@ public sealed class User
     public bool PasswordChangeRequired { get; set; }
 
     [MaxLength(100)]
-    public string Location { get; set; } = string.Empty;
+    public string? Location { get; set; }
 
     public bool IsActive { get; set; }
 

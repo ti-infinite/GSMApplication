@@ -11,5 +11,5 @@ public sealed class UserDTO
     public required bool IsActive { get; set; }
     public required bool PasswordChangeRequired { get; set; }
     public string Department { get; set; } = string.Empty;
-    public string Location { get; set; } = string.Empty;
+    public string? Location { get; set; }
 }

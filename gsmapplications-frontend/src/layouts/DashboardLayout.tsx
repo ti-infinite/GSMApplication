@@ -23,16 +23,6 @@ export default function DashboardLayout() {
     if (isError) navigate(`/${locale}/login`, { replace: true })
   }, [isError, navigate, locale])
 
-  if (loading) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-background p-8">
-        <div className="w-full max-w-4xl">
-          <DashboardLoading />
-        </div>
-      </div>
-    )
-  }
-
   function handleLogout() {
     logout()
     queryClient.clear()
@@ -43,6 +33,24 @@ export default function DashboardLayout() {
     name:     branding.name,
     initials: branding.initials,
     logo:     branding.logo,
+  }
+
+  // While the menu loads, show the real shell (navbar + sidebar) with the
+  // content area in skeleton, so there is no jump from a centered loader
+  // to the full app.
+  if (loading) {
+    return (
+      <DashboardShell
+        items={[]}
+        brand={brand}
+        locale={locale ?? 'en'}
+        userName={userName}
+        loading
+        onLogout={handleLogout}
+      >
+        <DashboardLoading />
+      </DashboardShell>
+    )
   }
 
   return (

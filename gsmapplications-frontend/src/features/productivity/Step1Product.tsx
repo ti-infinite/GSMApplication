@@ -114,7 +114,7 @@ export function Step1Product({ data, sku, onNext }: Props) {
                           const v = parseInt(e.target.value, 10)
                           sku.setInitialQty(isNaN(v) || v <= 0 ? null : v)
                         }}
-                        className="flex-1 rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                        className="min-w-0 flex-1 rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                       />
                     </div>
                   )}

@@ -6,6 +6,7 @@ import { CheckoutView } from './CheckoutView'
 import { buildTransactionPayload, buildLapPayload, buildCompletePayload, buildCancelPayload, mapTrxToUnits, type TrxResponseDTO } from './transactionMapper'
 import { createTransaction, updateTransaction, getTransaction } from '@/shared/api/operations/operations/operations'
 import { getStoredUser } from '@/shared/lib/auth'
+import { toast } from 'sonner'
 import { Skeleton } from '@/shared/ui/skeleton'
 import type { AssignmentResult, UnitCheckout, LapRecord } from './types'
 
@@ -27,7 +28,6 @@ type View = 'assignment' | 'checkout'
 export default function ProductivityPage() {
   const { t } = useTranslation()
   const [view,            setView]            = useState<View>('assignment')
-  const [assignment,      setAssignment]      = useState<AssignmentResult | null>(null)
   const [units,           setUnits]           = useState<UnitCheckout[]>([])
   const [checkoutLoading, setCheckoutLoading] = useState(false)
   const startDateRef = useRef<Date>(new Date())
@@ -47,7 +47,6 @@ export default function ProductivityPage() {
   }
 
   const handleComplete = async (result: AssignmentResult) => {
-    setAssignment(result)
     // Move to the checkout right away and show the skeleton while the TRX are being
     // created and then loaded — no waiting on the assignment screen.
     setView('checkout')
@@ -58,8 +57,10 @@ export default function ProductivityPage() {
     // One create-trx call per unit (Promise.all preserves order).
     try {
       await Promise.all(payloads.map(p => createTransaction(p)))
+      toast.success(t('productivity.toast.assignmentCreated', { count: payloads.length }))
     } catch (err) {
       console.error('[Productivity] create-trx error:', err)
+      toast.error(t('productivity.toast.createFailed'))
     }
 
     // Load the freshly created TRX from the DB, then drop the skeleton.
@@ -78,19 +79,30 @@ export default function ProductivityPage() {
     ))
     // PATCH appends one LAP detail. idTrxHeader (numeric) comes from getTrx.
     const payload = buildLapPayload(amount, timestamp)
-    updateTransaction(Number(trxId), payload).catch(err =>
-      console.error('[Productivity] lap error:', err),
-    )
+    updateTransaction(Number(trxId), payload).catch(err => {
+      console.error('[Productivity] lap error:', err)
+      // Revert the optimistic lap so UI and backend stay consistent.
+      setUnits(prev => prev.map(u =>
+        u.unit.trxId === trxId
+          ? { ...u, laps: u.laps.filter(l => l.id !== lap.id), totalQty: u.totalQty - amount }
+          : u,
+      ))
+      toast.error(t('productivity.toast.lapFailed'))
+    })
   }
 
-  const handleUnitComplete = (trxId: string, finalLapAmount: number) => {
+  // Returns the request promise so CheckoutView can roll back its own
+  // completed-state (and toast) if the backend rejects the completion.
+  const handleUnitComplete = (trxId: string, finalLapAmount: number): Promise<unknown> => {
     const unit = units.find(u => u.unit.trxId === trxId)
-    if (!unit) return
+    if (!unit) return Promise.resolve()
     const endDate = new Date()
     // A complete may register a final lap (finalLapAmount > 0) or just close the unit
     // with the laps already registered (finalLapAmount === 0).
+    let revertLapId: string | null = null
     if (finalLapAmount > 0) {
       const lap: LapRecord = { id: `${trxId}-${endDate.getTime()}`, unitTrxId: trxId, amount: finalLapAmount, timestamp: endDate }
+      revertLapId = lap.id
       setUnits(prev => prev.map(u =>
         u.unit.trxId === trxId
           ? { ...u, laps: [...u.laps, lap], totalQty: u.totalQty + finalLapAmount }
@@ -98,9 +110,18 @@ export default function ProductivityPage() {
       ))
     }
     const payload = buildCompletePayload(unit, finalLapAmount, endDate)
-    updateTransaction(Number(trxId), payload).catch(err =>
-      console.error('[Productivity] complete error:', err),
-    )
+    const request = updateTransaction(Number(trxId), payload)
+    request.catch(err => {
+      console.error('[Productivity] complete error:', err)
+      if (revertLapId) {
+        setUnits(prev => prev.map(u =>
+          u.unit.trxId === trxId
+            ? { ...u, laps: u.laps.filter(l => l.id !== revertLapId), totalQty: u.totalQty - finalLapAmount }
+            : u,
+        ))
+      }
+    })
+    return request
   }
 
   const handleWaste = (trxId: string, waste: number) => {
@@ -108,12 +129,26 @@ export default function ProductivityPage() {
   }
 
   const handleCancel = (trxId: string) => {
+    const index   = units.findIndex(u => u.unit.trxId === trxId)
+    const removed = units[index]
     setUnits(prev => prev.filter(u => u.unit.trxId !== trxId))
     // PATCH flips the TRX state to CANCELLED so it leaves the INPROGRESS set.
     const payload = buildCancelPayload()
-    updateTransaction(Number(trxId), payload).catch(err =>
-      console.error('[Productivity] cancel error:', err),
-    )
+    updateTransaction(Number(trxId), payload)
+      .then(() => toast.success(t('productivity.toast.cancelled')))
+      .catch(err => {
+        console.error('[Productivity] cancel error:', err)
+        // Restore the card in its original position — the TRX is still INPROGRESS.
+        if (removed) {
+          setUnits(prev => {
+            if (prev.some(u => u.unit.trxId === trxId)) return prev
+            const next = [...prev]
+            next.splice(Math.min(index, next.length), 0, removed)
+            return next
+          })
+        }
+        toast.error(t('productivity.toast.cancelFailed'))
+      })
   }
 
   // Each unit already sent its own Complete payload when the user pressed "Completar".
@@ -140,33 +175,7 @@ export default function ProductivityPage() {
       </div>
 
       {view === 'assignment' && (
-        assignment ? (
-          <div className="flex flex-col gap-4">
-            <div className="rounded-xl border border-primary/20 bg-primary/5 px-6 py-4">
-              <p className="text-sm font-semibold text-foreground">{t('productivity.active.title')}</p>
-              <p className="mt-0.5 text-sm text-muted-foreground">
-                {t('productivity.active.summary', {
-                  sku:       assignment.skuPrefix,
-                  grower:    assignment.growers.map(s => s.grower.name).join(', '),
-                  employees: assignment.employeeGroups.flatMap(g => g.employees).length,
-                  trx:       units.length,
-                })}
-              </p>
-            </div>
-            <div className="flex gap-3">
-              <button type="button" onClick={goToCheckout}
-                className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90">
-                {t('productivity.active.goCheckout')}
-              </button>
-              <button type="button" onClick={() => { setAssignment(null); setUnits([]) }}
-                className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted">
-                {t('productivity.active.new')}
-              </button>
-            </div>
-          </div>
-        ) : (
-          <AssignmentWizard onComplete={handleComplete} />
-        )
+        <AssignmentWizard onComplete={handleComplete} />
       )}
 
       {view === 'checkout' && (

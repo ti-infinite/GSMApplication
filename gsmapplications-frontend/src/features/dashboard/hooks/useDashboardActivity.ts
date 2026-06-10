@@ -7,10 +7,13 @@ type UseDashboardActivityResult = {
   activity: MediaResource[]
   news:     MediaResource[]
   loading:  boolean
+  isError:  boolean
+  error:    unknown
+  refetch:  () => void
 }
 
 export function useDashboardActivity(): UseDashboardActivityResult {
-  const { data = [], isLoading } = useGetMediaResources(
+  const { data = [], isLoading, isError, error, refetch } = useGetMediaResources(
     { categories: ['ACTIVITY', 'NEWS'] },
     {
       query: {
@@ -29,5 +32,8 @@ export function useDashboardActivity(): UseDashboardActivityResult {
     activity: data.filter(r => r.resourceCategory.toUpperCase() === 'ACTIVITY'),
     news:     data.filter(r => r.resourceCategory.toUpperCase() === 'NEWS'),
     loading:  isLoading,
+    isError,
+    error,
+    refetch,
   }
 }

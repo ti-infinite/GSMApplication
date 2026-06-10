@@ -5,6 +5,7 @@ import { ResponsiveIframe } from '@/shared/ui/responsive-iframe'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/shared/ui/dialog'
 import { type ConfigEntry, getLocaleContent, type MediaResource } from '@/shared/lib/mediaConfig'
 import { useDashboardActivity } from './hooks/useDashboardActivity'
+import { ErrorState } from '@/shared/components/ErrorState'
 
 function ItemViewer({ content }: { content: ConfigEntry }) {
   const type = content.TYPE?.toLowerCase()
@@ -93,7 +94,7 @@ function Section({
 type Props = { locale: string }
 
 export default function DashboardActivity({ locale }: Props) {
-  const { activity, news, loading } = useDashboardActivity()
+  const { activity, news, loading, isError, error, refetch } = useDashboardActivity()
 
   if (loading) {
     return (
@@ -102,6 +103,10 @@ export default function DashboardActivity({ locale }: Props) {
         <div className="h-64 rounded-xl bg-muted lg:col-span-2" />
       </div>
     )
+  }
+
+  if (isError) {
+    return <ErrorState error={error} onRetry={() => refetch()} className="mt-6" />
   }
 
   return (

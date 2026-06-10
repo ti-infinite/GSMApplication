@@ -174,7 +174,7 @@ export default function Sidebar({ items, brand, locale, open = true, loading = f
         )}
       </div>
 
-      <nav className={`flex flex-1 flex-col overflow-y-auto pb-4 ${collapsed ? 'px-2' : 'px-3'}`}>
+      <nav className={`scrollbar-hide flex flex-1 flex-col overflow-y-auto pb-4 ${collapsed ? 'px-2' : 'px-3'}`}>
         {!collapsed && (
           <p className="mb-1.5 mt-1 px-3 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/40">
             Menu

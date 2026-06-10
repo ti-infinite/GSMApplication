@@ -87,6 +87,11 @@
     "title": "Coming Soon",
     "message": "This module is under development. Stay tuned for updates!"
   },
+  "notFound": {
+    "title": "Page not found",
+    "message": "The page you're looking for doesn't exist or was moved.",
+    "back": "Back to home"
+  },
   "resources": {
     "title": "Resources",
     "subtitle": "Access training materials and documentation",
@@ -144,6 +149,8 @@
     "conflict": "A conflict occurred. Please try again.",
     "forbidden": "Access not allowed.",
     "server": "Server error. Please try again later.",
+    "loadTitle": "Couldn't load this",
+    "retry": "Retry",
     "boundary": {
       "title": "Something went wrong",
       "subtitle": "An unexpected error occurred. Please reload the page.",
@@ -173,6 +180,15 @@
       "stepEmployees": "Employees",
       "stepGrower": "Grower",
       "loadError": "Error loading data. Check your connection and try again."
+    },
+    "toast": {
+      "lapFailed": "Couldn't register the lap. Try again.",
+      "completeFailed": "Couldn't complete the unit. Try again.",
+      "cancelFailed": "Couldn't cancel. Try again.",
+      "createFailed": "Couldn't create the assignment. Try again.",
+      "assignmentCreated": "Assignment created · {{count}} transactions",
+      "unitCompleted": "Unit completed",
+      "cancelled": "Transaction cancelled"
     },
     "active": {
       "title": "Active assignment",

@@ -91,7 +91,7 @@ export function Step2Employees({ totalEmployees, groups: g, onBack, onNext }: Pr
             />
           </div>
 
-          <div className="flex max-h-80 flex-col gap-1.5 overflow-y-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="flex max-h-80 flex-col gap-1.5 overflow-y-auto scrollbar-hide">
             {g.filteredAvailable.length === 0 ? (
               <p className="py-4 text-center text-xs text-muted-foreground">
                 {g.searchQuery ? t('productivity.step2.noSearchResults') : t('productivity.step2.allAssigned')}
@@ -222,7 +222,7 @@ function AvailableRow({ employee, colorIdx, mode, groups, onAdd }: {
               <ChevronDown className="h-3.5 w-3.5 opacity-60 transition-transform duration-150 group-data-[state=open]:rotate-180" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="max-h-64 min-w-[120px] overflow-y-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <DropdownMenuContent align="end" className="max-h-64 min-w-[120px] overflow-y-auto scrollbar-hide">
             {groups.map(g => (
               <DropdownMenuItem key={g.id} onSelect={() => onAdd(g.id)}>
                 {g.name}

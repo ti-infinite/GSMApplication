@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, type ReactNode } from 'react'
 import { useTranslation, Trans } from 'react-i18next'
 import { Plus, CheckCircle2, TrendingUp, Users, XCircle, ChevronLeft, ChevronRight, AlertTriangle } from 'lucide-react'
 import { Button } from '@/shared/ui/button'
+import { toast } from 'sonner'
 import type { UnitCheckout } from './types'
 
 // Per-card confirmation rendered as an overlay on the card itself (not a full-screen modal).
@@ -45,7 +46,7 @@ interface Props {
   units:      UnitCheckout[]
   onLap:      (trxId: string, amount: number) => void
   onWaste:    (trxId: string, waste: number) => void
-  onComplete: (trxId: string, finalLapAmount: number) => void
+  onComplete: (trxId: string, finalLapAmount: number) => Promise<unknown> | void
   onCancel:   (trxId: string) => void
   onFinish:   () => void
 }
@@ -123,12 +124,20 @@ export function CheckoutView({ units, onLap, onWaste, onComplete, onCancel, onFi
     setConfirm(null)
     clearError(trxId)
     setCompletingIds(prev => new Set([...prev, trxId]))
-    onComplete(trxId, finalLapAmount)
+    const request = onComplete(trxId, finalLapAmount)
     setAmounts(prev => ({ ...prev, [trxId]: '' }))
     setTimeout(() => {
       setCompletingIds(prev => { const n = new Set(prev); n.delete(trxId); return n })
       setCompletedIds(prev => new Set([...prev, trxId]))
     }, 350)
+    // Confirm on success; if the backend rejects, bring the card back and notify.
+    Promise.resolve(request)
+      .then(() => toast.success(t('productivity.toast.unitCompleted')))
+      .catch(() => {
+        setCompletingIds(prev => { const n = new Set(prev); n.delete(trxId); return n })
+        setCompletedIds(prev => { const n = new Set(prev); n.delete(trxId); return n })
+        toast.error(t('productivity.toast.completeFailed'))
+      })
   }
 
   const acceptConfirm = () => {
@@ -402,7 +411,7 @@ function UnitCard({
             </p>
             {/* Member chips capped to ~2 rows with hidden scroll so the card height stays
                 consistent regardless of group size (the count above gives the total). */}
-            <div className="mt-1.5 flex max-h-[3.25rem] flex-wrap gap-1 overflow-y-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="mt-1.5 flex max-h-[3.25rem] flex-wrap gap-1 overflow-y-auto scrollbar-hide">
               {unit.employees.map(e => (
                 <span key={e.id} className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
                   {e.name}

@@ -9,6 +9,7 @@ import type { MultimediaResourceDtoListApiResponse } from '@/shared/api/applicat
 import { Button } from '@/shared/ui/button'
 import { Skeleton } from '@/shared/ui/skeleton'
 import { ResponsiveIframe } from '@/shared/ui/responsive-iframe'
+import { ErrorState } from '@/shared/components/ErrorState'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/ui/tooltip'
 
 function ResourceViewer({ content, title }: { content: ConfigEntry; title: string }) {
@@ -17,29 +18,10 @@ function ResourceViewer({ content, title }: { content: ConfigEntry; title: strin
 
   if (!content.SRC) return null
 
-  if (type === 'pdf') {
-    const isDirectPdf = content.SRC.toLowerCase().includes('.pdf')
-    return isDirectPdf
-      ? (
-        <div className="flex h-64 flex-col items-center justify-center gap-4">
-          <p className="text-sm text-muted-foreground">{content.DESCR || title}</p>
-          <a
-            href={content.SRC}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
-          >
-            <ExternalLink className="h-4 w-4" />
-            {t('common.openPdf')}
-          </a>
-        </div>
-      )
-      : <ResponsiveIframe src={content.SRC} title={title} />
-  }
-
+  // Pure external link: not embeddable → centered "open" button.
   if (type === 'url') {
     return (
-      <div className="flex h-64 flex-col items-center justify-center gap-4">
+      <div className="flex min-h-64 flex-col items-center justify-center gap-4 px-4 py-10 text-center">
         <p className="text-sm text-muted-foreground">{content.DESCR || title}</p>
         <a
           href={content.SRC}
@@ -54,9 +36,12 @@ function ResourceViewer({ content, title }: { content: ConfigEntry; title: strin
     )
   }
 
+  // Embeddable content (pdf / embed / video): header with an always-visible
+  // "open in browser" escape hatch + a fluid-height viewer (responsive, no
+  // 16:9) so documents don't get clipped on mobile/tablet.
   return (
     <div className="flex flex-col">
-      <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
+      <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-2.5">
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold text-foreground">{title}</p>
           {content.SUBTITLE && (
@@ -67,13 +52,16 @@ function ResourceViewer({ content, title }: { content: ConfigEntry; title: strin
           href={content.SRC}
           target="_blank"
           rel="noopener noreferrer"
-          className="ml-3 shrink-0 rounded-md border border-primary/20 bg-primary/10 p-1.5 text-primary transition-colors hover:bg-primary/20"
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-primary/20 bg-primary/10 px-2.5 py-1.5 text-xs font-medium text-primary transition-colors hover:border-primary/40 hover:bg-primary/20"
           title={t('common.openInNewTab')}
         >
           <ExternalLink className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">{t('common.openInNewTab')}</span>
         </a>
       </div>
-      <ResponsiveIframe src={content.SRC} title={title} />
+      <div className="h-[72vh] min-h-105 w-full bg-muted/20">
+        <ResponsiveIframe src={content.SRC} title={title} fill />
+      </div>
     </div>
   )
 }
@@ -88,7 +76,7 @@ export function MediaPage({ category, i18nPrefix }: MediaPageProps) {
   const { t }   = useTranslation()
   const [selected, setSelected] = useState(0)
 
-  const { data: resources = [], isLoading: loading } = useGetMediaResources(
+  const { data: resources = [], isLoading: loading, isError, error, refetch } = useGetMediaResources(
     { categories: [category] },
     {
       query: {
@@ -115,7 +103,19 @@ export function MediaPage({ category, i18nPrefix }: MediaPageProps) {
             <Skeleton key={i} className="h-9 w-28 rounded-lg" />
           ))}
         </div>
-        <Skeleton className="aspect-video w-full rounded-xl" />
+        <Skeleton className="h-[72vh] min-h-105 w-full rounded-xl" />
+      </div>
+    )
+  }
+
+  if (isError) {
+    return (
+      <div className="flex flex-col gap-6">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">{t(`${i18nPrefix}.title`)}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{t(`${i18nPrefix}.subtitle`)}</p>
+        </div>
+        <ErrorState error={error} onRetry={() => refetch()} />
       </div>
     )
   }

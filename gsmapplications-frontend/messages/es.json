@@ -87,6 +87,11 @@
     "title": "Próximamente",
     "message": "Este módulo está en desarrollo. ¡Mantente atento para actualizaciones!"
   },
+  "notFound": {
+    "title": "Página no encontrada",
+    "message": "La página que buscas no existe o fue movida.",
+    "back": "Volver al inicio"
+  },
   "resources": {
     "title": "Recursos",
     "subtitle": "Accede a materiales de capacitación y documentación",
@@ -144,6 +149,8 @@
     "conflict": "Ocurrió un conflicto. Intenta de nuevo.",
     "forbidden": "Acceso no permitido.",
     "server": "Error del servidor. Intenta más tarde.",
+    "loadTitle": "No se pudo cargar",
+    "retry": "Reintentar",
     "boundary": {
       "title": "Algo salió mal",
       "subtitle": "Ocurrió un error inesperado. Recarga la página.",
@@ -173,6 +180,15 @@
       "stepEmployees": "Empleados",
       "stepGrower": "Productor",
       "loadError": "Error al cargar los datos. Verifica la conexión e intenta de nuevo."
+    },
+    "toast": {
+      "lapFailed": "No se pudo registrar el lap. Intenta de nuevo.",
+      "completeFailed": "No se pudo completar la unidad. Intenta de nuevo.",
+      "cancelFailed": "No se pudo cancelar. Intenta de nuevo.",
+      "createFailed": "No se pudo crear la asignación. Intenta de nuevo.",
+      "assignmentCreated": "Asignación creada · {{count}} transacciones",
+      "unitCompleted": "Unidad completada",
+      "cancelled": "Transacción cancelada"
     },
     "active": {
       "title": "Asignación activa",

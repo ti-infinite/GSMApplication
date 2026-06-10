@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react'
 import { useParams, useOutletContext } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import ComingSoon from '@/shared/components/ComingSoon'
+import NotFound from '@/shared/components/NotFound'
 import ExternalPage from '@/shared/components/ExternalPage'
 import type { DashboardOutletCtx } from '@/shared/lib/menu'
 
@@ -38,11 +39,15 @@ export default function ModulePage() {
   }
 
   const Component = modules[slug]
-  if (!Component) return <ComingSoon title={slugToTitle(slug)} />
+  if (Component) {
+    return (
+      <Suspense fallback={<div className="p-8 text-muted-foreground">{t('common.loading')}</div>}>
+        <Component />
+      </Suspense>
+    )
+  }
 
-  return (
-    <Suspense fallback={<div className="p-8 text-muted-foreground">{t('common.loading')}</div>}>
-      <Component />
-    </Suspense>
-  )
+  // The route maps to a real menu option but has no implementation yet → ComingSoon.
+  // The route matches nothing in the menu → genuine 404.
+  return option ? <ComingSoon title={slugToTitle(slug)} /> : <NotFound />
 }

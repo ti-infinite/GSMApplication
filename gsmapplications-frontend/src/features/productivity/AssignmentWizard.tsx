@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useQueryClient } from '@tanstack/react-query'
 import { WizardStepper } from './WizardStepper'
 import { Step1Product } from './Step1Product'
 import { Step2Employees } from './Step2Employees'
@@ -8,6 +9,7 @@ import { useSkuBuilder } from './hooks/useSkuBuilder'
 import { useEmployeeGroups } from './hooks/useEmployeeGroups'
 import { useWizardData } from './hooks/useWizardData'
 import { Skeleton } from '@/shared/ui/skeleton'
+import { ErrorState } from '@/shared/components/ErrorState'
 import type { AssignmentResult, SelectedGrower } from './types'
 
 interface Props {
@@ -16,6 +18,7 @@ interface Props {
 
 export function AssignmentWizard({ onComplete }: Props) {
   const { t } = useTranslation()
+  const queryClient = useQueryClient()
   const [step,           setStep]           = useState(1)
   const [productionType, setProductionType] = useState('')
   // Lifted here so the grower selection survives moving between steps
@@ -72,13 +75,7 @@ export function AssignmentWizard({ onComplete }: Props) {
   }
 
   if (isError || !data) {
-    return (
-      <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-6">
-        <p className="text-sm text-destructive">
-          {t('productivity.wizard.loadError')}
-        </p>
-      </div>
-    )
+    return <ErrorState onRetry={() => queryClient.invalidateQueries()} />
   }
 
   return (

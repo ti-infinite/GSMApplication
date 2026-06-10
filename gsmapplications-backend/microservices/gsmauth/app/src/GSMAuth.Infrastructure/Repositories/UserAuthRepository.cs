@@ -42,7 +42,7 @@ public sealed class UserAuthRepository : IUserAuthRepository
                 Email = user.Email,
                 IdProfile = user.IdProfile,
                 PasswordChangeRequired = user.PasswordChangeRequired,
-                Location = user.Location,
+                Location = user.Location,        // string? propagated end-to-end (DTOs are nullable)
                 Department = user.Department
             };
     }

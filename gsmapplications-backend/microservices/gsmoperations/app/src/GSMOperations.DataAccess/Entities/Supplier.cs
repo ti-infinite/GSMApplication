@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Microsoft.EntityFrameworkCore;
 
@@ -25,7 +25,7 @@ public partial class Supplier
 
     [StringLength(3)]
     [Unicode(false)]
-    public string Country { get; set; } = null!;
+    public string? Country { get; set; }
 
     public string? Contact { get; set; }
 

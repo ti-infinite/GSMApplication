@@ -17,16 +17,16 @@ public sealed class User
     public required string FirstName { get; set; }
 
     [MaxLength(100)]
-    public string LastName { get; set; } = string.Empty;
+    public string? LastName { get; set; }
 
     [MaxLength(200)]
     public required string FullName { get; set; }
 
     [MaxLength(200)]
-    public string Email { get; set; } = string.Empty;
+    public string? Email { get; set; }
 
     [MaxLength(100)]
-    public string Department { get; set; } = string.Empty;
+    public string? Department { get; set; }
 
     public required int IdProfile { get; set; }
 

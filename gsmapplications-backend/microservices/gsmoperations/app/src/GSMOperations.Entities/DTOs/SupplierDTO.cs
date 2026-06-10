@@ -7,7 +7,7 @@ public sealed class SupplierDTO
     public string NameSupplier { get; set; } = null!;
     public string CategorySupplier { get; set; } = null!;
     public string? Region { get; set; }
-    public string Country { get; set; } = null!;
+    public string? Country { get; set; }
     public string? Contact { get; set; }
     public bool IsActive { get; set; }
 }

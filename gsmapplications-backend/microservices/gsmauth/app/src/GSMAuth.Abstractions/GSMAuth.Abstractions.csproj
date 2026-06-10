@@ -8,6 +8,5 @@
 
 <ProjectReference Include="..\GSMAuth.Entities\GSMAuth.Entities.csproj" />
 
-
   </ItemGroup>
 </Project>

@@ -1,8 +1,7 @@
-using System.Security.Claims;
 using GSMApplication.Abstractions;
+using GSMApplication.Business.Interfaces;
 using GSMApplication.Entities.Common;
 using GSMApplication.Entities.DTOs;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GSMApplication.Api.Controllers;
@@ -12,35 +11,44 @@ namespace GSMApplication.Api.Controllers;
 public sealed class ApplicationController : ControllerBase
 {
     private readonly IMenuService _menuService;
+    private readonly IMultimediaResourceService _multimediaResourceService;
+    private readonly IRequestContext _requestContext;
 
-    public ApplicationController(IMenuService menuService)
+    public ApplicationController(IMenuService menuService, IMultimediaResourceService multimediaResourceService, IRequestContext requestContext)
     {
         _menuService = menuService;
+        _multimediaResourceService = multimediaResourceService;
+        _requestContext = requestContext;
     }
 
-    [Authorize]
     [HttpGet("getMenu")]
-    [ProducesResponseType(typeof(GetMenuResponseDto), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(GetMenuResponseDto), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<GetMenuDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<GetMenuDto>), StatusCodes.Status401Unauthorized)]
 
     public async Task<IActionResult> GetMenu(CancellationToken cancellationToken)
     {
-        var idProfileValue = User.FindFirst("idProfile")?.Value;
-
-        if (!int.TryParse(idProfileValue, out var idProfile))
-        {
-            return Unauthorized(new GetMenuResponseDto
-            {
-                Success = false,
-                Message = Messages.Application.InvalidToken,
-                ErrorType = ErrorType.Unauthorized,
-                Menu = string.Empty
-            });
-        }
-
-        var response = await _menuService.GetMenuAsync(idProfile, cancellationToken);
+        var response = await _menuService.GetMenuAsync(_requestContext.IdProfile, cancellationToken);
 
         return Ok(response);
     }
 
+    [HttpGet("getMediaResources")]
+    [ProducesResponseType(typeof(ApiResponse<List<MultimediaResourceDto>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<MultimediaResourceDto>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<MultimediaResourceDto>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetMediaResources([FromQuery] List<string> categories, CancellationToken cancellationToken)
+    {
+        if (categories == null || !categories.Any())
+        {
+
+            var response = ApiResponse<List<MultimediaResourceDto>>.FailResult(Messages.Application.InvalidCategories, ErrorType.Validation);
+
+            return Ok(response);
+        }
+            
+
+        var serviceResponse = await _multimediaResourceService.GetMultimediaResourceByCategory(categories, cancellationToken);
+
+        return Ok(serviceResponse);
+    }
 }

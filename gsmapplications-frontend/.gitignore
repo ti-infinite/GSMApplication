@@ -25,3 +25,6 @@ yarn-error.log*
 # ── Caché de herramientas
 .turbo/
 .cache/
+
+# ── Orval generated API clients (source of truth = swagger/)
+src/shared/api/

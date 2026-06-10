@@ -24,11 +24,9 @@ public sealed class TenantConnectionInfo
 
     public string BuildConnectionString()
     {
-        // ✅ Normalizar valores
         var user = DbUser?.Trim();
         var password = DbPassword?.Trim();
 
-        // ✅ SQL Authentication
         if (!string.IsNullOrWhiteSpace(user))
         {
             return $"Server={DbServer};" +
@@ -39,7 +37,6 @@ public sealed class TenantConnectionInfo
                    $"MultipleActiveResultSets=true;";
         }
 
-        // ✅ Windows Authentication
         return $"Server={DbServer};" +
                $"Database={DatabaseName};" +
                $"Trusted_Connection=True;" +

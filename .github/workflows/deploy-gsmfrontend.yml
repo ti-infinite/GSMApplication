@@ -47,7 +47,7 @@ jobs:
           echo "Deploying gsmapplication-$ENV-frontend"
 
   deploy:
-    if: ${{ vars.WORKFLOW_FRONTEND_ENABLED == 'true' }}
+    if: ${{ vars.WORKFLOW_FRONTEND_ENABLED == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.merged == true) }}
     name: Deploy GSMFrontend
     needs: determine-env
     runs-on: ubuntu-latest
@@ -70,11 +70,15 @@ jobs:
         working-directory: gsmapplications-frontend
         run: npm ci
 
+      - name: Generate API clients
+        working-directory: gsmapplications-frontend
+        run: npm run generate
+
       - name: Build
         working-directory: gsmapplications-frontend
         env:
-          VITE_TENANT_DEFAULT_EN: ${{ vars.TENANT_DEFAULT_EN }}
-          VITE_TENANT_DEFAULT_ES: ${{ vars.TENANT_DEFAULT_ES }}
+          VITE_TENANT_DEFAULT: ${{ vars.VITE_TENANT_DEFAULT }}
+          VITE_TENANT_IDS: ${{ vars.VITE_TENANT_IDS }}
         run: npm run build
 
       - name: Configure AWS credentials
@@ -86,7 +90,14 @@ jobs:
       - name: Sync build to S3
         working-directory: gsmapplications-frontend
         run: |
-          aws s3 sync ./dist/ s3://${{ vars.S3_BUCKET_NAME }}/admin/ --delete
+          aws s3 sync ./dist/ s3://${{ vars.S3_BUCKET_NAME }}/admin/ \
+            --delete \
+            --checksum-algorithm SHA256
+
+      - name: Wait for CloudFront distribution
+        run: |
+          aws cloudfront wait distribution-deployed \
+            --id ${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}
 
       - name: Invalidate CloudFront cache
         run: |

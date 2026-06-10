@@ -12,13 +12,30 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'https://localhost:7201',
+        target: 'http://localhost:80',
         changeOrigin: true,
-        secure: false,
       },
     },
   },
   build: {
     outDir: 'dist',
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react':  ['react', 'react-dom'],
+          'vendor-router': ['react-router-dom'],
+          'vendor-query':  ['@tanstack/react-query'],
+          'vendor-i18n':   ['i18next', 'react-i18next'],
+          'vendor-ui':     [
+            'lucide-react',
+            '@radix-ui/react-dropdown-menu',
+            '@radix-ui/react-dialog',
+            '@radix-ui/react-tooltip',
+            '@radix-ui/react-slot',
+          ],
+          'vendor-utils':  ['clsx', 'tailwind-merge', 'class-variance-authority', 'js-cookie'],
+        },
+      },
+    },
   },
 })

@@ -1,10 +1,8 @@
 using GSMAuth.Abstractions;
 using GSMAuth.Entities.Common;
 using GSMAuth.Entities.DTOs;
-using GSMAuth.Tenant;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
 
 namespace GSMAuth.Api.Controllers;
 
@@ -13,36 +11,43 @@ namespace GSMAuth.Api.Controllers;
 public sealed class AuthController : ControllerBase
 {
     private readonly IAuthService _authService;
-    private readonly TenantContext _tenantContext;
 
-    public AuthController(IAuthService authService, TenantContext tenantContext)
+    public AuthController(IAuthService authService)
     {
         _authService = authService;
-        _tenantContext = tenantContext;
     }
 
     [AllowAnonymous]
     [HttpPost("login")]
-    [ProducesResponseType(typeof(LoginResponseDto), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(LoginResponseDto), StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(typeof(LoginResponseDto), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<LoginDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<LoginDto>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<LoginDto>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<LoginDto>), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiResponse<LoginDto>), StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> Login([FromBody] LoginRequestDto request, CancellationToken cancellationToken)
     {
-        _tenantContext.CompanyId = request.IDCompany;
         var response = await _authService.LoginAsync(request, cancellationToken);
 
-        if (!response.Success)
+        if (response.Success && response.Data != null)
         {
-            return response.ErrorType switch
+            Response.Cookies.Append("gsm_token", response.Data.Token, new CookieOptions
             {
-                ErrorType.Validation => BadRequest(response),
-                ErrorType.Unauthorized => Unauthorized(response),
-                ErrorType.NotFound => NotFound(response),
-                _ => StatusCode(500, response)
-            };
+                HttpOnly = true,
+                SameSite = SameSiteMode.Strict,
+                Expires  = response.Data.ExpiresAtUtc,
+                Path     = "/"
+            });
         }
 
         return Ok(response);
+    }
+
+    [Authorize]
+    [HttpPost("logout")]
+    public IActionResult Logout()
+    {
+        Response.Cookies.Delete("gsm_token", new CookieOptions { Path = "/" });
+        return Ok(ApiResponse<object>.SuccessResultWithoutData(Messages.Auth.LoggedOut));
     }
 
 }

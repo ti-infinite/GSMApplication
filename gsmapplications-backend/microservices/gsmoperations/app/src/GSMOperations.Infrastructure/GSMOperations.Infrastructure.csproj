@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\GSMOperations.Abstractions\GSMOperations.Abstractions.csproj" />
+    <ProjectReference Include="..\GSMOperations.DataAccess\GSMOperations.DataAccess.csproj" />
+    <ProjectReference Include="..\GSMOperations.Entities\GSMOperations.Entities.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,6 +1,6 @@
 ﻿using GSMAuth.DataAccess.ContextDb;
-using GSMAuth.DataAccess.ContextFactory;
 using GSMAuth.DataAccess.StoredProcedures;
+using GSMAuth.Tenant;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -11,8 +11,6 @@ public static class DependencyInjection
     public static IServiceCollection AddDataAccess(this IServiceCollection services, string registryConnectionString)
     {
         services.AddDbContext<RegistryDbContext>(options => options.UseSqlServer(registryConnectionString));
-
-        services.AddScoped<IStoredProcedureExecutor, StoredProcedureExecutor>();
 
         return services;
     }

@@ -4,24 +4,40 @@ using GSMGateway.Entities.Common;
 using GSMGateway.Entities.Security;
 using GSMGateway.Infrastructure;
 using GSMGateway.Tenant;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using System.IdentityModel.Tokens.Jwt;
 using System.Text;
 using System.Threading.RateLimiting;
+
+JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
 
 var builder = WebApplication.CreateBuilder(args);
 var config = builder.Configuration;
 
-config["JwtSettings:SecretKey"] = config["JwtSettings:SecretKey"]
-    ?.Replace("${JWT_SECRET}", Environment.GetEnvironmentVariable("JWT_SECRET") ?? "");
+var envSecret = Environment.GetEnvironmentVariable("JWT_SECRET");
 
-builder.Services.Configure<JwtSettingsOptions>(builder.Configuration.GetSection("JwtSettings"));
+if (string.IsNullOrWhiteSpace(envSecret))
+{
+    throw new InvalidOperationException("JWT_SECRET is not configured for this environment.");
+}
+
+config["JwtSettings:SecretKey"] = envSecret;
+
+var jwt = config.GetSection("JwtSettings").Get<JwtSettingsOptions>()
+          ?? throw new InvalidOperationException("JwtSettings not configured.");
+
+if (string.IsNullOrWhiteSpace(jwt.SecretKey))
+{
+    throw new InvalidOperationException("JwtSettings:SecretKey is empty.");
+}
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
+
 builder.Services.AddSwaggerGen(options =>
 {
     options.SwaggerDoc("v1", new OpenApiInfo
@@ -61,13 +77,10 @@ builder.Services.AddInfrastructure();
 builder.Services.AddScoped<IGatewayTenantService, GatewayTenantService>();
 builder.Services.AddTenantLayer();
 
-var jwt = builder.Configuration.GetSection("JwtSettings").Get<JwtSettingsOptions>()
-          ?? throw new InvalidOperationException("JwtSettings no configurado.");
-
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
-        options.RequireHttpsMetadata = false;
+        options.RequireHttpsMetadata = !builder.Environment.IsDevelopment();
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
@@ -76,8 +89,20 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateIssuerSigningKey = true,
             ValidIssuer = jwt.Issuer,
             ValidAudience = jwt.Audience,
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.SecretKey)),
+            IssuerSigningKey = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(jwt.SecretKey)
+            ),
             ClockSkew = TimeSpan.Zero
+        };
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = ctx =>
+            {
+                if (string.IsNullOrEmpty(ctx.Token) &&
+                    ctx.Request.Cookies.TryGetValue("gsm_token", out var cookieToken))
+                    ctx.Token = cookieToken;
+                return Task.CompletedTask;
+            }
         };
     });
 
@@ -90,46 +115,49 @@ builder.Services.AddAuthorization(options =>
 builder.Services.AddReverseProxy()
     .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
 
-
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 
     options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
     {
-        var userId = context.User?.FindFirst("sub")?.Value
-                     ?? context.Connection.RemoteIpAddress?.ToString()
-                     ?? "anonymous";
+        var userId =
+                context.User?.FindFirst("sub")?.Value
+                ?? context.Request.Headers["X-User-Id"].FirstOrDefault()
+                ?? context.Connection.RemoteIpAddress?.ToString()
+                ?? "anonymous";
+
 
         return RateLimitPartition.GetFixedWindowLimiter(
             partitionKey: userId,
             factory: _ => new FixedWindowRateLimiterOptions
             {
-                PermitLimit = 60, // 60 requests por usuario
+                PermitLimit = 60,
                 Window = TimeSpan.FromMinutes(1),
                 QueueLimit = 0,
                 QueueProcessingOrder = QueueProcessingOrder.OldestFirst
             });
     });
-
 });
-
 
 var app = builder.Build();
 
-app.UseSwagger();
-app.UseSwaggerUI(options =>
+if (app.Environment.IsDevelopment())
 {
-    options.SwaggerEndpoint("/swagger/v1/swagger.json", "GSMGateway API v1");
-});
-
-//app.UseHttpsRedirection(); No necesita HTTPS interno — CloudFront maneja el SSL
+    app.UseSwagger();
+    app.UseSwaggerUI(options =>
+    {
+        options.SwaggerEndpoint("/swagger/v1/swagger.json", "GSMGateway API v1");
+    });
+}
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseRateLimiter();
 app.UseTenantLayer();
 
-app.MapGet("api/health", [AllowAnonymous] () => Results.Ok(new { message = Messages.Gateway.Healthy }));
-app.MapReverseProxy();
+app.MapGet("/api/health", [AllowAnonymous] () =>
+    Results.Ok(new { message = Messages.Gateway.Healthy }));
+
+app.MapReverseProxy().RequireAuthorization();
 
 await app.RunAsync();

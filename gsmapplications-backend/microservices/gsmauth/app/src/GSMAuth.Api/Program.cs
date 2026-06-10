@@ -1,26 +1,50 @@
-using GSMAuth.Abstractions;
 using GSMAuth.Business;
 using GSMAuth.Entities.Common;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using GSMAuth.DataAccess;
 using GSMAuth.Infrastructure;
-using GSMAuth.Infrastructure.Security;
 using GSMAuth.Tenant;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
+using GSMAuth.Api.Middleware;
+using GSMAuth.Api.Filters;
+using GSMAuth.Api;
+using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 var config = builder.Configuration;
 
-config["JwtSettings:SecretKey"] = config["JwtSettings:SecretKey"]
-    ?.Replace("${JWT_SECRET}", Environment.GetEnvironmentVariable("JWT_SECRET") ?? "");
+var envSecret = Environment.GetEnvironmentVariable("JWT_SECRET");
+
+if (string.IsNullOrWhiteSpace(envSecret))
+{
+    throw new InvalidOperationException("JWT_SECRET is not configured for this environment.");
+}
+
+config["JwtSettings:SecretKey"] = envSecret;
 
 // ------------------------------------------------------------
 // Controllers
 // ------------------------------------------------------------
-builder.Services.AddControllers();
+builder.Services.AddApiServices();
+builder.Services.AddControllers(options =>
+{
+    options.Filters.Add<ApiResponseFilter>();
+})
+.AddJsonOptions(options =>
+{
+    options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+})
+.ConfigureApiBehaviorOptions(options =>
+{
+    options.InvalidModelStateResponseFactory = _ =>
+        new BadRequestObjectResult(
+            ApiResponse<object>.FailResult("Invalid request data.", ErrorType.Validation)
+        );
+});
 builder.Services.AddEndpointsApiExplorer();
 
 // ------------------------------------------------------------
@@ -34,6 +58,8 @@ builder.Services.AddSwaggerGen(options =>
         Version = "v1",
         Description = "Microservicio de autenticación con soporte tenant database-per-tenant."
     });
+
+    options.CustomOperationIds(e => e.ActionDescriptor.RouteValues.TryGetValue("action", out var action) ? action : null);
 
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
@@ -62,22 +88,13 @@ builder.Services.AddSwaggerGen(options =>
 });
 
 // ------------------------------------------------------------
-// Tenant Registry Connection (ENV or AppSettings)
+// Tenant Registry Connection
 // ------------------------------------------------------------
-var registryConnection =
-    Environment.GetEnvironmentVariable("DB_MASTER_URL");
+var registryConnection = Environment.GetEnvironmentVariable("DB_MASTER_URL");
 
 if (string.IsNullOrWhiteSpace(registryConnection))
 {
-    registryConnection =
-        builder.Configuration
-            .GetConnectionString("TenantRegistryConnection");
-}
-
-if (string.IsNullOrWhiteSpace(registryConnection))
-{
-    throw new InvalidOperationException(
-        "No se encontró la conexión al Tenant Registry. Configure DB_MASTER_URL o ConnectionStrings:TenantRegistryConnection.");
+    throw new InvalidOperationException("No Tenant registry connection was found");
 }
 
 // ------------------------------------------------------------
@@ -105,46 +122,42 @@ builder.Services.AddBusiness();
 // ------------------------------------------------------------
 var jwt = builder.Configuration.GetSection("JwtSettings");
 
-var issuer =
-    jwt["Issuer"] ??
-    throw new InvalidOperationException("JwtSettings:Issuer no configurado.");
+var issuer = jwt["Issuer"] ?? throw new InvalidOperationException("JwtSettings:Issuer no configurado.");
 
-var audience =
-    jwt["Audience"] ??
-    throw new InvalidOperationException("JwtSettings:Audience no configurado.");
+var audience = jwt["Audience"] ?? throw new InvalidOperationException("JwtSettings:Audience no configurado.");
 
-var secret =
-    jwt["SecretKey"] ??
-    throw new InvalidOperationException("JwtSettings:SecretKey no configurado.");
+var secret = jwt["SecretKey"] ?? throw new InvalidOperationException("JwtSettings:SecretKey no configurado.");
 
 // ------------------------------------------------------------
 // Auth + Authorization
 // ------------------------------------------------------------
 builder.Services.AddAuthorization();
 
-builder.Services.AddAuthentication(
-        JwtBearerDefaults.AuthenticationScheme)
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
-        options.RequireHttpsMetadata = false;
-
-        options.TokenValidationParameters =
-            new TokenValidationParameters
+        options.RequireHttpsMetadata = !builder.Environment.IsDevelopment();
+        options.TokenValidationParameters = new TokenValidationParameters
             {
                 ValidateIssuer = true,
                 ValidateAudience = true,
                 ValidateLifetime = true,
                 ValidateIssuerSigningKey = true,
-
                 ValidIssuer = issuer,
                 ValidAudience = audience,
-
-                IssuerSigningKey =
-                    new SymmetricSecurityKey(
-                        Encoding.UTF8.GetBytes(secret)),
-
+                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret)),
                 ClockSkew = TimeSpan.Zero
             };
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = ctx =>
+            {
+                if (string.IsNullOrEmpty(ctx.Token) &&
+                    ctx.Request.Cookies.TryGetValue("gsm_token", out var cookieToken))
+                    ctx.Token = cookieToken;
+                return Task.CompletedTask;
+            }
+        };
     });
 
 var app = builder.Build();
@@ -152,21 +165,19 @@ var app = builder.Build();
 // ------------------------------------------------------------
 // Middleware Pipeline
 // ------------------------------------------------------------
-app.UseSwagger();
-app.UseSwaggerUI(options =>
-    options.SwaggerEndpoint(
-        "/swagger/v1/swagger.json",
-        "GSMAuth API v1"));
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI(options =>
+        options.SwaggerEndpoint("/swagger/v1/swagger.json", "GSMAuth API v1"));
+}
 
-app.UseHttpsRedirection();
-
+//app.UseHttpsRedirection();
+app.UseMiddleware<ExceptionMiddleware>();
 app.UseAuthentication();
 app.UseAuthorization();
-
 app.UseTenantLayer();
 
 app.MapGet("/health", [AllowAnonymous] () => Results.Ok(new { message = Messages.Auth.Healthy }));
-
 app.MapControllers();
-
 await app.RunAsync();

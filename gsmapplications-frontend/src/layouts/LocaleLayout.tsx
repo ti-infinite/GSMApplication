@@ -1,39 +1,25 @@
 import { useEffect } from 'react'
 import { Outlet, useParams, Navigate } from 'react-router-dom'
 import Cookies from 'js-cookie'
-import i18n from '@/i18n'
-import { TenantProvider } from '@/providers/TenantProvider'
-import { applyThemeVarsFromCache, isTokenValid, getCompanyIdFromToken } from '@/lib/theme'
-import { TENANT_IDS, getBrandingFromCompanyId } from '@/lib/tenants'
-
-const SUPPORTED_LOCALES = ['en', 'es']
+import i18n from '@/app/i18n'
+import { TenantProvider } from '@/app/providers/TenantProvider'
+import { DEFAULT_TENANT_ID, getBrandingFromCompanyId } from '@/shared/lib/tenants'
+import { isSupportedLocale } from '@/shared/hooks/useLocale'
 
 export default function LocaleLayout() {
   const { locale } = useParams<{ locale: string }>()
 
   useEffect(() => {
-    applyThemeVarsFromCache()
-  }, [])
-
-  // Sincroniza i18n cuando el usuario cambia de locale via URL
-  useEffect(() => {
-    if (locale && SUPPORTED_LOCALES.includes(locale) && i18n.language !== locale) {
+    if (locale && isSupportedLocale(locale) && i18n.language !== locale) {
       i18n.changeLanguage(locale)
     }
   }, [locale])
 
-  if (!locale || !SUPPORTED_LOCALES.includes(locale)) {
+  if (!locale || !isSupportedLocale(locale)) {
     return <Navigate to="/en/login" replace />
   }
 
-  const token      = Cookies.get('gsm_token')
-  const gsmCompany = Cookies.get('gsm_company')
-
-  const companyId = (token && isTokenValid(token) ? getCompanyIdFromToken(token) : null)
-    ?? gsmCompany
-    ?? TENANT_IDS[locale]
-    ?? ''
-
+  const companyId      = Cookies.get('gsm_company') ?? DEFAULT_TENANT_ID ?? ''
   const initialBranding = getBrandingFromCompanyId(companyId)
 
   return (

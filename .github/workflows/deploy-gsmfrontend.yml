@@ -47,7 +47,7 @@ jobs:
           echo "Deploying gsmapplication-$ENV-frontend"
 
   deploy:
-    if: ${{ vars.WORKFLOW_FRONTEND_ENABLED == 'true' }}
+    if: ${{ vars.WORKFLOW_FRONTEND_ENABLED == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.merged == true) }}
     name: Deploy GSMFrontend
     needs: determine-env
     runs-on: ubuntu-latest
@@ -90,7 +90,14 @@ jobs:
       - name: Sync build to S3
         working-directory: gsmapplications-frontend
         run: |
-          aws s3 sync ./dist/ s3://${{ vars.S3_BUCKET_NAME }}/admin/ --delete
+          aws s3 sync ./dist/ s3://${{ vars.S3_BUCKET_NAME }}/admin/ \
+            --delete \
+            --checksum-algorithm SHA256
+
+      - name: Wait for CloudFront distribution
+        run: |
+          aws cloudfront wait distribution-deployed \
+            --id ${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}
 
       - name: Invalidate CloudFront cache
         run: |

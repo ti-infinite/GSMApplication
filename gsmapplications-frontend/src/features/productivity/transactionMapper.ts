@@ -78,7 +78,7 @@ export function buildLapPayload(amount: number, timestamp: Date): TrxUpdateDTO {
 
 // Complete → final QTY/Waste/EndDate attributes + Complete state. The final lap is
 // optional: when finalLapAmount is 0 (closing with the laps already registered) no
-// LAP detail is appended.
+// LAP detail is appended. 
 export function buildCompletePayload(
   unitCheckout:   UnitCheckout,
   finalLapAmount: number,

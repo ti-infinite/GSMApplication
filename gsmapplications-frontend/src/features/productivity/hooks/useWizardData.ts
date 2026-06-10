@@ -7,7 +7,7 @@ import {
   useGetFilteredEmployees,
   useGetFilteredSuppliers,
 } from '@/shared/api/operations/operations/operations'
-import { getStoredUser } from '@/shared/lib/auth'
+import { getStoredUser, isSessionActive } from '@/shared/lib/auth'
 import type {
   GlobalParameterListApiResponse,
   MasterProductDTOListApiResponse,
@@ -26,9 +26,15 @@ import type {
 } from '../types'
 
 export function useWizardData() {
+  // Only fire once the session cookie is present, so no wizard query can be
+  // sent before the auth token is set (a pre-token request returns 401/HTML
+  // that the browser can cache against these cacheable GET URLs).
+  const enabled = isSessionActive()
+
   // ── Categories — comes as JSON string ──────────────────────────
   const { data: categories = [], isLoading: l1, isError: e1 } = useGetCategories({
     query: {
+      enabled,
       staleTime: 5 * 60 * 1000,
       select: res => {
         try { return JSON.parse((res.data as StringApiResponse).data ?? '[]') as Category[] }
@@ -40,6 +46,7 @@ export function useWizardData() {
   // ── SKU Definitions — comes as JSON string ──────────────────────
   const { data: skuTemplates = [], isLoading: l2, isError: e2 } = useGetSkuDefinitions({
     query: {
+      enabled,
       staleTime: 5 * 60 * 1000,
       select: res => {
         try { return JSON.parse((res.data as StringApiResponse).data ?? '[]') as SKUTemplate[] }
@@ -51,6 +58,7 @@ export function useWizardData() {
   // ── Parameters ──────────────────────────────────────────────────
   const { data: parameters = [], isLoading: l3, isError: e3 } = useGetParameters({
     query: {
+      enabled,
       staleTime: 5 * 60 * 1000,
       select: res => ((res.data as GlobalParameterListApiResponse).data ?? []).map(p => ({
         idParameter:     p.idParameter ?? 0,
@@ -69,6 +77,7 @@ export function useWizardData() {
   // ── Master Products ─────────────────────────────────────────────
   const { data: masterProducts = [], isLoading: l4, isError: e4 } = useGetMasterProducts({
     query: {
+      enabled,
       staleTime: 5 * 60 * 1000,
       select: res => ((res.data as MasterProductDTOListApiResponse).data ?? []).map(p => ({
         MasterProductName:    p.masterProductName ?? '',
@@ -87,6 +96,7 @@ export function useWizardData() {
   // ── Employees — filtered by the current user's location ─────────
   const { data: employees = [], isLoading: l5, isError: e5 } = useGetFilteredEmployees(undefined, {
     query: {
+      enabled,
       staleTime: 2 * 60 * 1000,
       select: res => {
         const userLocation = (getStoredUser()?.location ?? '').toLowerCase()
@@ -105,6 +115,7 @@ export function useWizardData() {
   // ── Suppliers / Growers ─────────────────────────────────────────
   const { data: growers = [], isLoading: l6, isError: e6 } = useGetFilteredSuppliers(undefined, {
     query: {
+      enabled,
       staleTime: 5 * 60 * 1000,
       select: res => ((res.data as SupplierDTOListApiResponse).data ?? []).map(s => ({
         id:               s.idSupplier ?? '',

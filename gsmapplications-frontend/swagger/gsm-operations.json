@@ -475,17 +475,126 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "string"
+                "$ref": "#/components/schemas/TrxCreateDTO"
               }
             },
             "text/json": {
               "schema": {
-                "type": "string"
+                "$ref": "#/components/schemas/TrxCreateDTO"
               }
             },
             "application/*+json": {
               "schema": {
-                "type": "string"
+                "$ref": "#/components/schemas/TrxCreateDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/StringApiResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StringApiResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StringApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/Operations/{idTrxHeader}": {
+      "patch": {
+        "tags": [
+          "Operations"
+        ],
+        "operationId": "UpdateTransaction",
+        "parameters": [
+          {
+            "name": "idTrxHeader",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrxUpdateDTO"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrxUpdateDTO"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrxUpdateDTO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/StringApiResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StringApiResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StringApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/Operations/getTrx": {
+      "post": {
+        "tags": [
+          "Operations"
+        ],
+        "operationId": "GetTransaction",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchTrx"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchTrx"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchTrx"
               }
             }
           }
@@ -503,6 +612,10 @@
       "EmployeeDTO": {
         "type": "object",
         "properties": {
+          "idEmployee": {
+            "type": "integer",
+            "format": "int32"
+          },
           "fullName": {
             "type": "string",
             "nullable": true
@@ -848,6 +961,24 @@
         },
         "additionalProperties": false
       },
+      "SearchTrx": {
+        "type": "object",
+        "properties": {
+          "trxPrefix": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "nullable": true
+          },
+          "location": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "StringApiResponse": {
         "type": "object",
         "properties": {
@@ -939,6 +1070,151 @@
           },
           "details": {
             "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "TrxAttributesDTO": {
+        "type": "object",
+        "properties": {
+          "attributeKey": {
+            "type": "string",
+            "nullable": true
+          },
+          "attributeValue": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "TrxCreateDTO": {
+        "type": "object",
+        "properties": {
+          "trxPrefix": {
+            "type": "string",
+            "nullable": true
+          },
+          "descr": {
+            "type": "string",
+            "nullable": true
+          },
+          "username": {
+            "type": "string",
+            "nullable": true
+          },
+          "location": {
+            "type": "string",
+            "nullable": true
+          },
+          "trxAttributes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrxAttributesDTO"
+            },
+            "nullable": true
+          },
+          "trxProducts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrxProductsDTO"
+            },
+            "nullable": true
+          },
+          "trxStates": {
+            "$ref": "#/components/schemas/TrxStatesDTO"
+          },
+          "trxDetails": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrxDetailsDTO"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "TrxDetailsDTO": {
+        "type": "object",
+        "properties": {
+          "detailType": {
+            "type": "string",
+            "nullable": true
+          },
+          "detailValue": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "TrxProductsDTO": {
+        "type": "object",
+        "properties": {
+          "idVariety": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "varietyName": {
+            "type": "string",
+            "nullable": true
+          },
+          "sku": {
+            "type": "string",
+            "nullable": true
+          },
+          "qty": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "TrxStatesDTO": {
+        "type": "object",
+        "properties": {
+          "trxState": {
+            "type": "string",
+            "nullable": true
+          },
+          "comments": {
+            "type": "string",
+            "nullable": true
+          },
+          "stateDate": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "TrxUpdateDTO": {
+        "type": "object",
+        "properties": {
+          "trxAttributes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrxAttributesDTO"
+            },
+            "nullable": true
+          },
+          "trxProducts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrxProductsDTO"
+            },
+            "nullable": true
+          },
+          "trxStates": {
+            "$ref": "#/components/schemas/TrxStatesDTO"
+          },
+          "trxDetails": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrxDetailsDTO"
+            },
             "nullable": true
           }
         },

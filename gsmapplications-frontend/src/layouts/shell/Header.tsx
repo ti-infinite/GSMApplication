@@ -1,4 +1,4 @@
-import { Globe, Menu, LogOut, Settings } from 'lucide-react'
+import { Globe, LogOut, Settings } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { useLocale } from '@/shared/hooks/useLocale'
@@ -9,6 +9,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from '@/shared/ui/dropdown-menu'
+import { Avatar } from '@/shared/ui/avatar'
 
 const LANG_LABELS: Record<string, string> = {
   en: 'English',
@@ -18,11 +19,12 @@ const LANG_LABELS: Record<string, string> = {
 type Props = {
   locale:        string
   userName:      string
+  menuOpen?:     boolean
   onMenuToggle?: () => void
   onLogout:      () => void
 }
 
-export default function Header({ locale, userName, onMenuToggle, onLogout }: Props) {
+export default function Header({ locale, userName, menuOpen = false, onMenuToggle, onLogout }: Props) {
   const { t } = useTranslation()
   const { switchLocale } = useLocale()
   const navigate = useNavigate()
@@ -32,21 +34,32 @@ export default function Header({ locale, userName, onMenuToggle, onLogout }: Pro
     switchLocale(next)
   }
 
-  const initials = userName
-    .split(' ')
-    .slice(0, 2)
-    .map(w => w[0])
-    .join('')
-    .toUpperCase()
-
   return (
     <header className="flex h-14 shrink-0 items-center gap-4 border-b border-border bg-background px-5">
       <button
         type="button"
         onClick={onMenuToggle}
-        className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        aria-label={t('dashboard.toggleMenu', { defaultValue: 'Toggle menu' })}
+        aria-expanded={menuOpen}
+        className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
       >
-        <Menu className="h-5 w-5" />
+        <span className="relative block h-4 w-5">
+          <span
+            className={`absolute left-0 block h-0.5 w-5 rounded-full bg-current transition-all duration-300 ease-in-out ${
+              menuOpen ? 'top-1/2 -translate-y-1/2 rotate-45' : 'top-0'
+            }`}
+          />
+          <span
+            className={`absolute left-0 top-1/2 block h-0.5 w-5 -translate-y-1/2 rounded-full bg-current transition-all duration-200 ease-in-out ${
+              menuOpen ? 'opacity-0' : 'opacity-100'
+            }`}
+          />
+          <span
+            className={`absolute left-0 block h-0.5 w-5 rounded-full bg-current transition-all duration-300 ease-in-out ${
+              menuOpen ? 'top-1/2 -translate-y-1/2 -rotate-45' : 'bottom-0'
+            }`}
+          />
+        </span>
       </button>
 
       <div className="flex-1" />
@@ -67,9 +80,7 @@ export default function Header({ locale, userName, onMenuToggle, onLogout }: Pro
             type="button"
             className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm transition-colors hover:bg-muted"
           >
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
-              {initials || '?'}
-            </div>
+            <Avatar name={userName} online size="sm" />
             <span className="hidden max-w-30 truncate font-medium text-foreground sm:block">
               {userName}
             </span>
@@ -78,9 +89,7 @@ export default function Header({ locale, userName, onMenuToggle, onLogout }: Pro
 
         <DropdownMenuContent align="end">
           <div className="flex items-center gap-3 px-3 py-2">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
-              {initials || '?'}
-            </div>
+            <Avatar name={userName} online size="md" ringClass="ring-popover" />
             <div className="flex flex-col min-w-0">
               <span className="truncate text-sm font-semibold text-foreground">{userName}</span>
             </div>

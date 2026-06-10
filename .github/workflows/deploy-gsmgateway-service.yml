@@ -95,7 +95,7 @@ jobs:
             --push \
             .
           
-          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:gateway-latest" >> $GITHUB_OUTPUT
+          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:gateway-$IMAGE_TAG" >> $GITHUB_OUTPUT
       
       - name: Get latest task definition and update image
         id: render

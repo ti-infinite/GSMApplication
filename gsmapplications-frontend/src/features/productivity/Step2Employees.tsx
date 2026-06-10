@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { Search, X, Users, User, ChevronDown } from 'lucide-react'
+import { Search, X, Users, User, ChevronDown, Plus } from 'lucide-react'
 import { Button } from '@/shared/ui/button'
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/shared/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/ui/tooltip'
@@ -102,6 +102,7 @@ export function Step2Employees({ totalEmployees, groups: g, onBack, onNext }: Pr
                   key={emp.id}
                   employee={emp}
                   colorIdx={idx}
+                  mode={g.mode}
                   groups={g.groups}
                   onAdd={groupId => g.addToGroup(emp, groupId)}
                 />
@@ -110,16 +111,23 @@ export function Step2Employees({ totalEmployees, groups: g, onBack, onNext }: Pr
           </div>
         </div>
 
-        {/* ── Groups — 2-up grid that grows vertically; sidebar stays sticky ── */}
-        <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2">
-          {g.groups.map(group => (
-            <GroupCard
-              key={group.id}
-              group={group}
-              onRemove={(empId) => g.removeFromGroup(empId, group.id)}
-            />
-          ))}
-        </div>
+        {/* ── Right panel — groups (contained cards) or individuals (separate mini-cards) ── */}
+        {g.mode === 'groups' ? (
+          <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2">
+            {g.groups.map(group => (
+              <GroupCard
+                key={group.id}
+                group={group}
+                onRemove={(empId) => g.removeFromGroup(empId, group.id)}
+              />
+            ))}
+          </div>
+        ) : (
+          <IndividualGrid
+            employees={g.groups[0]?.employees ?? []}
+            onRemove={(empId) => g.removeFromGroup(empId, 'individual')}
+          />
+        )}
       </div>
 
       {/* Bottom summary bar */}
@@ -167,8 +175,8 @@ function ModeBtn({ active, onClick, icon, label }: { active: boolean; onClick: (
   )
 }
 
-function AvailableRow({ employee, colorIdx, groups, onAdd }: {
-  employee: Employee; colorIdx: number; groups: EmployeeGroup[]; onAdd: (groupId: string) => void
+function AvailableRow({ employee, colorIdx, mode, groups, onAdd }: {
+  employee: Employee; colorIdx: number; mode: 'groups' | 'individual'; groups: EmployeeGroup[]; onAdd: (groupId: string) => void
 }) {
   const { t } = useTranslation()
   return (
@@ -179,7 +187,16 @@ function AvailableRow({ employee, colorIdx, groups, onAdd }: {
         <p className="text-xs text-muted-foreground">{employee.role}</p>
       </div>
 
-      {groups.length <= 5 ? (
+      {mode === 'individual' ? (
+        // Individual: a single "+" — the person becomes its own unit (no group number).
+        <button
+          type="button"
+          onClick={() => onAdd('individual')}
+          title={t('productivity.step2.addIndividual')}
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-border bg-background text-muted-foreground hover:border-primary hover:text-primary">
+          <Plus className="h-3.5 w-3.5" />
+        </button>
+      ) : groups.length <= 5 ? (
         <TooltipProvider>
           <div className="flex shrink-0 gap-1">
             {groups.map((g, i) => (
@@ -251,6 +268,44 @@ function GroupCard({ group, onRemove }: { group: EmployeeGroup; onRemove: (empId
           ))}
         </div>
       )}
+    </div>
+  )
+}
+
+// Individual mode: each employee is its OWN separate card (= one independent unit/TRX),
+// so it never reads like a single group.
+function IndividualGrid({ employees, onRemove }: { employees: Employee[]; onRemove: (empId: string) => void }) {
+  const { t } = useTranslation()
+
+  if (employees.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-card py-12 text-center">
+        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
+          <User className="h-5 w-5 text-muted-foreground" />
+        </div>
+        <p className="text-sm text-muted-foreground">{t('productivity.step2.individualEmpty')}</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+      {employees.map((emp, idx) => (
+        <div key={emp.id} className="relative flex flex-col items-center gap-2 rounded-xl border border-border bg-card p-3 pt-4 text-center shadow-sm">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => onRemove(emp.id)}
+            className="absolute right-1 top-1 h-5 w-5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
+            <X className="h-3 w-3" />
+          </Button>
+          <Avatar name={emp.name} idx={idx} />
+          <div className="min-w-0 w-full">
+            <p className="truncate text-xs font-medium text-foreground">{emp.name}</p>
+            <p className="truncate text-[10px] text-muted-foreground">{emp.role}</p>
+          </div>
+        </div>
+      ))}
     </div>
   )
 }

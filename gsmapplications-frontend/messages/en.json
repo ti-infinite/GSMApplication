@@ -154,13 +154,11 @@
     "title": "Productivity",
     "subtitles": {
       "assignment": "Assign products, employees and grower",
-      "checkout": "Real-time performance tracking",
-      "history": "Records history"
+      "checkout": "Real-time performance tracking"
     },
     "tabs": {
       "assignment": "Assignment",
-      "checkout": "Checkout",
-      "history": "History"
+      "checkout": "Checkout"
     },
     "tabLocked": "Complete an assignment first",
     "common": {
@@ -220,7 +218,10 @@
       "activeGroups": "Active groups:",
       "range": "Range:",
       "perGroup": "{{min}}–{{max}} per group",
-      "next": "Grower →"
+      "next": "Grower →",
+      "individualEmpty": "No people assigned yet",
+      "addIndividual": "Add",
+      "individualsAssigned": "Individuals"
     },
     "step3": {
       "availableGrowers": "Available growers",
@@ -251,7 +252,17 @@
       "hintSelectGrower": "Select a grower",
       "hintSelectType": "Select the production type",
       "hintEnterItc": "Enter the ITC",
-      "confirm": "Confirm record"
+      "confirm": "Confirm record",
+      "selectedElsewhere": "Selected: {{name}}",
+      "viewOnPage": "View · p. {{page}}",
+      "selectedHiddenSearch": "Selected outside filter: {{name}}",
+      "clearFilter": "Clear filter",
+      "colItc": "ITC",
+      "selectedGrowers": "Selected growers",
+      "selectGrowersHint": "Select growers from the list",
+      "hintMissingItc": "Enter the ITC for each grower",
+      "sumGrowers": "Growers",
+      "itcRow": "ITC"
     },
     "checkout": {
       "inProgress": "In progress",
@@ -273,24 +284,15 @@
       "complete": "Complete",
       "laps": "Laps",
       "noLaps": "No laps recorded",
-      "exceedsLimit": "Exceeds the limit — available: {{remaining}}"
-    },
-    "history": {
-      "today": "Today",
-      "yesterday": "Yesterday",
-      "week": "This week",
-      "all": "All",
-      "colUnit": "Unit",
-      "colLaps": "Laps",
-      "colProduced": "Produced",
-      "colWaste": "Waste",
-      "colLastLap": "Last lap",
-      "statUnits": "Units",
-      "statTotalProduced": "Total produced",
-      "statTotalWaste": "Total waste",
-      "searchPlaceholder": "Search unit or employee...",
-      "emptyNoRecords": "No records. Complete an assignment and use Checkout.",
-      "emptyNoMatch": "No records match the filters."
+      "exceedsLimit": "Exceeds the limit — available: {{remaining}}",
+      "empty": "No active units in checkout",
+      "confirmDeviationTitle": "Amount differs from expected",
+      "confirmLessBody": "The produced total <b>{{total}}</b> is below the expected <b>{{expected}}</b>. Complete anyway?",
+      "confirmMoreBody": "The produced total <b>{{total}}</b> exceeds the expected <b>{{expected}}</b>. Complete anyway?",
+      "confirmLapTitle": "Complete the unit?",
+      "confirmLapBody": "You reached the expected amount <b>{{expected}}</b>. Do you want to complete the unit now?",
+      "confirmAccept": "Complete",
+      "confirmCancel": "Cancel"
     }
   }
 }

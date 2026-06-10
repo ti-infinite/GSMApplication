@@ -4,8 +4,22 @@ import { useTranslation } from 'react-i18next'
 import { isSafeUrl } from '@/shared/lib/utils'
 import { ChevronRight, LogOut } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/ui/tooltip'
+import { Skeleton } from '@/shared/ui/skeleton'
 import { type MenuOption, getIcon } from '@/shared/lib/menu'
 import NewTabDialog from '@/shared/components/NewTabDialog'
+
+function SidebarSkeleton({ collapsed }: { collapsed: boolean }) {
+  return (
+    <div className="flex flex-col gap-1">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <Skeleton
+          key={i}
+          className={collapsed ? 'mx-auto h-9 w-9 rounded-lg' : 'h-9 w-full rounded-lg'}
+        />
+      ))}
+    </div>
+  )
+}
 
 type Brand = { name: string; initials: string; logo?: string }
 
@@ -131,10 +145,11 @@ type Props = {
   brand: Brand
   locale: string
   open?: boolean
+  loading?: boolean
   onLogout: () => void
 }
 
-export default function Sidebar({ items, brand, locale, open = true, onLogout }: Props) {
+export default function Sidebar({ items, brand, locale, open = true, loading = false, onLogout }: Props) {
   const { t } = useTranslation()
   const collapsed = !open
 
@@ -167,9 +182,13 @@ export default function Sidebar({ items, brand, locale, open = true, onLogout }:
         )}
 
         <div className="flex flex-col gap-0.5">
-          {menuItems.map(item => (
-            <MenuItem key={item.IdObject ?? item.Description} item={item} locale={locale} collapsed={collapsed} />
-          ))}
+          {loading ? (
+            <SidebarSkeleton collapsed={collapsed} />
+          ) : (
+            menuItems.map(item => (
+              <MenuItem key={item.IdObject ?? item.Description} item={item} locale={locale} collapsed={collapsed} />
+            ))
+          )}
         </div>
 
         <div className="mt-4 flex flex-col gap-0.5">
@@ -180,7 +199,7 @@ export default function Sidebar({ items, brand, locale, open = true, onLogout }:
           )}
           {collapsed && <div className="mb-2 border-t border-sidebar-border" />}
 
-          {otherItems.map(item => (
+          {!loading && otherItems.map(item => (
             <MenuItem key={item.IdObject ?? item.Description} item={item} locale={locale} collapsed={collapsed} />
           ))}
 

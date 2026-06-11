@@ -119,6 +119,8 @@
   },
   "changePassword": {
     "title": "Cambiar Contraseña",
+    "cardSubtitle": "Actualiza tu contraseña de acceso",
+    "passwordHint": "Mínimo 8 caracteres",
     "forcedBadge": "Acción requerida",
     "forcedSubtitle": "Cambio de contraseña requerido antes de acceder a la plataforma.",
     "currentPassword": "Contraseña actual",

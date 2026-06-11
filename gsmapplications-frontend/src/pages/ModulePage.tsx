@@ -1,6 +1,6 @@
 import { lazy, Suspense } from 'react'
 import { useParams, useOutletContext } from 'react-router-dom'
-import { useTranslation } from 'react-i18next'
+import { Skeleton } from '@/shared/ui/skeleton'
 import ComingSoon from '@/shared/components/ComingSoon'
 import NotFound from '@/shared/components/NotFound'
 import ExternalPage from '@/shared/components/ExternalPage'
@@ -24,7 +24,6 @@ function slugToTitle(slug: string): string {
 export default function ModulePage() {
   const { '*': slug = '' } = useParams()
   const { menuOptions } = useOutletContext<DashboardOutletCtx>()
-  const { t } = useTranslation()
 
   const option = menuOptions.find(o => o.Route?.endsWith(`/${slug}`))
 
@@ -41,7 +40,17 @@ export default function ModulePage() {
   const Component = modules[slug]
   if (Component) {
     return (
-      <Suspense fallback={<div className="p-8 text-muted-foreground">{t('common.loading')}</div>}>
+      <Suspense
+        fallback={
+          <div className="flex flex-col gap-6">
+            <div className="flex flex-col gap-2">
+              <Skeleton className="h-7 w-48" />
+              <Skeleton className="h-4 w-72" />
+            </div>
+            <Skeleton className="h-96 w-full rounded-xl" />
+          </div>
+        }
+      >
         <Component />
       </Suspense>
     )

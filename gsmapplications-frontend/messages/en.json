@@ -119,6 +119,8 @@
   },
   "changePassword": {
     "title": "Change Password",
+    "cardSubtitle": "Update your account password",
+    "passwordHint": "At least 8 characters",
     "forcedBadge": "Action required",
     "forcedSubtitle": "Password change required before accessing the platform.",
     "currentPassword": "Current password",

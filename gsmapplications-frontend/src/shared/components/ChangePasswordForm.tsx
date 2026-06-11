@@ -100,6 +100,7 @@ export function ChangePasswordForm({ onSuccess }: Props) {
         value={fields.newPassword}
         onChange={handleChange}
         error={fieldErrors.newPassword}
+        hint={t('changePassword.passwordHint')}
       />
 
       <PasswordField
@@ -126,7 +127,7 @@ export function ChangePasswordForm({ onSuccess }: Props) {
 }
 
 function PasswordField({
-  id, label, show, onToggle, value, onChange, error,
+  id, label, show, onToggle, value, onChange, error, hint,
 }: {
   id:       keyof Fields
   label:    string
@@ -135,6 +136,7 @@ function PasswordField({
   value:    string
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void
   error?:   string
+  hint?:    string
 }) {
   return (
     <div className="flex flex-col gap-1.5">
@@ -161,7 +163,11 @@ function PasswordField({
           {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
         </button>
       </div>
-      {error && <p className="text-xs text-destructive">{error}</p>}
+      {error ? (
+        <p className="text-xs text-destructive">{error}</p>
+      ) : hint ? (
+        <p className="text-xs text-muted-foreground">{hint}</p>
+      ) : null}
     </div>
   )
 }

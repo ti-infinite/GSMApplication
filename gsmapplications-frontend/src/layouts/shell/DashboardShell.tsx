@@ -13,12 +13,11 @@ type Props = {
   brand:    Brand
   locale:   string
   userName: string
-  loading?: boolean
   onLogout: () => void
   children: React.ReactNode
 }
 
-export default function DashboardShell({ items, brand, locale, userName, loading = false, onLogout, children }: Props) {
+export default function DashboardShell({ items, brand, locale, userName, onLogout, children }: Props) {
   const [open, setOpen] = useState(true)
   const { pathname } = useLocation()
 
@@ -68,7 +67,7 @@ export default function DashboardShell({ items, brand, locale, userName, loading
         onClick={() => setOpen(false)}
         aria-hidden={!open}
       />
-      <Sidebar items={items} brand={brand} locale={locale} open={open} loading={loading} onLogout={onLogout} />
+      <Sidebar items={items} brand={brand} locale={locale} open={open} onLogout={onLogout} />
       <div className="flex flex-1 flex-col overflow-hidden">
         <Header locale={locale} userName={userName} menuOpen={open} onMenuToggle={handleToggle} onLogout={onLogout} />
         <main className="flex-1 overflow-auto bg-muted/30 p-6">

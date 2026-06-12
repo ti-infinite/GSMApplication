@@ -16,6 +16,37 @@
     "tagline": "Agricultural Management Platform",
     "companyNotFound": "Company ID not found. Check the ID and try again."
   },
+  "products": {
+    "title": "Products",
+    "subtitle": "Find a product by category and parameters",
+    "selectPrompt": "Select a product to continue",
+    "next": "Next",
+    "confirm": "Confirm product",
+    "confirmed": "Product selected: {{name}}",
+    "steps": {
+      "product": "Product"
+    },
+    "step1": {
+      "parameters": "Parameters",
+      "category": "Category",
+      "categoryPlaceholder": "Select a category",
+      "subcategory": "Subcategory",
+      "subcategoryPlaceholder": "Select subcategory",
+      "selectParam": "Select {{name}}",
+      "productsFound": "Products found",
+      "noProducts": "No products found for this SKU.",
+      "initialQty": "Initial quantity",
+      "completeParams": "Complete the parameters to see available products",
+      "skuGenerated": "Generated SKU",
+      "selectParamsForSku": "Select the parameters to build the SKU",
+      "selectVarietyTitle": "Select the variety:",
+      "varietyTitle": "Variety:",
+      "variety_one": "{{count}} variety",
+      "variety_other": "{{count}} varieties",
+      "hintSelectVariety": "Select a variety to continue",
+      "hintInitialQty": "Enter the initial quantity to continue"
+    }
+  },
   "dashboard": {
     "title": "Dashboard",
     "subtitle": "Welcome — Quick Actions",

@@ -9,3 +9,8 @@
 # Ignore node_modules
 node_modules/
 # Ignore build artifacts
+
+# Marketing video project + agent tooling (kept local, not part of the app)
+marketing-video/
+.agents/
+skills-lock.json

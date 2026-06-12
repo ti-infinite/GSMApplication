@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { CheckCircle2, MapPin, Search, ChevronLeft, ChevronRight, Check } from 'lucide-react'
-import { Button } from '@/shared/ui/button'
+import { WizardFooter } from './WizardFooter'
 import { Combobox } from '@/shared/ui/combobox'
 import type { Grower, MasterProduct, EmployeeGroup, AssignmentMode, ParameterAttribute, SelectedGrower } from './types'
 
@@ -290,18 +290,21 @@ export function Step3Grower({
       </div>
 
       {/* Bottom bar */}
-      <div className="flex flex-col gap-3 rounded-xl border border-border bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-        <Button variant="ghost" onClick={onBack}>{t('productivity.common.back')}</Button>
-        <div className="flex items-center gap-3">
-          {selectedCount === 0     && <span className="text-xs text-muted-foreground">{t('productivity.step3.hintSelectGrower')}</span>}
-          {selectedCount > 0 && missingItc > 0 && <span className="text-xs text-amber-600">{t('productivity.step3.hintMissingItc')}</span>}
-          {selectedCount > 0 && missingItc === 0 && !productionType && <span className="text-xs text-amber-600">{t('productivity.step3.hintSelectType')}</span>}
-          <Button onClick={() => canConfirm && onConfirm(selectedList)} disabled={!canConfirm} className="gap-2">
-            <CheckCircle2 className="h-4 w-4" />
-            {t('productivity.step3.confirm')}
-          </Button>
-        </div>
-      </div>
+      <WizardFooter
+        hint={
+          <>
+            {selectedCount === 0     && <span className="text-xs text-muted-foreground">{t('productivity.step3.hintSelectGrower')}</span>}
+            {selectedCount > 0 && missingItc > 0 && <span className="text-xs text-amber-600">{t('productivity.step3.hintMissingItc')}</span>}
+            {selectedCount > 0 && missingItc === 0 && !productionType && <span className="text-xs text-amber-600">{t('productivity.step3.hintSelectType')}</span>}
+          </>
+        }
+        onBack={onBack}
+        backLabel={t('productivity.common.back')}
+        primaryLabel={t('productivity.step3.confirm')}
+        primaryIcon={<CheckCircle2 className="h-4 w-4" />}
+        onPrimary={() => canConfirm && onConfirm(selectedList)}
+        primaryDisabled={!canConfirm}
+      />
     </div>
   )
 }

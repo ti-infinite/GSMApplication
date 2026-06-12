@@ -11,6 +11,7 @@ const modules: Record<string, React.LazyExoticComponent<React.ComponentType>> = 
   'sop':       lazy(() => import('@/features/sop/SopPage')),
   'settings':  lazy(() => import('@/features/settings/SettingsPage')),
   'productivity': lazy(() => import('@/features/productivity/ProductivityPage')),
+  'operations/products': lazy(() => import('@/features/products/ProductsPage')),
 }
 
 function slugToTitle(slug: string): string {

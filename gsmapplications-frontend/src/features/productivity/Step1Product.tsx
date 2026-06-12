@@ -1,7 +1,7 @@
 ﻿import { CheckCircle2, ChevronDown, ChevronUp } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Button } from '@/shared/ui/button'
+import { WizardFooter } from './WizardFooter'
 import { Combobox } from '@/shared/ui/combobox'
 import type { AssignmentWizardConfig, MasterProduct, ProductVariety } from './types'
 import type { useSkuBuilder } from './hooks/useSkuBuilder'
@@ -155,21 +155,25 @@ export function Step1Product({ data, sku, onNext }: Props) {
         </div>
       </div>
 
-      <div className="flex flex-col gap-3 rounded-xl border border-border bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-        {sku.isComplete ? (
-          <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
-            <CheckCircle2 className="h-4 w-4" />
-            <span className="font-medium">{sku.selectedProduct?.MasterProductName} - <strong>{sku.selectedVariety?.Name}</strong></span>
-          </div>
-        ) : sku.selectedProduct && !sku.selectedVariety ? (
-          <span className="text-sm text-amber-600 dark:text-amber-400">{t('productivity.step1.hintSelectVariety')}</span>
-        ) : sku.selectedProduct && sku.selectedVariety && !sku.initialQty ? (
-          <span className="text-sm text-amber-600 dark:text-amber-400">{t('productivity.step1.hintInitialQty')}</span>
-        ) : (
-          <span className="text-sm text-muted-foreground">{t('productivity.step1.hintSelectProduct')}</span>
-        )}
-        <Button onClick={onNext} disabled={!sku.isComplete}>{t('productivity.step1.next')}</Button>
-      </div>
+      <WizardFooter
+        hint={
+          sku.isComplete ? (
+            <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
+              <CheckCircle2 className="h-4 w-4" />
+              <span className="font-medium">{sku.selectedProduct?.MasterProductName} - <strong>{sku.selectedVariety?.Name}</strong></span>
+            </div>
+          ) : sku.selectedProduct && !sku.selectedVariety ? (
+            <span className="text-sm text-amber-600 dark:text-amber-400">{t('productivity.step1.hintSelectVariety')}</span>
+          ) : sku.selectedProduct && sku.selectedVariety && !sku.initialQty ? (
+            <span className="text-sm text-amber-600 dark:text-amber-400">{t('productivity.step1.hintInitialQty')}</span>
+          ) : (
+            <span className="text-sm text-muted-foreground">{t('productivity.step1.hintSelectProduct')}</span>
+          )
+        }
+        primaryLabel={t('productivity.step1.next')}
+        onPrimary={onNext}
+        primaryDisabled={!sku.isComplete}
+      />
     </div>
   )
 }

@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { Search, X, Users, User, ChevronDown, Plus } from 'lucide-react'
 import { Button } from '@/shared/ui/button'
+import { WizardFooter } from './WizardFooter'
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/shared/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/ui/tooltip'
 import type { Employee, EmployeeGroup } from './types'
@@ -131,32 +132,35 @@ export function Step2Employees({ totalEmployees, groups: g, onBack, onNext }: Pr
       </div>
 
       {/* Bottom summary bar */}
-      <div className="flex flex-col gap-3 rounded-xl border border-border bg-card px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:px-6">
-        <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
-          <span><strong className="text-foreground">{totalAssigned}</strong> {t('productivity.step2.assigned')}</span>
-          <span><strong className="text-foreground">{g.available.length}</strong> {t('productivity.step2.availableCount')}</span>
-          {g.mode === 'groups' && (
-            <>
-              <span>{t('productivity.step2.activeGroups')} <strong className="text-foreground">{activeGroups.length}</strong></span>
-              {activeGroups.length > 0 && (
-                <span>
-                  {t('productivity.step2.range')}{' '}
-                  <strong className="text-foreground">
-                    {t('productivity.step2.perGroup', {
-                      min: Math.min(...activeGroups.map(gr => gr.employees.length)),
-                      max: Math.max(...activeGroups.map(gr => gr.employees.length)),
-                    })}
-                  </strong>
-                </span>
-              )}
-            </>
-          )}
-        </div>
-        <div className="flex gap-3">
-          <Button variant="ghost" onClick={onBack}>{t('productivity.common.back')}</Button>
-          <Button onClick={onNext} disabled={!g.isComplete}>{t('productivity.step2.next')}</Button>
-        </div>
-      </div>
+      <WizardFooter
+        hint={
+          <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+            <span><strong className="text-foreground">{totalAssigned}</strong> {t('productivity.step2.assigned')}</span>
+            <span><strong className="text-foreground">{g.available.length}</strong> {t('productivity.step2.availableCount')}</span>
+            {g.mode === 'groups' && (
+              <>
+                <span>{t('productivity.step2.activeGroups')} <strong className="text-foreground">{activeGroups.length}</strong></span>
+                {activeGroups.length > 0 && (
+                  <span>
+                    {t('productivity.step2.range')}{' '}
+                    <strong className="text-foreground">
+                      {t('productivity.step2.perGroup', {
+                        min: Math.min(...activeGroups.map(gr => gr.employees.length)),
+                        max: Math.max(...activeGroups.map(gr => gr.employees.length)),
+                      })}
+                    </strong>
+                  </span>
+                )}
+              </>
+            )}
+          </div>
+        }
+        onBack={onBack}
+        backLabel={t('productivity.common.back')}
+        primaryLabel={t('productivity.step2.next')}
+        onPrimary={onNext}
+        primaryDisabled={!g.isComplete}
+      />
     </div>
   )
 }

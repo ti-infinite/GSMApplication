@@ -16,7 +16,7 @@ interface CardConfirmation {
 
 // A pending confirmation that needs the user's decision before completing a unit.
 type Confirm =
-  | { type: 'deviation'; trxId: string; finalLapAmount: number; deviation: 'less' | 'more'; expected: number; total: number }
+  | { type: 'deviation'; trxId: string; finalLapAmount: number; finalLapWaste: number; deviation: 'less' | 'more'; expected: number; total: number }
   | { type: 'lapComplete'; trxId: string; expected: number }
   | null
 
@@ -44,14 +44,13 @@ function formatTime(d: Date) {
 
 interface Props {
   units:      UnitCheckout[]
-  onLap:      (trxId: string, amount: number) => void
-  onWaste:    (trxId: string, waste: number) => void
-  onComplete: (trxId: string, finalLapAmount: number) => Promise<unknown> | void
+  onLap:      (trxId: string, amount: number, waste: number) => void
+  onComplete: (trxId: string, finalLapAmount: number, finalLapWaste: number) => Promise<unknown> | void
   onCancel:   (trxId: string) => void
   onFinish:   () => void
 }
 
-export function CheckoutView({ units, onLap, onWaste, onComplete, onCancel, onFinish }: Props) {
+export function CheckoutView({ units, onLap, onComplete, onCancel, onFinish }: Props) {
   const { t } = useTranslation()
   const [amounts,       setAmounts]       = useState<Record<string, string>>({})
   const [wasteInputs,   setWasteInputs]   = useState<Record<string, string>>({})
@@ -91,9 +90,11 @@ export function CheckoutView({ units, onLap, onWaste, onComplete, onCancel, onFi
       setErrors(prev => ({ ...prev, [trxId]: t('productivity.checkout.exceedsLimit', { remaining }) }))
       return
     }
+    const waste = parseInt(wasteInputs[trxId] ?? '', 10) || 0
     clearError(trxId)
-    onLap(trxId, amount)
+    onLap(trxId, amount, waste)
     setAmounts(prev => ({ ...prev, [trxId]: '' }))
+    setWasteInputs(prev => ({ ...prev, [trxId]: '' }))
     // If this lap reaches the expected amount, suggest completing so the TRX doesn't stay open.
     if (unit && amount === remaining) {
       setConfirm({ type: 'lapComplete', trxId, expected: unit.unit.initialQty })
@@ -110,22 +111,25 @@ export function CheckoutView({ units, onLap, onWaste, onComplete, onCancel, onFi
     if (raw && (isNaN(finalLapAmount) || finalLapAmount <= 0)) return   // invalid input
     if (finalLapAmount <= 0 && unit.laps.length === 0) return           // nothing to complete
     clearError(trxId)
+    // Waste belongs to the final lap; ignored when there's no final quantity.
+    const finalLapWaste = finalLapAmount > 0 ? (parseInt(wasteInputs[trxId] ?? '', 10) || 0) : 0
 
     const expected = unit.unit.initialQty
     const total    = unit.totalQty + finalLapAmount
     // Confirm only when the total deviates from what was expected.
-    if (total < expected) { setConfirm({ type: 'deviation', trxId, finalLapAmount, deviation: 'less', expected, total }); return }
-    if (total > expected) { setConfirm({ type: 'deviation', trxId, finalLapAmount, deviation: 'more', expected, total }); return }
-    doComplete(trxId, finalLapAmount)
+    if (total < expected) { setConfirm({ type: 'deviation', trxId, finalLapAmount, finalLapWaste, deviation: 'less', expected, total }); return }
+    if (total > expected) { setConfirm({ type: 'deviation', trxId, finalLapAmount, finalLapWaste, deviation: 'more', expected, total }); return }
+    doComplete(trxId, finalLapAmount, finalLapWaste)
   }
 
   // Runs the actual completion (after confirmation, or directly when there's no deviation).
-  const doComplete = (trxId: string, finalLapAmount: number) => {
+  const doComplete = (trxId: string, finalLapAmount: number, finalLapWaste: number) => {
     setConfirm(null)
     clearError(trxId)
     setCompletingIds(prev => new Set([...prev, trxId]))
-    const request = onComplete(trxId, finalLapAmount)
+    const request = onComplete(trxId, finalLapAmount, finalLapWaste)
     setAmounts(prev => ({ ...prev, [trxId]: '' }))
+    setWasteInputs(prev => ({ ...prev, [trxId]: '' }))
     setTimeout(() => {
       setCompletingIds(prev => { const n = new Set(prev); n.delete(trxId); return n })
       setCompletedIds(prev => new Set([...prev, trxId]))
@@ -142,7 +146,8 @@ export function CheckoutView({ units, onLap, onWaste, onComplete, onCancel, onFi
 
   const acceptConfirm = () => {
     if (!confirm) return
-    doComplete(confirm.trxId, confirm.type === 'lapComplete' ? 0 : confirm.finalLapAmount)
+    if (confirm.type === 'lapComplete') doComplete(confirm.trxId, 0, 0)
+    else doComplete(confirm.trxId, confirm.finalLapAmount, confirm.finalLapWaste)
   }
 
   // Build the overlay confirmation for the card that currently has one pending.
@@ -180,11 +185,11 @@ export function CheckoutView({ units, onLap, onWaste, onComplete, onCancel, onFi
     }, 350)
   }
 
+  // Waste is captured into the lap when +Lap / Completar is pressed (per vuelta),
+  // so this only tracks the input value locally.
   const handleWasteChange = (trxId: string, val: string) => {
     const sanitized = val.replace(/[^0-9]/g, '')
     setWasteInputs(prev => ({ ...prev, [trxId]: sanitized }))
-    const v = parseInt(sanitized, 10)
-    onWaste(trxId, isNaN(v) ? 0 : v)
   }
 
   const totalAmount    = units.reduce((s, u) => s + u.totalQty, 0)
@@ -270,7 +275,7 @@ export function CheckoutView({ units, onLap, onWaste, onComplete, onCancel, onFi
               unitCheckout={u}
               colorClass={COLORS[(page * pageSize + idx) % COLORS.length]}
               inputValue={amounts[u.unit.trxId] ?? ''}
-              wasteValue={wasteInputs[u.unit.trxId] ?? (u.waste > 0 ? String(u.waste) : '')}
+              wasteValue={wasteInputs[u.unit.trxId] ?? ''}
               error={errors[u.unit.trxId]}
               onInputChange={val => {
                 setAmounts(prev => ({ ...prev, [u.unit.trxId]: val }))
@@ -354,7 +359,7 @@ function UnitCard({
   onCancel:      () => void
 }) {
   const { t } = useTranslation()
-  const { unit, laps, totalQty, waste } = unitCheckout
+  const { unit, laps, totalQty, totalWaste } = unitCheckout
   const isMulti   = unit.employees.length > 1
   const hasLaps   = laps.length > 0
   const remaining = unit.initialQty - totalQty
@@ -434,8 +439,8 @@ function UnitCard({
           <div className="rounded-lg border border-border bg-muted/20 px-2.5 py-1.5 text-right">
             <p className="text-xl font-bold tabular-nums leading-none text-foreground">{totalQty}</p>
             <p className={`text-[10px] font-semibold tabular-nums leading-tight ${
-              waste > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground/30'
-            }`}>{waste || 0} <span className="font-normal opacity-70">{t('productivity.checkout.waste')}</span></p>
+              totalWaste > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground/30'
+            }`}>{totalWaste || 0} <span className="font-normal opacity-70">{t('productivity.checkout.waste')}</span></p>
           </div>
         </div>
       </div>
@@ -528,7 +533,12 @@ function UnitCard({
                 className="flex items-center gap-3 px-3 py-1.5 text-xs hover:bg-muted/30 not-last:border-b not-last:border-border/60">
                 <span className="w-5 shrink-0 font-medium text-muted-foreground">#{i + 1}</span>
                 <span className="flex-1 font-semibold text-foreground">{lap.amount}</span>
-                <span className="text-muted-foreground">{formatTime(lap.timestamp)}</span>
+                {lap.waste > 0 && (
+                  <span className="shrink-0 rounded bg-amber-500/10 px-1.5 py-0.5 font-medium text-amber-600 dark:text-amber-400">
+                    {lap.waste} {t('productivity.checkout.waste')}
+                  </span>
+                )}
+                <span className="shrink-0 text-muted-foreground">{formatTime(lap.timestamp)}</span>
               </div>
             ))}
           </div>

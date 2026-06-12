@@ -95,16 +95,17 @@ export interface CheckoutUnit {
 export interface LapRecord {
   id:        string
   unitTrxId: string
-  amount:    number      // integer
+  amount:    number      // integer — produced quantity for this lap
+  waste:     number      // integer — waste recorded for this lap
   timestamp: Date
 }
 
 // Accumulated state per unit during checkout
 export interface UnitCheckout {
-  unit:     CheckoutUnit
-  laps:     LapRecord[]
-  waste:    number
-  totalQty: number      // sum of laps
+  unit:       CheckoutUnit
+  laps:       LapRecord[]
+  totalQty:   number     // sum of lap amounts
+  totalWaste: number     // sum of lap wastes — sent to backend as the "Waste" attribute
 }
 
 export interface AssignmentWizardConfig {

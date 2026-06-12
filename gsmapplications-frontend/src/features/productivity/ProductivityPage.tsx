@@ -69,22 +69,22 @@ export default function ProductivityPage() {
     finally { setCheckoutLoading(false) }
   }
 
-  const handleLap = (trxId: string, amount: number) => {
+  const handleLap = (trxId: string, amount: number, waste: number) => {
     const timestamp = new Date()
-    const lap: LapRecord = { id: `${trxId}-${timestamp.getTime()}`, unitTrxId: trxId, amount, timestamp }
+    const lap: LapRecord = { id: `${trxId}-${timestamp.getTime()}`, unitTrxId: trxId, amount, waste, timestamp }
     setUnits(prev => prev.map(u =>
       u.unit.trxId === trxId
-        ? { ...u, laps: [...u.laps, lap], totalQty: u.totalQty + amount }
+        ? { ...u, laps: [...u.laps, lap], totalQty: u.totalQty + amount, totalWaste: u.totalWaste + waste }
         : u,
     ))
-    // PATCH appends one LAP detail. idTrxHeader (numeric) comes from getTrx.
-    const payload = buildLapPayload(amount, timestamp)
+    // PATCH appends one LAP detail (qty + waste). idTrxHeader (numeric) comes from getTrx.
+    const payload = buildLapPayload(amount, waste, timestamp)
     updateTransaction(Number(trxId), payload).catch(err => {
       console.error('[Productivity] lap error:', err)
       // Revert the optimistic lap so UI and backend stay consistent.
       setUnits(prev => prev.map(u =>
         u.unit.trxId === trxId
-          ? { ...u, laps: u.laps.filter(l => l.id !== lap.id), totalQty: u.totalQty - amount }
+          ? { ...u, laps: u.laps.filter(l => l.id !== lap.id), totalQty: u.totalQty - amount, totalWaste: u.totalWaste - waste }
           : u,
       ))
       toast.error(t('productivity.toast.lapFailed'))
@@ -93,7 +93,7 @@ export default function ProductivityPage() {
 
   // Returns the request promise so CheckoutView can roll back its own
   // completed-state (and toast) if the backend rejects the completion.
-  const handleUnitComplete = (trxId: string, finalLapAmount: number): Promise<unknown> => {
+  const handleUnitComplete = (trxId: string, finalLapAmount: number, finalLapWaste: number): Promise<unknown> => {
     const unit = units.find(u => u.unit.trxId === trxId)
     if (!unit) return Promise.resolve()
     const endDate = new Date()
@@ -101,31 +101,27 @@ export default function ProductivityPage() {
     // with the laps already registered (finalLapAmount === 0).
     let revertLapId: string | null = null
     if (finalLapAmount > 0) {
-      const lap: LapRecord = { id: `${trxId}-${endDate.getTime()}`, unitTrxId: trxId, amount: finalLapAmount, timestamp: endDate }
+      const lap: LapRecord = { id: `${trxId}-${endDate.getTime()}`, unitTrxId: trxId, amount: finalLapAmount, waste: finalLapWaste, timestamp: endDate }
       revertLapId = lap.id
       setUnits(prev => prev.map(u =>
         u.unit.trxId === trxId
-          ? { ...u, laps: [...u.laps, lap], totalQty: u.totalQty + finalLapAmount }
+          ? { ...u, laps: [...u.laps, lap], totalQty: u.totalQty + finalLapAmount, totalWaste: u.totalWaste + finalLapWaste }
           : u,
       ))
     }
-    const payload = buildCompletePayload(unit, finalLapAmount, endDate)
+    const payload = buildCompletePayload(unit, finalLapAmount, finalLapWaste, endDate)
     const request = updateTransaction(Number(trxId), payload)
     request.catch(err => {
       console.error('[Productivity] complete error:', err)
       if (revertLapId) {
         setUnits(prev => prev.map(u =>
           u.unit.trxId === trxId
-            ? { ...u, laps: u.laps.filter(l => l.id !== revertLapId), totalQty: u.totalQty - finalLapAmount }
+            ? { ...u, laps: u.laps.filter(l => l.id !== revertLapId), totalQty: u.totalQty - finalLapAmount, totalWaste: u.totalWaste - finalLapWaste }
             : u,
         ))
       }
     })
     return request
-  }
-
-  const handleWaste = (trxId: string, waste: number) => {
-    setUnits(prev => prev.map(u => u.unit.trxId === trxId ? { ...u, waste } : u))
   }
 
   const handleCancel = (trxId: string) => {
@@ -184,7 +180,6 @@ export default function ProductivityPage() {
           : <CheckoutView
               units={units}
               onLap={handleLap}
-              onWaste={handleWaste}
               onComplete={handleUnitComplete}
               onCancel={handleCancel}
               onFinish={handleFinish}

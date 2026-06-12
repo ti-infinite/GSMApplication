@@ -16,6 +16,37 @@
     "tagline": "Plataforma de Gestión Agrícola",
     "companyNotFound": "ID de empresa no encontrado. Verifica el ID e intenta de nuevo."
   },
+  "products": {
+    "title": "Productos",
+    "subtitle": "Buscá un producto por categoría y parámetros",
+    "selectPrompt": "Seleccioná un producto para continuar",
+    "next": "Siguiente",
+    "confirm": "Confirmar producto",
+    "confirmed": "Producto seleccionado: {{name}}",
+    "steps": {
+      "product": "Producto"
+    },
+    "step1": {
+      "parameters": "Parámetros",
+      "category": "Categoría",
+      "categoryPlaceholder": "Selecciona una categoría",
+      "subcategory": "Sub-categoría",
+      "subcategoryPlaceholder": "Selecciona sub-categoría",
+      "selectParam": "Selecciona {{name}}",
+      "productsFound": "Productos encontrados",
+      "noProducts": "No se encontraron productos para este SKU.",
+      "initialQty": "Cantidad inicial",
+      "completeParams": "Completa los parámetros para ver los productos disponibles",
+      "skuGenerated": "SKU generado",
+      "selectParamsForSku": "Selecciona los parámetros para construir el SKU",
+      "selectVarietyTitle": "Selecciona la variedad:",
+      "varietyTitle": "Variedad:",
+      "variety_one": "{{count}} variedad",
+      "variety_other": "{{count}} variedades",
+      "hintSelectVariety": "Selecciona una variedad para continuar",
+      "hintInitialQty": "Ingresa la cantidad inicial para continuar"
+    }
+  },
   "dashboard": {
     "title": "Dashboard",
     "subtitle": "Bienvenido — Acciones Rápidas",
@@ -119,6 +150,8 @@
   },
   "changePassword": {
     "title": "Cambiar Contraseña",
+    "cardSubtitle": "Actualiza tu contraseña de acceso",
+    "passwordHint": "Mínimo 8 caracteres",
     "forcedBadge": "Acción requerida",
     "forcedSubtitle": "Cambio de contraseña requerido antes de acceder a la plataforma.",
     "currentPassword": "Contraseña actual",

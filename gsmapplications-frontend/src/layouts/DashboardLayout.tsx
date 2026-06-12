@@ -6,7 +6,7 @@ import { useTenant } from '@/app/providers/TenantProvider'
 import { useMenu } from '@/shared/hooks/useMenu'
 import { logout } from '@/shared/lib/auth'
 import DashboardShell from '@/layouts/shell/DashboardShell'
-import DashboardLoading from '@/shared/components/DashboardLoading'
+import DashboardSkeleton from '@/shared/components/DashboardSkeleton'
 import type { DashboardOutletCtx } from '@/shared/lib/menu'
 
 export default function DashboardLayout() {
@@ -35,22 +35,10 @@ export default function DashboardLayout() {
     logo:     branding.logo,
   }
 
-  // While the menu loads, show the real shell (navbar + sidebar) with the
-  // content area in skeleton, so there is no jump from a centered loader
-  // to the full app.
+  // While the menu/branding load, show a full-shell skeleton (no real sign out,
+  // brand colors or user) so the load never appears "in parts".
   if (loading) {
-    return (
-      <DashboardShell
-        items={[]}
-        brand={brand}
-        locale={locale ?? 'en'}
-        userName={userName}
-        loading
-        onLogout={handleLogout}
-      >
-        <DashboardLoading />
-      </DashboardShell>
-    )
+    return <DashboardSkeleton />
   }
 
   return (

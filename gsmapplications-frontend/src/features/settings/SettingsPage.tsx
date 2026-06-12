@@ -48,7 +48,6 @@ export default function SettingsPage() {
                 { label: t('profile.email'),      value: user.email      },
                 { label: t('profile.location'),   value: user.location   },
                 { label: t('profile.department'), value: user.department },
-                { label: t('profile.idProfile'),  value: String(user.idProfile) },
               ].map(({ label, value }) => (
                 <div key={label} className="flex flex-col gap-0.5">
                   <dt className="text-xs font-medium text-muted-foreground">{label}</dt>
@@ -62,7 +61,8 @@ export default function SettingsPage() {
         )}
 
         <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-          <h2 className="mb-4 text-base font-semibold text-foreground">{t('changePassword.title')}</h2>
+          <h2 className="text-base font-semibold text-foreground">{t('changePassword.title')}</h2>
+          <p className="mb-5 mt-1 text-xs text-muted-foreground">{t('changePassword.cardSubtitle')}</p>
           <ChangePasswordForm onSuccess={() => setChanged(true)} />
         </div>
 
@@ -70,14 +70,16 @@ export default function SettingsPage() {
 
       <Dialog open={changed}>
         <DialogContent
-          className="max-w-sm text-center"
+          className="max-w-sm"
           onInteractOutside={e => e.preventDefault()}
         >
-          <div className="flex flex-col items-center gap-4 py-4">
-            <CheckCircle2 className="h-14 w-14 text-green-500" />
-            <div>
+          <div className="flex flex-col items-center gap-5 py-2 text-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-500/10 ring-8 ring-green-500/5">
+              <CheckCircle2 className="h-8 w-8 text-green-500" />
+            </div>
+            <div className="space-y-1.5">
               <p className="text-lg font-semibold text-foreground">{t('changePassword.successMessage')}</p>
-              <p className="mt-1 text-sm text-muted-foreground">{t('changePassword.redirectMessage', { seconds: countdown })}</p>
+              <p className="text-sm text-muted-foreground">{t('changePassword.redirectMessage', { seconds: countdown })}</p>
             </div>
             <Button
               className="w-full"

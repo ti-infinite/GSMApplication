@@ -66,12 +66,13 @@ export function buildTransactionPayload(
 // ── Phase 2/3 — lap & complete via PATCH updateTransaction(idTrxHeader, TrxUpdateDTO) ──
 // The idTrxHeader goes in the URL, so it's no longer part of the body.
 
-// A single lap → append one LAP detail to the transaction.
-export function buildLapPayload(amount: number, timestamp: Date): TrxUpdateDTO {
+// A single lap → append one LAP detail (quantity + waste). Waste falls back to 0
+// if it's omitted/undefined, so a forgotten value never breaks the payload.
+export function buildLapPayload(amount: number, waste: number, timestamp: Date): TrxUpdateDTO {
   return {
     trxDetails: [{
       detailType:  'LAP',
-      detailValue: JSON.stringify({ RecordDate: formatUtc(timestamp), QTY: amount }),
+      detailValue: JSON.stringify({ RecordDate: formatUtc(timestamp), QTY: amount, Waste: Number(waste) || 0 }),
     }],
   }
 }
@@ -82,12 +83,13 @@ export function buildLapPayload(amount: number, timestamp: Date): TrxUpdateDTO {
 export function buildCompletePayload(
   unitCheckout:   UnitCheckout,
   finalLapAmount: number,
+  finalLapWaste:  number,
   endDate:        Date,
 ): TrxUpdateDTO {
   const payload: TrxUpdateDTO = {
     trxAttributes: [
       { attributeKey: 'FinalQTY', attributeValue: String(unitCheckout.totalQty + finalLapAmount) },
-      { attributeKey: 'Waste',    attributeValue: String(unitCheckout.waste) },
+      { attributeKey: 'Waste',    attributeValue: String(unitCheckout.totalWaste + finalLapWaste) },
       { attributeKey: 'EndDate',  attributeValue: formatUtc(endDate) },
     ],
     trxStates: { trxState: 'COMPLETED', comments: '' },
@@ -95,7 +97,7 @@ export function buildCompletePayload(
   if (finalLapAmount > 0) {
     payload.trxDetails = [{
       detailType:  'LAP',
-      detailValue: JSON.stringify({ RecordDate: formatUtc(endDate), QTY: finalLapAmount }),
+      detailValue: JSON.stringify({ RecordDate: formatUtc(endDate), QTY: finalLapAmount, Waste: finalLapWaste }),
     }]
   }
   return payload
@@ -156,17 +158,19 @@ export function mapTrxToUnits(trxList: TrxResponseDTO[]): UnitCheckout[] {
       .filter(d => d.detailType === 'LAP')
       .map((d, i) => {
         let amount = 0
+        let waste = 0
         let timestamp = new Date()
         try {
           const p = JSON.parse(d.detailValue ?? '{}')
           amount = Number(p.QTY) || 0
+          waste = Number(p.waste) || 0
           if (p.RecordDate) timestamp = parseUtc(String(p.RecordDate))
         } catch { /* malformed detail → defaults */ }
-        return { id: `${trx.idTrxHeader}-lap-${i}`, unitTrxId: String(trx.idTrxHeader), amount, timestamp }
+        return { id: `${trx.idTrxHeader}-lap-${i}`, unitTrxId: String(trx.idTrxHeader), amount, waste, timestamp }
       })
 
     const totalQty   = laps.reduce((s, l) => s + l.amount, 0)
-    const waste      = Number(getAttr(trx, 'Waste')) || 0
+    const totalWaste = laps.reduce((s, l) => s + l.waste, 0)
     const product    = trx.trxProducts[0]
     const initialQty = Number(getAttr(trx, 'InitialQTY')) || Number(product?.qty) || 0
     const isMulti    = employees.length > 1
@@ -182,8 +186,8 @@ export function mapTrxToUnits(trxList: TrxResponseDTO[]): UnitCheckout[] {
         initialQty,
       },
       laps,
-      waste,
       totalQty,
+      totalWaste,
     }
   })
 }

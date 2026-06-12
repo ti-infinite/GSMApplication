@@ -72,7 +72,7 @@ export function buildLapPayload(amount: number, waste: number, timestamp: Date):
   return {
     trxDetails: [{
       detailType:  'LAP',
-      detailValue: JSON.stringify({ RecordDate: formatUtc(timestamp), QTY: amount, waste: Number(waste) || 0 }),
+      detailValue: JSON.stringify({ RecordDate: formatUtc(timestamp), QTY: amount, Waste: Number(waste) || 0 }),
     }],
   }
 }
@@ -97,7 +97,7 @@ export function buildCompletePayload(
   if (finalLapAmount > 0) {
     payload.trxDetails = [{
       detailType:  'LAP',
-      detailValue: JSON.stringify({ RecordDate: formatUtc(endDate), QTY: finalLapAmount, waste: finalLapWaste }),
+      detailValue: JSON.stringify({ RecordDate: formatUtc(endDate), QTY: finalLapAmount, Waste: finalLapWaste }),
     }]
   }
   return payload

@@ -14,6 +14,10 @@ interface UseEmployeeGroupsResult {
   setSearchQuery:    (q: string) => void
   addToGroup:        (employee: Employee, groupId: string) => void
   removeFromGroup:   (employeeId: string, groupId: string) => void
+  addIndividual:     (employee: Employee) => void
+  removeIndividual:  (groupId: string) => void
+  setGroupProduct:   (groupId: string, productId: string) => void
+  setGroupQty:       (groupId: string, qty: number) => void
   reset:             () => void
 }
 
@@ -25,23 +29,23 @@ function buildGroups(count: number): EmployeeGroup[] {
   }))
 }
 
-const INDIVIDUAL_GROUP: EmployeeGroup = { id: 'individual', name: 'Individual', employees: [] }
-
 export function useEmployeeGroups(allEmployees: Employee[]): UseEmployeeGroupsResult {
-  const [mode,        setModeState]  = useState<AssignmentMode>('groups')
-  const [groupCount,  setGroupCount] = useState(2)
+  const [mode,        setModeState]   = useState<AssignmentMode>('groups')
+  const [groupCount,  setGroupCount]  = useState(2)
   const [searchQuery, setSearchQuery] = useState('')
 
-  // Each mode stores its assignments independently — switching modes never loses data
+  // Each mode stores its assignments independently — switching modes never loses data.
+  // Groups mode: N predefined groups you fill. Individual mode: one single-person
+  // mesa per added employee (each its own work table).
   const [modeGroups, setModeGroups] = useState<Record<AssignmentMode, EmployeeGroup[]>>({
     groups:     buildGroups(2),
-    individual: [{ ...INDIVIDUAL_GROUP }],
+    individual: [],
   })
 
   const groups = modeGroups[mode]
 
-  const assigned         = groups.flatMap(g => g.employees.map(e => e.id))
-  const available        = allEmployees.filter(e => !assigned.includes(e.id))
+  const assigned          = groups.flatMap(g => g.employees.map(e => e.id))
+  const available         = allEmployees.filter(e => !assigned.includes(e.id))
   const filteredAvailable = searchQuery.trim()
     ? available.filter(e =>
         e.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -49,7 +53,6 @@ export function useEmployeeGroups(allEmployees: Employee[]): UseEmployeeGroupsRe
       )
     : available
 
-  // Switching mode just changes the view — both modes retain their own assignments
   const setMode = useCallback((m: AssignmentMode) => {
     setModeState(m)
   }, [])
@@ -91,14 +94,45 @@ export function useEmployeeGroups(allEmployees: Employee[]): UseEmployeeGroupsRe
     }))
   }, [mode])
 
+  // Individual mode: one mesa per person.
+  const addIndividual = useCallback((employee: Employee) => {
+    setModeGroups(prev => ({
+      ...prev,
+      individual: [...prev.individual, { id: `ind-${employee.id}`, name: employee.name, employees: [employee] }],
+    }))
+  }, [])
+
+  const removeIndividual = useCallback((groupId: string) => {
+    setModeGroups(prev => ({
+      ...prev,
+      individual: prev.individual.filter(g => g.id !== groupId),
+    }))
+  }, [])
+
+  const setGroupProduct = useCallback((groupId: string, productId: string) => {
+    setModeGroups(prev => ({
+      ...prev,
+      [mode]: prev[mode].map(g => (g.id === groupId ? { ...g, productId } : g)),
+    }))
+  }, [mode])
+
+  const setGroupQty = useCallback((groupId: string, qty: number) => {
+    setModeGroups(prev => ({
+      ...prev,
+      [mode]: prev[mode].map(g => (g.id === groupId ? { ...g, qty } : g)),
+    }))
+  }, [mode])
+
   const reset = useCallback(() => {
     setModeState('groups')
     setGroupCount(2)
-    setModeGroups({ groups: buildGroups(2), individual: [{ ...INDIVIDUAL_GROUP }] })
+    setModeGroups({ groups: buildGroups(2), individual: [] })
     setSearchQuery('')
   }, [])
 
-  const totalAssigned = groups.reduce((sum, g) => sum + g.employees.length, 0)
+  // A mesa with people is "ready" only once it has a product + a positive qty.
+  const nonEmptyGroups = groups.filter(g => g.employees.length > 0)
+  const isComplete = nonEmptyGroups.length > 0 && nonEmptyGroups.every(g => !!g.productId && (g.qty ?? 0) > 0)
 
   return {
     mode,
@@ -107,12 +141,16 @@ export function useEmployeeGroups(allEmployees: Employee[]): UseEmployeeGroupsRe
     groupCount,
     searchQuery,
     filteredAvailable,
-    isComplete:    totalAssigned > 0,
+    isComplete,
     setMode,
     setGroupCount: handleGroupCount,
     setSearchQuery,
     addToGroup,
     removeFromGroup,
+    addIndividual,
+    removeIndividual,
+    setGroupProduct,
+    setGroupQty,
     reset,
   }
 }

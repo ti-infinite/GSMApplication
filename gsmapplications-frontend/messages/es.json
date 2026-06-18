@@ -250,7 +250,19 @@
       "hintSelectProduct": "Selecciona un producto para continuar",
       "hintSelectVariety": "Selecciona una variedad para continuar",
       "hintInitialQty": "Ingresa la cantidad inicial para continuar",
-      "next": "Empleados"
+      "next": "Empleados",
+      "productionType": "Tipo de producción",
+      "selectType": "Selecciona el tipo",
+      "addProduct": "Agregar producto",
+      "configuredProducts": "Productos configurados",
+      "noProductsYet": "Aún no hay productos configurados",
+      "hintConfigureProduct": "Configurá al menos un producto (con cantidad, productor e ITC) para continuar",
+      "qty": "Cantidad",
+      "growers": "Productores",
+      "addGrower": "Agregar productor",
+      "itc": "ITC",
+      "hintAddGrower": "Agregá al menos un productor",
+      "hintGrowerItc": "Ingresá el ITC de cada productor"
     },
     "step2": {
       "modeGroups": "Grupos",
@@ -270,7 +282,18 @@
       "next": "Productor →",
       "individualEmpty": "Aún no hay personas asignadas",
       "addIndividual": "Agregar",
-      "individualsAssigned": "Individuos"
+      "individualsAssigned": "Individuos",
+      "selectProduct": "Seleccionar producto",
+      "noProducts": "No hay productos configurados",
+      "qty": "Cantidad",
+      "confirm": "Crear asignación",
+      "quickAssign": "Asignación rápida",
+      "assignTo": "Asignar a mesas",
+      "autoAssigned": "se asigna a todas las mesas automáticamente",
+      "mesasCount_one": "{{count}} mesa",
+      "mesasCount_other": "{{count}} mesas",
+      "unassignedMesas_one": "{{count}} mesa sin asignar",
+      "unassignedMesas_other": "{{count}} mesas sin asignar"
     },
     "step3": {
       "availableGrowers": "Productores disponibles",

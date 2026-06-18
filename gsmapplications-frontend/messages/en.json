@@ -250,7 +250,19 @@
       "hintSelectProduct": "Select a product to continue",
       "hintSelectVariety": "Select a variety to continue",
       "hintInitialQty": "Enter the initial quantity to continue",
-      "next": "Employees"
+      "next": "Employees",
+      "productionType": "Production type",
+      "selectType": "Select type",
+      "addProduct": "Add product",
+      "configuredProducts": "Configured products",
+      "noProductsYet": "No products configured yet",
+      "hintConfigureProduct": "Configure at least one product (with quantity, grower and ITC) to continue",
+      "qty": "Quantity",
+      "growers": "Growers",
+      "addGrower": "Add grower",
+      "itc": "ITC",
+      "hintAddGrower": "Add at least one grower",
+      "hintGrowerItc": "Enter the ITC for each grower"
     },
     "step2": {
       "modeGroups": "Groups",
@@ -270,7 +282,18 @@
       "next": "Grower →",
       "individualEmpty": "No people assigned yet",
       "addIndividual": "Add",
-      "individualsAssigned": "Individuals"
+      "individualsAssigned": "Individuals",
+      "selectProduct": "Select product",
+      "noProducts": "No products configured",
+      "qty": "Quantity",
+      "confirm": "Create assignment",
+      "quickAssign": "Quick assign",
+      "assignTo": "Assign to",
+      "autoAssigned": "auto-assigned to every mesa",
+      "mesasCount_one": "{{count}} table",
+      "mesasCount_other": "{{count}} tables",
+      "unassignedMesas_one": "{{count}} table unassigned",
+      "unassignedMesas_other": "{{count}} tables unassigned"
     },
     "step3": {
       "availableGrowers": "Available growers",

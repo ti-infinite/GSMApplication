@@ -61,9 +61,11 @@ export interface Employee {
 }
 
 export interface EmployeeGroup {
-  id:        string
-  name:      string
-  employees: Employee[]
+  id:         string
+  name:       string
+  employees:  Employee[]
+  productId?: string   // → ConfiguredProduct.id, assigned in step 2 (mesa de trabajo)
+  qty?:       number   // per-group quantity; defaults to the product's defaultQty
 }
 
 // Grower maps from SupplierDTO
@@ -124,14 +126,21 @@ export interface SelectedGrower {
   itc:    string
 }
 
-export interface AssignmentResult {
+// A product configured in step 1: variety + default qty + its own grower(s) + prod.
+// type. Each work group (mesa) in step 2 references one of these by id.
+export interface ConfiguredProduct {
+  id:             string
   product:        MasterProduct
   variety:        ProductVariety
-  initialQty:     number
   skuPrefix:      string
+  defaultQty:     number
+  growers:        SelectedGrower[]   // 1..N growers, each with its ITC
+  productionType: string             // PRDTYPE code (defaults to the global selection)
+}
+
+export interface AssignmentResult {
+  products:       ConfiguredProduct[]   // the pool configured in step 1
+  employeeGroups: EmployeeGroup[]        // mesas, each carrying productId + qty
   mode:           AssignmentMode
-  employeeGroups: EmployeeGroup[]
-  growers:        SelectedGrower[]   // one or more growers, each with its ITC
-  productionType: string             // code from PRDTYPE parameter
-  trxIds:         string[]           // IDs returned by backend after create-trx (one per group/individual)
+  trxIds:         string[]               // IDs returned by backend (one per group)
 }

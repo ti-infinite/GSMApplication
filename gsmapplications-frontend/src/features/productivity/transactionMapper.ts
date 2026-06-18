@@ -19,48 +19,40 @@ export function buildTransactionPayload(
   const username = user?.username ?? ''
   const location = user?.location ?? ''
 
-  // Supplier carries every selected grower with its own ITC (ITC is no longer a global attr).
-  const supplier = JSON.stringify(
-    assignment.growers.map(s => ({ IdGrower: s.grower.idThirdSupplier, NameGrower: s.grower.name, ITC: s.itc })),
-  )
+  // Each mesa (group) carries its own product; resolve it by id.
+  const byId = new Map(assignment.products.map(p => [p.id, p]))
 
-  const commonAttrs = (employees: { Id: number; FullName: string }[]): TrxAttributesDTO[] => [
-    { attributeKey: 'Employee',       attributeValue: JSON.stringify(employees) },
-    { attributeKey: 'Supplier',       attributeValue: supplier },
-    { attributeKey: 'InitialQTY',     attributeValue: String(assignment.initialQty) },
-    { attributeKey: 'ProductionType', attributeValue: assignment.productionType },
-    { attributeKey: 'StartDate',      attributeValue: formatUtc(startDate) },
-  ]
+  // One TRX per mesa, each with its own product / qty / growers / production type.
+  return assignment.employeeGroups.flatMap(group => {
+    const cp = group.productId ? byId.get(group.productId) : undefined
+    if (!cp) return []   // group without a resolved product — skipped (validated in the wizard)
 
-  const trxProduct = {
-    idVariety:   assignment.variety.IdVariety,
-    varietyName: assignment.variety.Name,
-    sku:         assignment.product.SKU,
-    qty:         assignment.initialQty,
-  }
+    const qty = group.qty ?? cp.defaultQty
 
-  const base = (attrs: TrxAttributesDTO[]): TrxCreateDTO => ({
-    trxPrefix:     'PRDLBR',
-    descr:         'PRDLBR',
-    username,
-    location,
-    trxAttributes: attrs,
-    trxProducts:   [trxProduct],
-    trxStates:     { trxState: 'INPROGRESS', comments: '' },
-    trxDetails:    [],
+    // Supplier carries every grower of this product with its own ITC.
+    const supplier = JSON.stringify(
+      cp.growers.map(s => ({ IdGrower: s.grower.idThirdSupplier, NameGrower: s.grower.name, ITC: s.itc })),
+    )
+
+    const trxAttributes: TrxAttributesDTO[] = [
+      { attributeKey: 'Employee',       attributeValue: JSON.stringify(group.employees.map(e => ({ Id: e.idEmployee ?? 0, FullName: e.name }))) },
+      { attributeKey: 'Supplier',       attributeValue: supplier },
+      { attributeKey: 'InitialQTY',     attributeValue: String(qty) },
+      { attributeKey: 'ProductionType', attributeValue: cp.productionType },
+      { attributeKey: 'StartDate',      attributeValue: formatUtc(startDate) },
+    ]
+
+    return [{
+      trxPrefix:     'PRDLBR',
+      descr:         'PRDLBR',
+      username,
+      location,
+      trxAttributes,
+      trxProducts:   [{ idVariety: cp.variety.IdVariety, varietyName: cp.variety.Name, sku: cp.product.SKU, qty }],
+      trxStates:     { trxState: 'INPROGRESS', comments: '' },
+      trxDetails:    [],
+    }]
   })
-
-  if (assignment.mode === 'individual') {
-    // One TRX per employee
-    return assignment.employeeGroups
-      .flatMap(g => g.employees)
-      .map(emp => base(commonAttrs([{ Id: emp.idEmployee ?? 0, FullName: emp.name }])))
-  }
-
-  // One TRX per group
-  return assignment.employeeGroups.map(group =>
-    base(commonAttrs(group.employees.map(e => ({ Id: e.idEmployee ?? 0, FullName: e.name })))),
-  )
 }
 
 // ── Phase 2/3 — lap & complete via PATCH updateTransaction(idTrxHeader, TrxUpdateDTO) ──

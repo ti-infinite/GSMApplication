@@ -1,19 +1,30 @@
+import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Search, X, Users, User, ChevronDown, Plus } from 'lucide-react'
+import { Search, X, Users, User, ChevronDown, Plus, Sprout, Check } from 'lucide-react'
 import { Button } from '@/shared/ui/button'
+import { Combobox } from '@/shared/ui/combobox'
 import { WizardFooter } from './WizardFooter'
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/shared/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/ui/tooltip'
-import type { Employee, EmployeeGroup } from './types'
+import type { Employee, EmployeeGroup, ConfiguredProduct } from './types'
 import type { useEmployeeGroups } from './hooks/useEmployeeGroups'
 
 type GroupState = ReturnType<typeof useEmployeeGroups>
 
+// Same product can be configured twice with different growers → show the grower
+// so the user can tell them apart when assigning.
+const growerLabel = (cp: ConfiguredProduct): string => {
+  if (cp.growers.length === 0) return ''
+  const first = cp.growers[0].grower.name
+  return cp.growers.length > 1 ? `${first} +${cp.growers.length - 1}` : first
+}
+
 interface Props {
   totalEmployees: number
   groups:         GroupState
+  products:       ConfiguredProduct[]
   onBack:         () => void
-  onNext:         () => void
+  onConfirm:      () => void
 }
 
 function initials(name: string) {
@@ -35,10 +46,29 @@ function Avatar({ name, idx, sm }: { name: string; idx: number; sm?: boolean }) 
   )
 }
 
-export function Step2Employees({ totalEmployees, groups: g, onBack, onNext }: Props) {
+export function Step2Employees({ totalEmployees, groups: g, products, onBack, onConfirm }: Props) {
   const { t } = useTranslation()
   const totalAssigned = g.groups.reduce((sum, gr) => sum + gr.employees.length, 0)
   const activeGroups  = g.groups.filter(gr => gr.employees.length > 0)
+
+  // Product chosen for a mesa → default its qty (override on every product change).
+  const pickProduct = (groupId: string, productId: string) => {
+    g.setGroupProduct(groupId, productId)
+    const p = products.find(x => x.id === productId)
+    if (p) g.setGroupQty(groupId, p.defaultQty)
+  }
+
+  // Single product → auto-assign it to every mesa with people (no manual picking).
+  useEffect(() => {
+    if (products.length !== 1) return
+    const only = products[0]
+    for (const grp of g.groups) {
+      if (grp.employees.length > 0 && grp.productId !== only.id) {
+        g.setGroupProduct(grp.id, only.id)
+        g.setGroupQty(grp.id, only.defaultQty)
+      }
+    }
+  }, [products, g.groups, g.setGroupProduct, g.setGroupQty])
 
   return (
     <div className="flex flex-col gap-6">
@@ -67,6 +97,8 @@ export function Step2Employees({ totalEmployees, groups: g, onBack, onNext }: Pr
           </div>
         )}
       </div>
+
+      <QuickAssign products={products} g={g} />
 
       <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[420px_1fr]">
 
@@ -106,61 +138,111 @@ export function Step2Employees({ totalEmployees, groups: g, onBack, onNext }: Pr
                   mode={g.mode}
                   groups={g.groups}
                   onAdd={groupId => g.addToGroup(emp, groupId)}
+                  onAddIndividual={() => g.addIndividual(emp)}
                 />
               ))
             )}
           </div>
         </div>
 
-        {/* ── Right panel — groups (contained cards) or individuals (separate mini-cards) ── */}
+        {/* ── Right panel — mesas (groups or individuals), each with its product + qty ── */}
         {g.mode === 'groups' ? (
           <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2">
             {g.groups.map(group => (
               <GroupCard
                 key={group.id}
                 group={group}
+                products={products}
                 onRemove={(empId) => g.removeFromGroup(empId, group.id)}
+                onProduct={pickProduct}
+                onQty={g.setGroupQty}
               />
             ))}
           </div>
+        ) : g.groups.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-card py-12 text-center">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
+              <User className="h-5 w-5 text-muted-foreground" />
+            </div>
+            <p className="text-sm text-muted-foreground">{t('productivity.step2.individualEmpty')}</p>
+          </div>
         ) : (
-          <IndividualGrid
-            employees={g.groups[0]?.employees ?? []}
-            onRemove={(empId) => g.removeFromGroup(empId, 'individual')}
-          />
+          <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2">
+            {g.groups.map((group, idx) => (
+              <IndividualCard
+                key={group.id}
+                group={group}
+                colorIdx={idx}
+                products={products}
+                onRemove={() => g.removeIndividual(group.id)}
+                onProduct={pickProduct}
+                onQty={g.setGroupQty}
+              />
+            ))}
+          </div>
         )}
       </div>
 
-      {/* Bottom summary bar */}
       <WizardFooter
         hint={
           <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
             <span><strong className="text-foreground">{totalAssigned}</strong> {t('productivity.step2.assigned')}</span>
             <span><strong className="text-foreground">{g.available.length}</strong> {t('productivity.step2.availableCount')}</span>
-            {g.mode === 'groups' && (
-              <>
-                <span>{t('productivity.step2.activeGroups')} <strong className="text-foreground">{activeGroups.length}</strong></span>
-                {activeGroups.length > 0 && (
-                  <span>
-                    {t('productivity.step2.range')}{' '}
-                    <strong className="text-foreground">
-                      {t('productivity.step2.perGroup', {
-                        min: Math.min(...activeGroups.map(gr => gr.employees.length)),
-                        max: Math.max(...activeGroups.map(gr => gr.employees.length)),
-                      })}
-                    </strong>
-                  </span>
-                )}
-              </>
-            )}
+            <span>{t('productivity.step2.activeGroups')} <strong className="text-foreground">{activeGroups.length}</strong></span>
           </div>
         }
         onBack={onBack}
         backLabel={t('productivity.common.back')}
-        primaryLabel={t('productivity.step2.next')}
-        onPrimary={onNext}
+        primaryLabel={t('productivity.step2.confirm')}
+        onPrimary={onConfirm}
         primaryDisabled={!g.isComplete}
       />
+    </div>
+  )
+}
+
+/* ── Mesa product + qty controls (shared by group & individual cards) ── */
+function MesaControls({ group, products, onProduct, onQty }: {
+  group:     EmployeeGroup
+  products:  ConfiguredProduct[]
+  onProduct: (groupId: string, productId: string) => void
+  onQty:     (groupId: string, qty: number) => void
+}) {
+  const { t } = useTranslation()
+  const cp = products.find(p => p.id === group.productId)
+  return (
+    <div className="flex flex-col gap-2 border-t border-border/60 pt-2.5">
+      <Combobox
+        size="sm"
+        options={products.map(p => ({ value: p.id, label: p.product.MasterProductName, description: growerLabel(p) || undefined, badge: p.skuPrefix }))}
+        value={group.productId ?? ''}
+        onChange={pid => onProduct(group.id, pid)}
+        placeholder={t('productivity.step2.selectProduct')}
+        emptyMessage={t('productivity.step2.noProducts')}
+      />
+      {cp && cp.growers.length > 0 && (
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Sprout className="h-3.5 w-3.5 shrink-0 text-green-600 dark:text-green-400" />
+          <span className="truncate">{growerLabel(cp)}</span>
+        </div>
+      )}
+      {cp && (
+        <div className="flex items-center gap-2">
+          <label className="shrink-0 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            {t('productivity.step2.qty')}
+          </label>
+          <input
+            type="number" min="1" step="1" inputMode="numeric"
+            value={group.qty || ''}
+            onChange={e => {
+              const v = parseInt(e.target.value, 10)
+              onQty(group.id, isNaN(v) || v <= 0 ? 0 : v)
+            }}
+            className="min-w-0 flex-1 rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            placeholder="0"
+          />
+        </div>
+      )}
     </div>
   )
 }
@@ -179,8 +261,9 @@ function ModeBtn({ active, onClick, icon, label }: { active: boolean; onClick: (
   )
 }
 
-function AvailableRow({ employee, colorIdx, mode, groups, onAdd }: {
-  employee: Employee; colorIdx: number; mode: 'groups' | 'individual'; groups: EmployeeGroup[]; onAdd: (groupId: string) => void
+function AvailableRow({ employee, colorIdx, mode, groups, onAdd, onAddIndividual }: {
+  employee: Employee; colorIdx: number; mode: 'groups' | 'individual'; groups: EmployeeGroup[]
+  onAdd: (groupId: string) => void; onAddIndividual: () => void
 }) {
   const { t } = useTranslation()
   return (
@@ -192,10 +275,9 @@ function AvailableRow({ employee, colorIdx, mode, groups, onAdd }: {
       </div>
 
       {mode === 'individual' ? (
-        // Individual: a single "+" — the person becomes its own unit (no group number).
         <button
           type="button"
-          onClick={() => onAdd('individual')}
+          onClick={onAddIndividual}
           title={t('productivity.step2.addIndividual')}
           className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-border bg-background text-muted-foreground hover:border-primary hover:text-primary">
           <Plus className="h-3.5 w-3.5" />
@@ -203,17 +285,17 @@ function AvailableRow({ employee, colorIdx, mode, groups, onAdd }: {
       ) : groups.length <= 5 ? (
         <TooltipProvider>
           <div className="flex shrink-0 gap-1">
-            {groups.map((g, i) => (
-              <Tooltip key={g.id}>
+            {groups.map((gr, i) => (
+              <Tooltip key={gr.id}>
                 <TooltipTrigger asChild>
                   <button
                     type="button"
-                    onClick={() => onAdd(g.id)}
+                    onClick={() => onAdd(gr.id)}
                     className="flex h-6 w-6 items-center justify-center rounded-full border border-border bg-background text-xs font-bold text-muted-foreground hover:border-primary hover:text-primary">
                     {i + 1}
                   </button>
                 </TooltipTrigger>
-                <TooltipContent>{g.name}</TooltipContent>
+                <TooltipContent>{gr.name}</TooltipContent>
               </Tooltip>
             ))}
           </div>
@@ -227,9 +309,9 @@ function AvailableRow({ employee, colorIdx, mode, groups, onAdd }: {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="max-h-64 min-w-[120px] overflow-y-auto scrollbar-hide">
-            {groups.map(g => (
-              <DropdownMenuItem key={g.id} onSelect={() => onAdd(g.id)}>
-                {g.name}
+            {groups.map(gr => (
+              <DropdownMenuItem key={gr.id} onSelect={() => onAdd(gr.id)}>
+                {gr.name}
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>
@@ -239,7 +321,13 @@ function AvailableRow({ employee, colorIdx, mode, groups, onAdd }: {
   )
 }
 
-function GroupCard({ group, onRemove }: { group: EmployeeGroup; onRemove: (empId: string) => void }) {
+function GroupCard({ group, products, onRemove, onProduct, onQty }: {
+  group:     EmployeeGroup
+  products:  ConfiguredProduct[]
+  onRemove:  (empId: string) => void
+  onProduct: (groupId: string, productId: string) => void
+  onQty:     (groupId: string, qty: number) => void
+}) {
   const { t } = useTranslation()
   return (
     <div className="rounded-xl border border-border bg-card p-3 shadow-sm">
@@ -272,44 +360,129 @@ function GroupCard({ group, onRemove }: { group: EmployeeGroup; onRemove: (empId
           ))}
         </div>
       )}
+
+      {group.employees.length > 0 && (
+        <div className="mt-2.5">
+          <MesaControls group={group} products={products} onProduct={onProduct} onQty={onQty} />
+        </div>
+      )}
     </div>
   )
 }
 
-// Individual mode: each employee is its OWN separate card (= one independent unit/TRX),
-// so it never reads like a single group.
-function IndividualGrid({ employees, onRemove }: { employees: Employee[]; onRemove: (empId: string) => void }) {
-  const { t } = useTranslation()
-
-  if (employees.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-card py-12 text-center">
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
-          <User className="h-5 w-5 text-muted-foreground" />
+// Individual mode: each employee is its OWN mesa (one TRX), with its own product + qty.
+function IndividualCard({ group, colorIdx, products, onRemove, onProduct, onQty }: {
+  group:     EmployeeGroup
+  colorIdx:  number
+  products:  ConfiguredProduct[]
+  onRemove:  () => void
+  onProduct: (groupId: string, productId: string) => void
+  onQty:     (groupId: string, qty: number) => void
+}) {
+  const emp = group.employees[0]
+  return (
+    <div className="rounded-xl border border-border bg-card p-3 shadow-sm">
+      <div className="mb-2.5 flex items-center gap-2">
+        <Avatar name={emp?.name ?? group.name} idx={colorIdx} />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium text-foreground">{emp?.name ?? group.name}</p>
+          <p className="truncate text-xs text-muted-foreground">{emp?.role}</p>
         </div>
-        <p className="text-sm text-muted-foreground">{t('productivity.step2.individualEmpty')}</p>
+        <button
+          type="button"
+          onClick={onRemove}
+          className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground/50 hover:bg-destructive/10 hover:text-destructive">
+          <X className="h-3 w-3" />
+        </button>
+      </div>
+      <MesaControls group={group} products={products} onProduct={onProduct} onQty={onQty} />
+    </div>
+  )
+}
+
+// Quick assign: pick which mesas get each product in one go (multiselect),
+// instead of choosing product per mesa. The grower is shown so two same-named
+// products with different growers can be told apart.
+function QuickAssign({ products, g }: { products: ConfiguredProduct[]; g: GroupState }) {
+  const { t } = useTranslation()
+  const mesas = g.groups.filter(grp => grp.employees.length > 0)
+  if (products.length === 0 || mesas.length === 0) return null
+
+  // One product → it's auto-assigned to every mesa (see the effect in Step2Employees).
+  if (products.length === 1) {
+    const only = products[0]
+    return (
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3">
+        <Sprout className="h-4 w-4 shrink-0 text-primary" />
+        <span className="text-sm font-semibold text-foreground">{only.product.MasterProductName}</span>
+        {only.growers.length > 0 && <span className="text-xs text-muted-foreground">· {growerLabel(only)}</span>}
+        <span className="ml-1 text-sm text-muted-foreground">{t('productivity.step2.autoAssigned')}</span>
       </div>
     )
   }
 
+  const unassigned = mesas.filter(m => !m.productId).length
+
+  // One product per mesa → assigning a mesa to a product moves it off its previous one.
+  const toggle = (grp: EmployeeGroup, cp: ConfiguredProduct) => {
+    if (grp.productId === cp.id) g.setGroupProduct(grp.id, '')
+    else { g.setGroupProduct(grp.id, cp.id); g.setGroupQty(grp.id, cp.defaultQty) }
+  }
+
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
-      {employees.map((emp, idx) => (
-        <div key={emp.id} className="relative flex flex-col items-center gap-2 rounded-xl border border-border bg-card p-3 pt-4 text-center shadow-sm">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => onRemove(emp.id)}
-            className="absolute right-1 top-1 h-5 w-5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
-            <X className="h-3 w-3" />
-          </Button>
-          <Avatar name={emp.name} idx={idx} />
-          <div className="min-w-0 w-full">
-            <p className="truncate text-xs font-medium text-foreground">{emp.name}</p>
-            <p className="truncate text-[10px] text-muted-foreground">{emp.role}</p>
-          </div>
-        </div>
-      ))}
+    <div className="flex flex-col gap-2.5 rounded-xl border border-border bg-card p-4 shadow-sm">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">{t('productivity.step2.quickAssign')}</p>
+        {unassigned > 0 && (
+          <span className="rounded-full bg-amber-500/10 px-2.5 py-0.5 text-xs font-medium text-amber-600 dark:text-amber-400">
+            {t('productivity.step2.unassignedMesas', { count: unassigned })}
+          </span>
+        )}
+      </div>
+
+      {/* Horizontal product palette — fixed-size chips, scrolls instead of growing with N products */}
+      <div className="scrollbar-hide flex gap-2.5 overflow-x-auto pb-1">
+        {products.map(cp => {
+          const count = mesas.filter(m => m.productId === cp.id).length
+          return (
+            <DropdownMenu key={cp.id}>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="flex w-60 shrink-0 items-center gap-2.5 rounded-lg border border-border bg-background px-3 py-2.5 text-left transition-colors hover:border-primary/40"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-semibold text-foreground">{cp.product.MasterProductName}</div>
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <Sprout className="h-3 w-3 shrink-0 text-green-600 dark:text-green-400" />
+                      <span className="truncate">{growerLabel(cp) || '—'}</span>
+                    </div>
+                  </div>
+                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-bold ${count > 0 ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>
+                    {t('productivity.step2.mesasCount', { count })}
+                  </span>
+                  <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="scrollbar-hide max-h-72 w-60 overflow-y-auto">
+                {mesas.map(m => {
+                  const on = m.productId === cp.id
+                  const otherCp = !on && m.productId ? products.find(p => p.id === m.productId) : undefined
+                  return (
+                    <DropdownMenuItem key={m.id} onSelect={e => { e.preventDefault(); toggle(m, cp) }} className="gap-2">
+                      <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${on ? 'border-primary bg-primary text-white' : 'border-border'}`}>
+                        {on && <Check className="h-3 w-3" />}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate">{m.name}</span>
+                      {otherCp && <span className="max-w-28 shrink-0 truncate text-xs text-muted-foreground">{otherCp.product.MasterProductName}</span>}
+                    </DropdownMenuItem>
+                  )
+                })}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )
+        })}
+      </div>
     </div>
   )
 }

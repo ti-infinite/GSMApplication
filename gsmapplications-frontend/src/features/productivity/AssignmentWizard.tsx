@@ -2,15 +2,15 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQueryClient } from '@tanstack/react-query'
 import { WizardStepper } from './WizardStepper'
-import { Step1Product } from './Step1Product'
+import { Step1Products } from './Step1Products'
 import { Step2Employees } from './Step2Employees'
-import { Step3Grower } from './Step3Grower'
 import { useSkuBuilder } from './hooks/useSkuBuilder'
+import { useProductConfig } from './hooks/useProductConfig'
 import { useEmployeeGroups } from './hooks/useEmployeeGroups'
 import { useWizardData } from './hooks/useWizardData'
 import { Skeleton } from '@/shared/ui/skeleton'
 import { ErrorState } from '@/shared/components/ErrorState'
-import type { AssignmentResult, SelectedGrower } from './types'
+import type { AssignmentResult } from './types'
 
 interface Props {
   onComplete: (result: AssignmentResult) => void
@@ -19,41 +19,32 @@ interface Props {
 export function AssignmentWizard({ onComplete }: Props) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const [step,           setStep]           = useState(1)
-  const [productionType, setProductionType] = useState('')
-  // Lifted here so the grower selection survives moving between steps
-  const [growerSel,      setGrowerSel]      = useState<Record<string, SelectedGrower>>({})
+  const [step, setStep] = useState(1)
 
   const STEPS = [
     { id: 1, label: t('productivity.wizard.stepProduct') },
     { id: 2, label: t('productivity.wizard.stepEmployees') },
-    { id: 3, label: t('productivity.wizard.stepGrower') },
   ]
 
   const { data, isLoading, isError } = useWizardData()
 
+  // Step 1 builds one product at a time (sku) and accumulates them (config).
   const sku = useSkuBuilder(
     data?.categories     ?? [],
     data?.skuTemplates   ?? [],
     data?.parameters     ?? [],
     data?.masterProducts ?? [],
   )
-
+  const config = useProductConfig()
   const groups = useEmployeeGroups(data?.employees ?? [])
 
-  const handleConfirm = (selectedGrowers: SelectedGrower[]) => {
-    if (!sku.selectedProduct || !sku.selectedVariety) return
+  const handleConfirm = () => {
     onComplete({
-      product:        sku.selectedProduct,
-      variety:        sku.selectedVariety,
-      initialQty:     sku.initialQty ?? 0,
-      skuPrefix:      sku.skuPrefix,
-      mode:           groups.mode,
+      products:       config.products,
+      // Only mesas with people become transactions.
       employeeGroups: groups.groups.filter(g => g.employees.length > 0),
-      growers:        selectedGrowers,
-      productionType,
-      // TODO(backend): el backend devolverá los TRX IDs vía GET trx tras create-trx.
-      // Por ahora va vacío; ProductivityPage los sobreescribe con los IDs reales.
+      mode:           groups.mode,
+      // TODO(backend): TRX IDs come back via GET trx after create-trx.
       trxIds:         [],
     })
   }
@@ -83,9 +74,10 @@ export function AssignmentWizard({ onComplete }: Props) {
       <WizardStepper steps={STEPS} current={step} />
 
       {step === 1 && (
-        <Step1Product
+        <Step1Products
           data={data}
           sku={sku}
+          config={config}
           onNext={() => setStep(2)}
         />
       )}
@@ -94,23 +86,8 @@ export function AssignmentWizard({ onComplete }: Props) {
         <Step2Employees
           totalEmployees={data.employees.length}
           groups={groups}
+          products={config.products}
           onBack={() => setStep(1)}
-          onNext={() => setStep(3)}
-        />
-      )}
-
-      {step === 3 && sku.selectedProduct && (
-        <Step3Grower
-          growers={data.growers}
-          selected={growerSel}
-          onSelectedChange={setGrowerSel}
-          productionType={productionType}
-          productionTypes={data.productionTypes}
-          onProductionTypeChange={setProductionType}
-          product={sku.selectedProduct}
-          mode={groups.mode}
-          employeeGroups={groups.groups.filter(g => g.employees.length > 0)}
-          onBack={() => setStep(2)}
           onConfirm={handleConfirm}
         />
       )}

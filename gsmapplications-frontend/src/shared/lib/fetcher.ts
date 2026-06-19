@@ -34,13 +34,15 @@ async function serviceFetch<T>(
     throw new Error('Session expired')
   }
 
-  if (!response.ok) throw new Error(`${response.status} ${response.statusText}`)
+  // Read the body once (tolerate empty / non-JSON responses).
+  const json = await response.json().catch(() => null)
 
-  const json = await response.json()
-
-  if ('success' in json && !json.success) {
-    const err = new Error(json.message ?? 'Request failed') as ApiError
-    err.errorType = json.errorType ?? undefined
+  // Error via HTTP status (ExceptionMiddleware → 4xx/5xx) or via envelope success:false.
+  if (!response.ok || (json && 'success' in json && !json.success)) {
+    const err = new Error(json?.message ?? `${response.status} ${response.statusText}`) as ApiError
+    err.errorType = json?.errorType ?? undefined
+    err.traceId = json?.traceId ?? undefined
+    err.details = json?.details ?? undefined   // solo viene en dev (prod manda null)
     throw err
   }
 

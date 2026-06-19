@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Plus, X, Trash2, Package, AlertCircle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/shared/ui/button'
@@ -21,6 +22,15 @@ interface Props {
 export function Step1Products({ data, sku, config, onNext }: Props) {
   const { t } = useTranslation()
 
+  // Start with the first category pre-selected (saves a click). Never overrides
+  // an existing selection — e.g. coming back from step 2 keeps what you had.
+  useEffect(() => {
+    if (data.categories.length > 0 && !sku.selectedCategory) {
+      sku.selectCategory(data.categories[0])
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data.categories])
+
   const handleAdd = () => {
     if (!sku.selectedProduct || !sku.selectedVariety || !sku.initialQty) return
     config.addProduct({
@@ -29,7 +39,9 @@ export function Step1Products({ data, sku, config, onNext }: Props) {
       skuPrefix:  sku.skuPrefix,
       defaultQty: sku.initialQty,
     })
-    sku.reset()
+    // Keep the search + product selected; clear only variety + qty so you can add
+    // another variety of the same product (or another product) without redoing the SKU.
+    sku.selectVariety(null)
     sku.setInitialQty(null)
   }
 
@@ -38,7 +50,7 @@ export function Step1Products({ data, sku, config, onNext }: Props) {
       {/*  xl: 3 columns [Selección | Productos | Configurados]
            md: Selección on top (full width) + Productos | Configurados
            sm: everything stacked  */}
-      <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-[300px_minmax(0,1fr)_360px] xl:items-start">
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-[280px_minmax(0,1fr)_400px] xl:items-start">
 
         {/* ── Col 1 · Selección ── */}
         <div className="md:col-span-2 xl:col-span-1 xl:sticky xl:top-4">
@@ -130,8 +142,8 @@ function ConfiguredCard({ cp, growers, config }: {
       {/* Header: product + remove (qty lives in step 2's mesa card) */}
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-foreground">{cp.product.MasterProductName}</p>
-          <p className="truncate text-xs text-muted-foreground"><span className="font-mono">{cp.product.SKU}</span></p>
+          <p className="line-clamp-2 text-[13px] font-semibold leading-tight text-foreground">{cp.product.MasterProductName}</p>
+          <p className="mt-0.5 truncate text-[11px] text-muted-foreground"><span className="font-mono">{cp.product.SKU}</span></p>
         </div>
         <button
           type="button"

@@ -55,11 +55,15 @@ export function AssignmentWizard({ onComplete }: Props) {
         <div className="flex justify-center gap-4">
           {STEPS.map(s => <Skeleton key={s.id} className="h-8 w-24 rounded-full" />)}
         </div>
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <div className="flex flex-col gap-3 rounded-xl border border-border p-6">
-            {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-[280px_minmax(0,1fr)_400px]">
+          {/* Selección */}
+          <div className="flex flex-col gap-3 rounded-xl border border-border p-4 md:col-span-2 xl:col-span-1">
+            {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
           </div>
-          <Skeleton className="h-64 rounded-xl" />
+          {/* Productos */}
+          <Skeleton className="h-72 rounded-xl" />
+          {/* Configurados */}
+          <Skeleton className="h-72 rounded-xl" />
         </div>
       </div>
     )

@@ -92,7 +92,7 @@ export function ProductResults({ sku }: { sku: SkuState }) {
   return (
     <>
       {sku.allParamsSelected ? (
-        <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
+        <div className="rounded-xl border border-border bg-card p-3.5 shadow-sm">
           <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
             {t('productivity.step1.productsFound')}
             {sku.matchingProducts.length > 0 && (
@@ -144,7 +144,7 @@ export function ProductResults({ sku }: { sku: SkuState }) {
         </div>
       )}
 
-      <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
+      <div className="rounded-xl border border-border bg-card p-3.5 shadow-sm">
         <p className="mb-2.5 text-xs font-semibold uppercase tracking-widest text-muted-foreground">{t('productivity.step1.skuGenerated')}</p>
         {skuChips.length > 0 ? (
           <div className="flex flex-wrap items-center gap-2">
@@ -177,8 +177,8 @@ function ProductCard({ product, selected, selectedVariety, onSelect, onSelectVar
           {selected && <div className="h-1.5 w-1.5 rounded-full bg-white" />}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium text-foreground">{product.MasterProductName}</p>
-          <p className="truncate text-xs text-muted-foreground">{product.SKU}</p>
+          <p className="truncate text-[13px] font-medium leading-tight text-foreground">{product.MasterProductName}</p>
+          <p className="truncate text-[11px] text-muted-foreground">{product.SKU}</p>
         </div>
         <span className="shrink-0 rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground">{product.MeasurementUnitValue} {product.MeasurementUnit}</span>
       </button>

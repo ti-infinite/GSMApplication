@@ -18,14 +18,22 @@ JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
 var builder = WebApplication.CreateBuilder(args);
 var config = builder.Configuration;
 
-var envSecret = Environment.GetEnvironmentVariable("JWT_SECRET");
-
-if (string.IsNullOrWhiteSpace(envSecret))
+// En prod: logs en JSON estructurado → CloudWatch Logs Insights filtra por campo (Level, TraceId, ...).
+// En dev: se mantiene la consola de texto legible.
+if (!builder.Environment.IsDevelopment())
 {
-    throw new InvalidOperationException("JWT_SECRET is not configured for this environment.");
+    builder.Logging.ClearProviders();
+    builder.Logging.AddJsonConsole(options => options.IncludeScopes = true);
 }
 
-config["JwtSettings:SecretKey"] = envSecret;
+// Prod inyecta JWT_SECRET como env var (Parameter Store) → lo mapeamos sobre JwtSettings:SecretKey.
+// Dev lo toma de appsettings.Development.json (JwtSettings:SecretKey).
+var envSecret = config["JWT_SECRET"];
+
+if (!string.IsNullOrWhiteSpace(envSecret))
+{
+    config["JwtSettings:SecretKey"] = envSecret;
+}
 
 var jwt = config.GetSection("JwtSettings").Get<JwtSettingsOptions>()
           ?? throw new InvalidOperationException("JwtSettings not configured.");

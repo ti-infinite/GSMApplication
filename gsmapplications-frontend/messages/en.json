@@ -85,7 +85,11 @@
     "traceability-route-sheet": "Route Sheet",
     "traz-hoja-ruta": "Route Sheet",
     "traceability-delivery": "Product Delivery",
-    "traz-delivery-product": "Product Delivery"
+    "traz-delivery-product": "Product Delivery",
+    "accounting":"Accounting",
+    "masters":"Masters",
+    "productivity":"Productivity",
+    "operations":"Operations"
   },
   "common": {
     "swipeHint": "Swipe to browse",
@@ -184,6 +188,7 @@
     "server": "Server error. Please try again later.",
     "loadTitle": "Couldn't load this",
     "retry": "Retry",
+    "reference": "Reference",
     "boundary": {
       "title": "Something went wrong",
       "subtitle": "An unexpected error occurred. Please reload the page.",
@@ -290,10 +295,10 @@
       "quickAssign": "Quick assign",
       "assignTo": "Assign to",
       "autoAssigned": "auto-assigned to every mesa",
-      "mesasCount_one": "{{count}} table",
-      "mesasCount_other": "{{count}} tables",
-      "unassignedMesas_one": "{{count}} table unassigned",
-      "unassignedMesas_other": "{{count}} tables unassigned"
+      "mesasCount_one": "{{count}} group",
+      "mesasCount_other": "{{count}} groups",
+      "unassignedMesas_one": "{{count}} group unassigned",
+      "unassignedMesas_other": "{{count}} groups unassigned"
     },
     "step3": {
       "availableGrowers": "Available growers",

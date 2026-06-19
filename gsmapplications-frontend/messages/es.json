@@ -71,7 +71,7 @@
     "logs": "Registros",
     "settings": "Configuración",
     "configuraciones": "Configuraciones",
-    "herbs-need": "Necesidades de Hierbas",
+    "herbs-need": "Herbs Need",
     "trazabilidad": "Trazabilidad",
     "traceability": "Trazabilidad",
     "credits-craa": "CRAA",
@@ -85,7 +85,11 @@
     "traceability-route-sheet": "Hoja de Ruta",
     "traz-hoja-ruta": "Hoja de Ruta",
     "traceability-delivery": "Entrega de Producto",
-    "traz-delivery-product": "Entrega de Producto"
+    "traz-delivery-product": "Entrega de Producto",
+    "accounting":"Contabilidad",
+    "masters":"Maestros",
+    "productivity":"Productividad",
+    "operations":"Operaciones"
   },
   "common": {
     "swipeHint": "Desliza para explorar",
@@ -184,6 +188,7 @@
     "server": "Error del servidor. Intenta más tarde.",
     "loadTitle": "No se pudo cargar",
     "retry": "Reintentar",
+    "reference": "Referencia",
     "boundary": {
       "title": "Algo salió mal",
       "subtitle": "Ocurrió un error inesperado. Recarga la página.",
@@ -290,10 +295,10 @@
       "quickAssign": "Asignación rápida",
       "assignTo": "Asignar a mesas",
       "autoAssigned": "se asigna a todas las mesas automáticamente",
-      "mesasCount_one": "{{count}} mesa",
-      "mesasCount_other": "{{count}} mesas",
-      "unassignedMesas_one": "{{count}} mesa sin asignar",
-      "unassignedMesas_other": "{{count}} mesas sin asignar"
+      "mesasCount_one": "{{count}} grupo",
+      "mesasCount_other": "{{count}} grupos",
+      "unassignedMesas_one": "{{count}} grupo sin asignar",
+      "unassignedMesas_other": "{{count}} grupos sin asignar"
     },
     "step3": {
       "availableGrowers": "Productores disponibles",

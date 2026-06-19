@@ -100,10 +100,10 @@ export function Step2Employees({ totalEmployees, groups: g, products, onBack, on
 
       <QuickAssign products={products} g={g} />
 
-      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[420px_1fr]">
+      <div className="grid grid-cols-1 items-start gap-6 md:grid-cols-[300px_1fr] lg:grid-cols-[420px_1fr]">
 
         {/* ── Available employees — sticky sidebar ── */}
-        <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 shadow-sm lg:sticky lg:top-4">
+        <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 shadow-sm md:sticky md:top-4">
           <div className="flex items-center justify-between">
             <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
               {t('productivity.step2.available')}
@@ -147,7 +147,7 @@ export function Step2Employees({ totalEmployees, groups: g, products, onBack, on
 
         {/* ── Right panel — mesas (groups or individuals), each with its product + qty ── */}
         {g.mode === 'groups' ? (
-          <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 items-start gap-3 xl:grid-cols-2">
             {g.groups.map(group => (
               <GroupCard
                 key={group.id}
@@ -449,19 +449,21 @@ function QuickAssign({ products, g }: { products: ConfiguredProduct[]; g: GroupS
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  className="flex w-60 shrink-0 items-center gap-2.5 rounded-lg border border-border bg-background px-3 py-2.5 text-left transition-colors hover:border-primary/40"
+                  className="flex w-72 shrink-0 flex-col gap-1 rounded-lg border border-border bg-background px-3 py-2.5 text-left transition-colors hover:border-primary/40"
                 >
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-semibold text-foreground">{cp.product.MasterProductName}</div>
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <div className="flex w-full items-center gap-2">
+                    <span className="line-clamp-2 min-w-0 flex-1 text-[13px] font-semibold leading-tight text-foreground">{cp.product.MasterProductName}</span>
+                    <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  </div>
+                  <div className="flex w-full items-center justify-between gap-2">
+                    <span className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
                       <Sprout className="h-3 w-3 shrink-0 text-green-600 dark:text-green-400" />
                       <span className="truncate">{growerLabel(cp) || '—'}</span>
-                    </div>
+                    </span>
+                    <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-bold ${count > 0 ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>
+                      {t('productivity.step2.mesasCount', { count })}
+                    </span>
                   </div>
-                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-bold ${count > 0 ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>
-                    {t('productivity.step2.mesasCount', { count })}
-                  </span>
-                  <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="scrollbar-hide max-h-72 w-60 overflow-y-auto">

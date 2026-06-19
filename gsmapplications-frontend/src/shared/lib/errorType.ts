@@ -1,6 +1,6 @@
 import { ErrorType } from '@/shared/api/auth/model'
 
-export type ApiError = Error & { errorType?: string }
+export type ApiError = Error & { errorType?: string; traceId?: string; details?: string }
 
 const ERROR_KEYS: Record<string, string> = {
   [ErrorType.Validation]:   'errors.validation',

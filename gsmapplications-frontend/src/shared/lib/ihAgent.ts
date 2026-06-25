@@ -1,4 +1,6 @@
-const API_KEY = import.meta.env.VITE_IH_API_KEY as string
+import { env } from '@/shared/config/env'
+
+const API_KEY = env.ihApiKey
 
 export function ihFetch(path: string, init: RequestInit = {}): Promise<Response> {
   const isFormData = init.body instanceof FormData

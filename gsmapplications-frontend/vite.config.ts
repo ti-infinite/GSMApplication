@@ -15,6 +15,11 @@ export default defineConfig({
         target: 'http://localhost:80',
         changeOrigin: true,
       },
+      '/ih-api': {
+        target: process.env.VITE_IH_AGENT_URL ?? 'https://3.232.144.97.sslip.io',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/ih-api/, ''),
+      },
     },
   },
   build: {

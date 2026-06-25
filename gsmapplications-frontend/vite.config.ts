@@ -3,8 +3,7 @@ import react from '@vitejs/plugin-react'
 import path from 'path'
 
 export default defineConfig(({ mode }) => {
-  // Carga .env / .env.local en el config (Node). El prefijo '' incluye también
-  // las que no llevan VITE_. process.env NO se llena solo desde los .env.
+ 
   const env = loadEnv(mode, process.cwd(), '')
 
   return {

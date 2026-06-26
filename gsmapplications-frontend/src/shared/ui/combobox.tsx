@@ -64,9 +64,9 @@ export function Combobox({
     const spaceBelow = window.innerHeight - rect.bottom
     const spaceAbove = rect.top
     if (spaceBelow < 240 && spaceAbove > spaceBelow) {
-      return { bottom: window.innerHeight - rect.top + MARGIN + window.scrollY, left: rect.left + window.scrollX, width: rect.width }
+      return { bottom: window.innerHeight - rect.top + MARGIN, left: rect.left, width: rect.width }
     }
-    return { top: rect.bottom + MARGIN + window.scrollY, left: rect.left + window.scrollX, width: rect.width }
+    return { top: rect.bottom + MARGIN, left: rect.left, width: rect.width }
   }
 
   const openDropdown = () => {
@@ -127,7 +127,7 @@ export function Combobox({
           value={displayValue}
           onChange={e => { if (!open) openDropdown(); setQuery(e.target.value) }}
           onFocus={() => { if (!open) openDropdown() }}
-          className={`flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none disabled:cursor-not-allowed ${size === 'sm' ? 'py-1.5' : 'py-2.5'}`}
+          className={`min-w-0 flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none disabled:cursor-not-allowed ${size === 'sm' ? 'py-1.5' : 'py-2.5'}`}
         />
 
         {value && !disabled && (

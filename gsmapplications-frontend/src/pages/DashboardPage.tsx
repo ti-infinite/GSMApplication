@@ -3,7 +3,7 @@ import { useParams, useOutletContext, useNavigate, useLocation } from 'react-rou
 import { useTranslation } from 'react-i18next'
 import QuickCards from '@/features/dashboard/QuickCards'
 import DashboardActivity from '@/features/dashboard/DashboardActivity'
-import type { DashboardOutletCtx } from '@/shared/lib/menu'
+import { firstRoute, type DashboardOutletCtx } from '@/shared/lib/menu'
 
 export default function DashboardPage() {
   const { locale = 'en' } = useParams<{ locale: string }>()
@@ -14,7 +14,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (shortcuts.length === 1 && location.state?.fromLogin) {
-      const route = shortcuts[0].Route || shortcuts[0].Children?.[0]?.Route
+      const route = firstRoute(shortcuts[0])
       if (route) navigate(`/${locale}${route}`, { replace: true })
     }
   }, [shortcuts, locale, navigate, location.state])

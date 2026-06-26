@@ -1,6 +1,7 @@
-import { CheckCircle2, ChevronDown, ChevronUp } from 'lucide-react'
+import { CheckCircle2, ChevronDown, ChevronUp, Plus } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Button } from '@/shared/ui/button'
 import { Combobox } from '@/shared/ui/combobox'
 import type { Category, MasterProduct, ProductVariety } from './types'
 import type { useSkuBuilder } from './hooks/useSkuBuilder'
@@ -80,7 +81,7 @@ export function ProductParams({ categories, sku }: { categories: Category[]; sku
 }
 
 /* ------------------------------ Results ----------------------------------- */
-export function ProductResults({ sku }: { sku: SkuState }) {
+export function ProductResults({ sku, onAdd }: { sku: SkuState; onAdd: () => void }) {
   const { t } = useTranslation()
   const skuChips: string[] = sku.effectiveCategory
     ? [
@@ -102,39 +103,20 @@ export function ProductResults({ sku }: { sku: SkuState }) {
           {sku.matchingProducts.length === 0 ? (
             <p className="py-4 text-center text-sm text-muted-foreground">{t('productivity.step1.noProducts')}</p>
           ) : (
-            <div className="flex flex-col gap-2">
-              {sku.selectedProduct && (
-                <div className="flex items-center gap-3 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2">
-                  <label className="shrink-0 text-sm font-medium text-foreground">
-                    {t('productivity.step1.initialQty')}
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    step="1"
-                    placeholder="0"
-                    value={sku.initialQty ?? ''}
-                    onChange={e => {
-                      const v = parseInt(e.target.value, 10)
-                      sku.setInitialQty(isNaN(v) || v <= 0 ? null : v)
-                    }}
-                    className="min-w-0 flex-1 rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                  />
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 gap-2 2xl:grid-cols-2">
-                {sku.matchingProducts.map(product => (
-                  <ProductCard
-                    key={product.SKU}
-                    product={product}
-                    selected={sku.selectedProduct?.SKU === product.SKU}
-                    selectedVariety={sku.selectedProduct?.SKU === product.SKU ? sku.selectedVariety : null}
-                    onSelect={() => { sku.selectProduct(product); sku.selectVariety(null) }}
-                    onSelectVariety={sku.selectVariety}
-                  />
-                ))}
-              </div>
+            <div className="grid grid-cols-1 gap-2 2xl:grid-cols-2">
+              {sku.matchingProducts.map(product => (
+                <ProductCard
+                  key={product.SKU}
+                  product={product}
+                  selected={sku.selectedProduct?.SKU === product.SKU}
+                  selectedVariety={sku.selectedProduct?.SKU === product.SKU ? sku.selectedVariety : null}
+                  qty={sku.selectedProduct?.SKU === product.SKU ? sku.initialQty : null}
+                  onSelect={() => { sku.selectProduct(product); sku.selectVariety(null) }}
+                  onSelectVariety={sku.selectVariety}
+                  onQty={sku.setInitialQty}
+                  onAdd={onAdd}
+                />
+              ))}
             </div>
           )}
         </div>
@@ -163,12 +145,14 @@ export function ProductResults({ sku }: { sku: SkuState }) {
 }
 
 /* ------------------------------ ProductCard ------------------------------- */
-function ProductCard({ product, selected, selectedVariety, onSelect, onSelectVariety }: {
-  product: MasterProduct; selected: boolean; selectedVariety: ProductVariety | null
+function ProductCard({ product, selected, selectedVariety, qty, onSelect, onSelectVariety, onQty, onAdd }: {
+  product: MasterProduct; selected: boolean; selectedVariety: ProductVariety | null; qty: number | null
   onSelect: () => void; onSelectVariety: (v: ProductVariety | null) => void
+  onQty: (n: number | null) => void; onAdd: () => void
 }) {
   const [expanded, setExpanded] = useState(false)
   const { t } = useTranslation()
+  const canAdd = !!selectedVariety && qty != null && qty > 0
 
   return (
     <div className={`rounded-lg border transition-colors ${selected ? 'border-primary bg-primary/10' : 'border-border bg-background'}`}>
@@ -201,6 +185,35 @@ function ProductCard({ product, selected, selectedVariety, onSelect, onSelectVar
                 {selectedVariety?.IdVariety === v.IdVariety && <CheckCircle2 className="ml-2 h-3.5 w-3.5 shrink-0 text-primary" />}
               </button>
             ))}
+          </div>
+
+          {/* Cantidad + agregar — inline, en la misma card (cero scroll) */}
+          <div className="mt-2.5 flex items-center gap-2 border-t border-border/60 pt-2.5">
+            <input
+              type="number"
+              min="1"
+              step="1"
+              inputMode="numeric"
+              value={qty ?? ''}
+              onChange={e => {
+                const n = parseInt(e.target.value, 10)
+                onQty(isNaN(n) || n <= 0 ? null : n)
+              }}
+              onKeyDown={e => { if (e.key === 'Enter' && canAdd) onAdd() }}
+              placeholder={t('productivity.step1.initialQty')}
+              className="min-w-0 flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+            <Button
+              type="button"
+              size="icon"
+              onClick={onAdd}
+              disabled={!canAdd}
+              className="shrink-0"
+              aria-label={t('productivity.step1.addProduct')}
+              title={t('productivity.step1.addProduct')}
+            >
+              <Plus />
+            </Button>
           </div>
         </div>
       )}

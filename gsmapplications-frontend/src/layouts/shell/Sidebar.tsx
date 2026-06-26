@@ -59,18 +59,41 @@ function hasActiveDescendant(item: MenuOption, locale: string, pathname: string)
   ))
 }
 
-function ComboItem({ item, locale, collapsed }: { item: MenuOption; locale: string; collapsed: boolean }) {
-  const { pathname } = useLocation()
-  const autoExpanded = useMemo(
-    () => hasActiveDescendant(item, locale, pathname),
-    [item, locale, pathname]
-  )
-  const [expanded, setExpanded] = useState(autoExpanded)
-  const Icon = getIcon(item.Icon)
+const keyOf = (it: MenuOption) => it.IdObject ?? it.Description
 
-  useEffect(() => {
-    if (autoExpanded) setExpanded(true)
-  }, [autoExpanded])
+/** Lista con acordeón: a este nivel, solo UNA sección abierta a la vez. */
+function MenuList({ items, locale, collapsed }: { items: MenuOption[]; locale: string; collapsed: boolean }) {
+  const { pathname } = useLocation()
+
+  // El sibling cuyo subárbol contiene la ruta activa debe estar abierto.
+  const activeKey = useMemo(() => {
+    const a = items.find(it => it.Children?.length && hasActiveDescendant(it, locale, pathname))
+    return a ? keyOf(a) : null
+  }, [items, locale, pathname])
+
+  const [openKey, setOpenKey] = useState<string | null>(activeKey)
+  useEffect(() => { if (activeKey) setOpenKey(activeKey) }, [activeKey])
+
+  return (
+    <>
+      {items.map(item => (
+        <MenuItem
+          key={keyOf(item)}
+          item={item}
+          locale={locale}
+          collapsed={collapsed}
+          expanded={openKey === keyOf(item)}
+          onToggle={() => setOpenKey(prev => (prev === keyOf(item) ? null : keyOf(item)))}
+        />
+      ))}
+    </>
+  )
+}
+
+function ComboItem({ item, locale, collapsed, expanded, onToggle }: {
+  item: MenuOption; locale: string; collapsed: boolean; expanded: boolean; onToggle: () => void
+}) {
+  const Icon = getIcon(item.Icon)
 
   if (collapsed) {
     return (
@@ -79,7 +102,7 @@ function ComboItem({ item, locale, collapsed }: { item: MenuOption; locale: stri
           <TooltipTrigger asChild>
             <button
               type="button"
-              onClick={() => setExpanded(p => !p)}
+              onClick={onToggle}
               className={`flex w-full items-center justify-center rounded-lg p-2 transition-colors ${
                 expanded
                   ? 'bg-sidebar-accent text-sidebar-foreground'
@@ -91,9 +114,7 @@ function ComboItem({ item, locale, collapsed }: { item: MenuOption; locale: stri
           </TooltipTrigger>
           <TooltipContent side="right">{item.Description}</TooltipContent>
         </Tooltip>
-        {expanded && item.Children?.map(child => (
-          <MenuItem key={child.IdObject ?? child.Description} item={child} locale={locale} collapsed={true} />
-        ))}
+        {expanded && <MenuList items={item.Children!} locale={locale} collapsed={true} />}
       </div>
     )
   }
@@ -102,7 +123,7 @@ function ComboItem({ item, locale, collapsed }: { item: MenuOption; locale: stri
     <div>
       <button
         type="button"
-        onClick={() => setExpanded(p => !p)}
+        onClick={onToggle}
         className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent/60 hover:text-sidebar-foreground"
       >
         <Icon className="h-4 w-4 shrink-0" />
@@ -110,19 +131,19 @@ function ComboItem({ item, locale, collapsed }: { item: MenuOption; locale: stri
         <ChevronRight className={`h-3.5 w-3.5 shrink-0 transition-transform duration-200 ${expanded ? 'rotate-90' : ''}`} />
       </button>
       {expanded && (
-        <div className="ml-4 mt-0.5 flex flex-col gap-0.5 border-l border-sidebar-border pl-3">
-          {item.Children?.map(child => (
-            <MenuItem key={child.IdObject ?? child.Description} item={child} locale={locale} collapsed={false} />
-          ))}
+        <div className="ml-2 mt-0.5 flex flex-col gap-0.5 border-l border-sidebar-border pl-2.5">
+          <MenuList items={item.Children!} locale={locale} collapsed={false} />
         </div>
       )}
     </div>
   )
 }
 
-function MenuItem({ item, locale, collapsed }: { item: MenuOption; locale: string; collapsed: boolean }) {
+function MenuItem({ item, locale, collapsed, expanded, onToggle }: {
+  item: MenuOption; locale: string; collapsed: boolean; expanded: boolean; onToggle: () => void
+}) {
   return item.Children?.length
-    ? <ComboItem item={item} locale={locale} collapsed={collapsed} />
+    ? <ComboItem item={item} locale={locale} collapsed={collapsed} expanded={expanded} onToggle={onToggle} />
     : <SimpleItem item={item} locale={locale} collapsed={collapsed} />
 }
 
@@ -144,7 +165,7 @@ export default function Sidebar({ items, brand, locale, open = true, onLogout }:
 
   return (
     <TooltipProvider>
-    <aside className={`fixed inset-y-0 left-0 z-50 flex h-screen shrink-0 flex-col overflow-hidden border-r border-sidebar-border bg-sidebar transition-all duration-300 lg:relative lg:inset-y-auto lg:left-auto lg:z-auto ${open ? 'w-55 translate-x-0' : 'w-55 -translate-x-full lg:w-16 lg:translate-x-0'}`}>
+    <aside className={`fixed inset-y-0 left-0 z-50 flex h-screen shrink-0 flex-col overflow-hidden border-r border-sidebar-border bg-sidebar transition-all duration-300 lg:relative lg:inset-y-auto lg:left-auto lg:z-auto ${open ? 'w-60 translate-x-0' : 'w-60 -translate-x-full lg:w-16 lg:translate-x-0'}`}>
 
       <div className={`flex items-center gap-3 py-4 ${collapsed ? 'justify-center px-0' : 'px-5'}`}>
         <div className={`flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg ${brand.logo && isSafeUrl(brand.logo) ? '' : 'bg-primary'}`}>
@@ -167,9 +188,7 @@ export default function Sidebar({ items, brand, locale, open = true, onLogout }:
         )}
 
         <div className="flex flex-col gap-0.5">
-          {menuItems.map(item => (
-            <MenuItem key={item.IdObject ?? item.Description} item={item} locale={locale} collapsed={collapsed} />
-          ))}
+          <MenuList items={menuItems} locale={locale} collapsed={collapsed} />
         </div>
 
         <div className="mt-4 flex flex-col gap-0.5">
@@ -180,9 +199,7 @@ export default function Sidebar({ items, brand, locale, open = true, onLogout }:
           )}
           {collapsed && <div className="mb-2 border-t border-sidebar-border" />}
 
-          {otherItems.map(item => (
-            <MenuItem key={item.IdObject ?? item.Description} item={item} locale={locale} collapsed={collapsed} />
-          ))}
+          <MenuList items={otherItems} locale={locale} collapsed={collapsed} />
 
           <Tooltip>
             <TooltipTrigger asChild>

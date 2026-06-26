@@ -1,7 +1,6 @@
 import { useEffect } from 'react'
-import { Plus, X, Trash2, Package, AlertCircle } from 'lucide-react'
+import { X, Trash2, Package, AlertCircle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { Button } from '@/shared/ui/button'
 import { Combobox } from '@/shared/ui/combobox'
 import { ProductParams, ProductResults } from './ProductPicker'
 import { WizardFooter } from './WizardFooter'
@@ -74,13 +73,7 @@ export function Step1Products({ data, sku, config, onNext }: Props) {
 
         {/* ── Col 2 · Productos y variedades ── */}
         <div className="flex flex-col gap-4">
-          <ProductResults sku={sku} />
-          <div className="flex">
-            <Button onClick={handleAdd} disabled={!sku.isComplete} className="w-full gap-2">
-              <Plus className="h-4 w-4" />
-              {t('productivity.step1.addProduct')}
-            </Button>
-          </div>
+          <ProductResults sku={sku} onAdd={handleAdd} />
         </div>
 
         {/* ── Col 3 · Configurados (carrito) ── */}

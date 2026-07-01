@@ -138,6 +138,55 @@
         }
       }
     },
+    "/api/v1/Application/filtered-locations": {
+      "get": {
+        "tags": [
+          "Application"
+        ],
+        "operationId": "GetFilteredLocations",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchLocation"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchLocation"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchLocation"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/LocationDTOListApiResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LocationDTOListApiResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LocationDTOListApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/health": {
       "get": {
         "tags": [
@@ -684,6 +733,71 @@
         },
         "additionalProperties": false
       },
+      "LocationDTO": {
+        "required": [
+          "idLocation",
+          "idThirdLocation"
+        ],
+        "type": "object",
+        "properties": {
+          "idLocation": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "idThirdLocation": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "codeLocation": {
+            "type": "string",
+            "nullable": true
+          },
+          "email": {
+            "type": "string",
+            "nullable": true
+          },
+          "phoneNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "addressLocation": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "LocationDTOListApiResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string",
+            "nullable": true
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LocationDTO"
+            },
+            "nullable": true
+          },
+          "errorType": {
+            "$ref": "#/components/schemas/ErrorType"
+          },
+          "traceId": {
+            "type": "string",
+            "nullable": true
+          },
+          "details": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "MultimediaResourceDto": {
         "type": "object",
         "properties": {
@@ -754,6 +868,21 @@
             "nullable": true
           },
           "details": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "SearchLocation": {
+        "type": "object",
+        "properties": {
+          "idLocation": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "codeLocation": {
             "type": "string",
             "nullable": true
           }

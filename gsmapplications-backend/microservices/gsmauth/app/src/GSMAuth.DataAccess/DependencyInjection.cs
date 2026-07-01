@@ -1,6 +1,4 @@
 ﻿using GSMAuth.DataAccess.ContextDb;
-using GSMAuth.DataAccess.StoredProcedures;
-using GSMAuth.Tenant;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 

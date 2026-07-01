@@ -21,6 +21,7 @@ namespace GSMOperations.DataAccess.ContextDb
         public virtual DbSet<TrxProduct> TrxProducts => Set<TrxProduct>();
         public virtual DbSet<TrxStates> TrxStates => Set<TrxStates>();
         public virtual DbSet<TrxDetail> TrxDetails => Set<TrxDetail>();
+        public virtual DbSet<StoredProcedureRule> StoredProcedureRules => Set<StoredProcedureRule>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -119,6 +120,11 @@ namespace GSMOperations.DataAccess.ContextDb
                     .HasForeignKey(p => p.IdTrxHeader)
                     .OnDelete(DeleteBehavior.Restrict)
                     .HasConstraintName("FK_TrxDetails_TrxHeaders");
+            });
+
+            modelBuilder.Entity<StoredProcedureRule>(entity =>
+            {
+                entity.HasKey(e => e.IdStoredProcedure).HasName("PK__StoredPr__D79D1B9D75654BA5");
             });
 
             base.OnModelCreating(modelBuilder);

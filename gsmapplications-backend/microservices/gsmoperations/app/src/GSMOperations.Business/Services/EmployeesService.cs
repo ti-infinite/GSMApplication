@@ -25,11 +25,11 @@ public sealed class EmployeesService : IEmployeesService
             .Where(e => e.IsActive)
             .AsQueryable();
 
-        if (!string.IsNullOrEmpty(searchCriteria.FullName))
+        if (!string.IsNullOrWhiteSpace(searchCriteria.FullName))
         {
             query = query.Where(e => EF.Functions.Like(e.FullName, $"%{searchCriteria.FullName}%"));
         }
-        if (!string.IsNullOrEmpty(searchCriteria.Location))
+        if (!string.IsNullOrWhiteSpace(searchCriteria.Location))
         {
             query = query.Where(e => e.Location == searchCriteria.Location);
         }

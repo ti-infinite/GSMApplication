@@ -12,6 +12,9 @@ public partial class TenantApplicationDbContext : DbContext
     public virtual DbSet<ApiRule> ApiRules => Set<ApiRule>();
     public virtual DbSet<User> Users => Set<User>();
     public virtual DbSet<Profile> Profiles => Set<Profile>();
+    public virtual DbSet<Location> Locations => Set<Location>();
+    public virtual DbSet<StoredProcedureRule> StoredProcedureRules => Set<StoredProcedureRule>();
+
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -43,6 +46,17 @@ public partial class TenantApplicationDbContext : DbContext
             entity.HasOne(d => d.IdProfileNavigation).WithMany(p => p.Users).HasConstraintName("FK_Users_Profiles");
         });
 
+        modelBuilder.Entity<Location>(entity =>
+        {
+            entity.HasKey(e => e.IdLocation).HasName("PK__Location__FB5FABA941C68247");
+
+            entity.Property(e => e.IsActive).HasDefaultValue(true);
+        });
+
+        modelBuilder.Entity<StoredProcedureRule>(entity =>
+        {
+            entity.HasKey(e => e.IdStoredProcedure).HasName("PK__StoredPr__D79D1B9D75654BA5");
+        });
 
         base.OnModelCreating(modelBuilder);
     }

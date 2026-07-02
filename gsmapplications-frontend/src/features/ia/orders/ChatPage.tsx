@@ -6,8 +6,9 @@ import { Send, Bot, User, Loader2, Sparkles, CheckCircle2, XCircle } from 'lucid
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import type { Components } from 'react-markdown'
+import ChartBlock, { type VisualizationData } from '@/shared/components/ChartBlock'
 
-interface Message { role: 'user' | 'assistant'; content: string; timestamp: Date }
+interface Message { role: 'user' | 'assistant'; content: string; timestamp: Date; visualization?: VisualizationData | null }
 
 const markdownComponents: Components = {
   table: ({ children }) => (
@@ -111,6 +112,7 @@ export default function ChatPage() {
         role: 'assistant',
         content: data.response || 'No response received.',
         timestamp: new Date(),
+        visualization: data.visualization ?? null,
       }])
       if (alertKey && data.changes_applied) {
         setShowResolution(true)
@@ -177,6 +179,11 @@ export default function ChatPage() {
                   <p className="leading-relaxed">{msg.content}</p>
                 )}
               </div>
+              {msg.visualization && (
+                <div className="w-full mt-1">
+                  <ChartBlock visualization={msg.visualization} />
+                </div>
+              )}
               <span className="text-[10px] text-gray-400 px-1 mt-1">{fmt(msg.timestamp)}</span>
             </div>
           </div>

@@ -97,7 +97,10 @@
     "ih-sales": "IH Sales",
     "metrics" : "Metricas",
     "orders" : "Ordenes",
-    "upload" : "Upload"
+    "upload" : "Upload",
+    "purchase" : "Compras",
+    "purchases" : "Compras",
+    "purchase-chat" : "Chat"
   },
   "common": {
     "swipeHint": "Desliza para explorar",
@@ -545,6 +548,24 @@
       "uploading": "Cargando e iniciando agente...",
       "successDefault": "Cargado e iniciado el procesamiento",
       "pdfOnly": "Solo se aceptan archivos PDF"
+    },
+    "purchases": {
+      "chat": {
+        "title": "Inteligencia de Compras",
+        "subtitle": "Conectado a NHUBEX · 353K registros de compras",
+        "badge": "IA Potenciada",
+        "querying": "Consultando NHUBEX...",
+        "tryAsking": "Intenta preguntar",
+        "inputPlaceholder": "Pregunta sobre proveedores, POs, gastos, trazabilidad...",
+        "error": "No se pudo contactar al agente: {{err}}\n\nAsegúrate de que el agente EC2 esté activo y tu IP esté en la lista blanca.",
+        "welcome": "¡Hola! Soy **Inteligencia de Compras**, tu asistente de compras para Infinite Herbs.\n\nTengo acceso en vivo a **353,000+ registros de compras** de NHUBEX. Pregúntame sobre proveedores, POs, análisis de gasto, trazabilidad o calendarios de entrega — y también puedo generar gráficos.",
+        "suggestions": {
+          "topSuppliers": "Top 5 proveedores por gasto este año",
+          "monthlyTrend": "Muéstrame la tendencia mensual de gasto en 2026",
+          "mexicoProducts": "¿Qué productos compramos de México?",
+          "spendByLocation": "Desglosar el gasto por ubicación"
+        }
+      }
     }
   }
 }

@@ -50,7 +50,7 @@ export default function ChartBlock({ visualization }: { visualization: Visualiza
               label={x_label ? { value: x_label, position: 'insideBottom', offset: -2, fontSize: 11 } : undefined} />
             <YAxis tick={{ fontSize: 11 }} tickFormatter={fmt}
               label={y_label ? { value: y_label, angle: -90, position: 'insideLeft', fontSize: 11 } : undefined} />
-            <Tooltip formatter={(v: number) => fmt(v)} />
+            <Tooltip formatter={(v) => typeof v === 'number' ? fmt(v) : String(v ?? '')} />
             <Legend wrapperStyle={{ fontSize: 11 }} />
             {datasets.map((ds, i) => (
               <Bar key={ds.label} dataKey={ds.label} fill={COLORS[i % COLORS.length]} radius={[3, 3, 0, 0]} />
@@ -61,7 +61,7 @@ export default function ChartBlock({ visualization }: { visualization: Visualiza
             <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
             <XAxis dataKey="name" tick={{ fontSize: 11 }} />
             <YAxis tick={{ fontSize: 11 }} tickFormatter={fmt} />
-            <Tooltip formatter={(v: number) => fmt(v)} />
+            <Tooltip formatter={(v) => typeof v === 'number' ? fmt(v) : String(v ?? '')} />
             <Legend wrapperStyle={{ fontSize: 11 }} />
             {datasets.map((ds, i) => (
               <Line key={ds.label} type="monotone" dataKey={ds.label}
@@ -74,14 +74,14 @@ export default function ChartBlock({ visualization }: { visualization: Visualiza
               cx="50%" cy="50%"
               innerRadius={type === 'doughnut' ? 70 : 0}
               outerRadius={110}
-              label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+              label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
               labelLine={false}
             >
               {pieData.map((_, i) => (
                 <Cell key={i} fill={COLORS[i % COLORS.length]} />
               ))}
             </Pie>
-            <Tooltip formatter={(v: number) => fmt(v)} />
+            <Tooltip formatter={(v) => typeof v === 'number' ? fmt(v) : String(v ?? '')} />
             <Legend wrapperStyle={{ fontSize: 11 }} />
           </PieChart>
         )}

@@ -7,17 +7,17 @@ import ExternalPage from '@/shared/components/ExternalPage'
 import type { DashboardOutletCtx } from '@/shared/lib/menu'
 
 const modules: Record<string, React.LazyExoticComponent<React.ComponentType>> = {
-  'resources': lazy(() => import('@/features/resources/ResourcesPage')),
-  'sop':       lazy(() => import('@/features/sop/SopPage')),
-  'settings':  lazy(() => import('@/features/settings/SettingsPage')),
-  'productivity': lazy(() => import('@/features/productivity/ProductivityPage')),
-  'operations/products': lazy(() => import('@/features/products/ProductsPage')),
-  'artificial-intelligence/order/orders':    lazy(() => import('@/features/ia/orders/OrdersPage')),
-  'artificial-intelligence/order/chat':      lazy(() => import('@/features/ia/orders/ChatPage')),
-  'artificial-intelligence/order/documents': lazy(() => import('@/features/ia/orders/DocumentsPage')),
-  'artificial-intelligence/order/ih-sales':  lazy(() => import('@/features/ia/orders/IHSalesPage')),
-  'artificial-intelligence/order/metrics':   lazy(() => import('@/features/ia/orders/MetricsPage')),
-  'artificial-intelligence/order/upload':    lazy(() => import('@/features/ia/orders/UploadPage')),
+  'resources': lazy(() => import('@/pages/resources/ResourcesPage')),
+  'sop':       lazy(() => import('@/pages/sop/SopPage')),
+  'settings':  lazy(() => import('@/pages/settings/SettingsPage')),
+  'productivity': lazy(() => import('@/pages/productivity/ProductivityPage')),
+  'operations/products': lazy(() => import('@/pages/products/ProductsPage')),
+  'artificial-intelligence/order/orders':    lazy(() => import('@/pages/ia/orders/OrdersPage')),
+  'artificial-intelligence/order/chat':      lazy(() => import('@/pages/ia/orders/ChatPage')),
+  'artificial-intelligence/order/documents': lazy(() => import('@/pages/ia/orders/DocumentsPage')),
+  'artificial-intelligence/order/ih-sales':  lazy(() => import('@/pages/ia/orders/IHSalesPage')),
+  'artificial-intelligence/order/metrics':   lazy(() => import('@/pages/ia/orders/MetricsPage')),
+  'artificial-intelligence/order/upload':    lazy(() => import('@/pages/ia/orders/UploadPage')),
 }
 
 function slugToTitle(slug: string): string {

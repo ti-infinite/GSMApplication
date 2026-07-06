@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { type MenuOption, getIcon } from '@/shared/lib/menu'
+import { type MenuOption, getIcon, firstRoute } from '@/shared/lib/menu'
 
 export default function QuickCards({ items, locale }: { items: MenuOption[]; locale: string }) {
   if (items.length === 0) return null
@@ -8,7 +8,7 @@ export default function QuickCards({ items, locale }: { items: MenuOption[]; loc
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
       {items.map(item => {
         const Icon = getIcon(item.Icon)
-        const route = item.Route || item.Children?.[0]?.Route
+        const route = firstRoute(item)
         const href = route ? `/${locale}${route}` : '#'
 
         return (

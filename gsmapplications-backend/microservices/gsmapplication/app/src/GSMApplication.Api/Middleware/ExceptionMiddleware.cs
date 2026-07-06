@@ -75,8 +75,8 @@ public class ExceptionMiddleware
         var response = ApiResponse<object>.FailResult(
             message,
             errorType,
-            _env.IsDevelopment() ? traceId : null,
-            _env.IsDevelopment() ? exception.ToString() : null
+            traceId,                                              // siempre: el TraceId no es sensible y permite correlacionar con los logs
+            _env.IsDevelopment() ? exception.ToString() : null   // details (stack) solo en dev
         );
 
         await context.Response.WriteAsJsonAsync(response);

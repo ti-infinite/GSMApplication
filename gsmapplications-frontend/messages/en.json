@@ -85,7 +85,22 @@
     "traceability-route-sheet": "Route Sheet",
     "traz-hoja-ruta": "Route Sheet",
     "traceability-delivery": "Product Delivery",
-    "traz-delivery-product": "Product Delivery"
+    "traz-delivery-product": "Product Delivery",
+    "accounting":"Accounting",
+    "masters":"Masters",
+    "productivity":"Productivity",
+    "operations":"Operations", 
+    "artificial - inteligence":"AI",
+    "order" : "Order",
+    "chat" : "Chat", 
+    "documents" : "Documents",
+    "ih-sales": "IH Sales",
+    "metrics" : "Metrics",
+    "orders" : "Orders",
+    "upload" : "Upload",
+    "purchase" : "Purchase",
+    "purchases" : "Purchases",
+    "purchase-chat" : "Chat"
   },
   "common": {
     "swipeHint": "Swipe to browse",
@@ -184,6 +199,7 @@
     "server": "Server error. Please try again later.",
     "loadTitle": "Couldn't load this",
     "retry": "Retry",
+    "reference": "Reference",
     "boundary": {
       "title": "Something went wrong",
       "subtitle": "An unexpected error occurred. Please reload the page.",
@@ -250,7 +266,19 @@
       "hintSelectProduct": "Select a product to continue",
       "hintSelectVariety": "Select a variety to continue",
       "hintInitialQty": "Enter the initial quantity to continue",
-      "next": "Employees"
+      "next": "Employees",
+      "productionType": "Production type",
+      "selectType": "Select type",
+      "addProduct": "Add product",
+      "configuredProducts": "Configured products",
+      "noProductsYet": "No products configured yet",
+      "hintConfigureProduct": "Configure at least one product (with quantity, grower and ITC) to continue",
+      "qty": "Quantity",
+      "growers": "Growers",
+      "addGrower": "Add grower",
+      "itc": "ITC",
+      "hintAddGrower": "Add at least one grower",
+      "hintGrowerItc": "Enter the ITC for each grower"
     },
     "step2": {
       "modeGroups": "Groups",
@@ -270,7 +298,18 @@
       "next": "Grower →",
       "individualEmpty": "No people assigned yet",
       "addIndividual": "Add",
-      "individualsAssigned": "Individuals"
+      "individualsAssigned": "Individuals",
+      "selectProduct": "Select product",
+      "noProducts": "No products configured",
+      "qty": "Quantity",
+      "confirm": "Create assignment",
+      "quickAssign": "Quick assign",
+      "assignTo": "Assign to",
+      "autoAssigned": "auto-assigned to every mesa",
+      "mesasCount_one": "{{count}} group",
+      "mesasCount_other": "{{count}} groups",
+      "unassignedMesas_one": "{{count}} group unassigned",
+      "unassignedMesas_other": "{{count}} groups unassigned"
     },
     "step3": {
       "availableGrowers": "Available growers",
@@ -342,6 +381,191 @@
       "confirmLapBody": "You reached the expected amount <b>{{expected}}</b>. Do you want to complete the unit now?",
       "confirmAccept": "Complete",
       "confirmCancel": "Cancel"
+    }
+  },
+  "ia": {
+    "chat": {
+      "title": "Order Intelligence",
+      "subtitle": "Claude Sonnet · Products · Sales · Orders",
+      "badge": "Live DB Access",
+      "inputPlaceholder": "Ask about products, sales history, recent orders…",
+      "querying": "Querying databases…",
+      "tryAsking": "Try asking:",
+      "suggestions": {
+        "recentOrders": "What were the most recent orders received?",
+        "salesHistory": "Show me sales for Capitol City Produce in 2026",
+        "unmatchedSkus": "Which orders had unmatched SKUs?",
+        "searchBasil": "Search for Basil products in the catalog"
+      },
+      "resolution": {
+        "question": "Did this resolve the issue?",
+        "hint": "Mark the alert as resolved to remove it from the validation panel.",
+        "yes": "Yes, resolved",
+        "no": "Not yet"
+      },
+      "error": "Couldn't reach the agent: {{err}}\n\nMake sure the EC2 agent is running and your IP is whitelisted.",
+      "welcome": "Hello! 👋 I'm **Order Intelligence** — your CSR assistant for Infinite Herbs & Specialties.\n\nI have live access to:\n- 📦 **Product catalog** (MasterProducts + Varieties)\n- 💰 **Sales history** (1.86M rows in IHSales)\n- 📋 **Recent orders** processed by the pipeline\n\nWhat would you like to know?"
+    },
+    "documents": {
+      "title": "Documents",
+      "subtitle": "All CSVs, PDFs, and emails stored in S3",
+      "total": "total",
+      "searchPlaceholder": "Search documents...",
+      "noDocuments": "No documents found",
+      "filterAll": "All",
+      "download": "Download",
+      "openNewTab": "Open in new tab"
+    },
+    "ihSales": {
+      "title": "IH Sales",
+      "subtitle": "{{rowCount}} rows · page {{page}}",
+      "stats": {
+        "rows": "Rows",
+        "customers": "Customers",
+        "products": "Products",
+        "amount": "Amount"
+      },
+      "filters": "Filters",
+      "filterByColumn": "Filter by column",
+      "filterHint": "Press Enter or click Apply in any field to search",
+      "applyFilters": "Apply Filters",
+      "apply": "Apply ↵",
+      "clear": "Clear",
+      "searchPlaceholder": "Search code, description, customer, invoice, PO… (press Enter to search)",
+      "noResults": "No results",
+      "prev": "Prev",
+      "next": "Next",
+      "pageInfo": "Page {{page}} · {{rowCount}} rows",
+      "footer": "{{customers}} customers · {{products}} products · {{qty}} units · ${{amount}}",
+      "perPage": "{{n}} / page",
+      "col": {
+        "shipDate": "Ship Date",
+        "description": "Description",
+        "customer": "Customer",
+        "invoice": "Invoice",
+        "po": "PO",
+        "location": "Location",
+        "qty": "Qty",
+        "price": "Price",
+        "amount": "Amount ($)",
+        "delivery": "Delivery"
+      }
+    },
+    "metrics": {
+      "title": "Metrics",
+      "subtitle": "Agent performance & order analytics",
+      "loading": "Loading...",
+      "noData": "No data yet",
+      "kpi": {
+        "matchRate": "Match Rate",
+        "totalOrders": "Total Orders",
+        "uniqueClients": "Unique Clients",
+        "avgLines": "Avg Lines/Order",
+        "matchSub": "{{matched}} / {{total}} lines",
+        "ordersSub": "files processed",
+        "clientsSub": "distinct buyers",
+        "avgSub": "per PO"
+      },
+      "charts": {
+        "weeklyVolume": "Weekly Order Volume",
+        "matchRate": "Match Rate Over Time",
+        "topClients": "Top Clients by Line Items",
+        "topVarieties": "Top Product Varieties"
+      },
+      "series": {
+        "orders": "Orders",
+        "fullyMatched": "Fully Matched",
+        "matchPct": "Match %"
+      }
+    },
+    "orders": {
+      "title": "Orders",
+      "subtitle": "Order processing overview & data",
+      "agentActive": "Agent Active",
+      "stats": {
+        "totalOrders": "Total Orders",
+        "totalOrdersSub": "processed by agent",
+        "matchRate": "Match Rate",
+        "matchRateSub": "{{matched}}/{{total}} lines",
+        "activeClients": "Active Clients",
+        "activeClientsSub": "unique buyers",
+        "orderLines": "Order Lines",
+        "orderLinesSub": "total line items"
+      },
+      "chart": "Orders Processed by Day",
+      "latestOrders": "Latest Orders",
+      "loading": "Loading...",
+      "noOrders": "No orders yet",
+      "poLines": "PO {{po}} · {{lines}} lines",
+      "alert": {
+        "banner_one": "{{count}} order needs CSR validation",
+        "banner_other": "{{count}} orders need CSR validation",
+        "hint": "Agent could not match client or SKU — manual review required",
+        "line": "Line {{index}}:"
+      },
+      "editRow": "Edit row",
+      "askAgent": "Ask Agent",
+      "markResolved": "Mark resolved",
+      "allOrders": "All Orders",
+      "searchPlaceholder": "Search...",
+      "allClients": "All clients",
+      "allDCs": "All DCs",
+      "clear": "Clear",
+      "downloadCsv": "Download CSV",
+      "col": {
+        "dcName": "DC Name",
+        "client": "Client",
+        "poNumber": "PO #",
+        "shipDate": "Ship Date",
+        "sku": "SKU",
+        "variety": "Variety",
+        "qty": "QTY",
+        "unit": "Unit",
+        "actions": "Actions"
+      },
+      "skuNotFound": "Not found",
+      "poMissing": "Missing",
+      "clientUnknown": "Unknown",
+      "save": "Save",
+      "saved": "Saved",
+      "noRowsMatch": "No rows match your filters",
+      "askAgentPrompt": "I need help resolving a validation alert for PO {{po}} from \"{{client}}\".\n\nFile: {{file}}\n\nIssues:\n{{issues}}\n\nPlease query the product catalog and sales history to find the correct matches, then walk me through applying the corrections."
+    },
+    "upload": {
+      "title": "Upload Order",
+      "subtitle": "Drop a customer PO PDF to trigger the agent pipeline",
+      "dropzone": "Drag & drop PO PDFs here",
+      "dropping": "Drop to upload",
+      "browse": "or click to browse · PDF files only",
+      "steps": {
+        "upload": "Upload PDF",
+        "extract": "Agent extracts",
+        "match": "NHUBEX match",
+        "save": "CSV saved to S3"
+      },
+      "queue": "Upload Queue",
+      "clearAll": "Clear all",
+      "uploading": "Uploading & triggering agent...",
+      "successDefault": "Uploaded & processing started",
+      "pdfOnly": "Only PDF files are accepted"
+    },
+    "purchases": {
+      "chat": {
+        "title": "Purchases Intelligence",
+        "subtitle": "Connected to NHUBEX · 353K purchase records",
+        "badge": "AI Powered",
+        "querying": "Querying NHUBEX...",
+        "tryAsking": "Try asking",
+        "inputPlaceholder": "Ask about suppliers, POs, spend, traceability...",
+        "error": "Couldn't reach the agent: {{err}}\n\nMake sure the EC2 agent is running and your IP is whitelisted.",
+        "welcome": "Hello! I'm **Purchases Intelligence**, your procurement assistant for Infinite Herbs.\n\nI have live access to **353,000+ purchase records** from NHUBEX. Ask me anything about suppliers, POs, spend analysis, traceability, or delivery schedules — and I can generate charts too.",
+        "suggestions": {
+          "topSuppliers": "Top 5 suppliers by spend this year",
+          "monthlyTrend": "Show me monthly spend trend for 2026",
+          "mexicoProducts": "What products do we buy from Mexico?",
+          "spendByLocation": "Break down spend by location"
+        }
+      }
     }
   }
 }

@@ -18,6 +18,8 @@ type Props = {
 export function ErrorState({ error, onRetry, className = '' }: Props) {
   const { t } = useTranslation()
   const errorType = (error as ApiError | undefined)?.errorType
+  const traceId = (error as ApiError | undefined)?.traceId
+  const details = (error as ApiError | undefined)?.details   // solo presente en dev
   const message = t(errorTypeToKey(errorType))
 
   return (
@@ -27,6 +29,11 @@ export function ErrorState({ error, onRetry, className = '' }: Props) {
         <p className="text-base font-semibold text-foreground">{t('errors.loadTitle')}</p>
         <p className="max-w-sm text-sm text-muted-foreground">{message}</p>
       </div>
+      {traceId && (
+        <p className="text-xs text-muted-foreground/70">
+          {t('errors.reference')}: <span className="font-mono">{traceId}</span>
+        </p>
+      )}
       {onRetry && (
         <button
           type="button"
@@ -36,6 +43,12 @@ export function ErrorState({ error, onRetry, className = '' }: Props) {
           <RotateCw className="h-4 w-4" />
           {t('errors.retry')}
         </button>
+      )}
+      {details && (
+        <details className="mt-2 w-full max-w-md text-left">
+          <summary className="cursor-pointer text-xs text-muted-foreground">Stack trace (dev)</summary>
+          <pre className="mt-1 max-h-64 overflow-auto rounded bg-muted p-2 text-[10px] leading-snug text-muted-foreground">{details}</pre>
+        </details>
       )}
     </div>
   )

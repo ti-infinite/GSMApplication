@@ -25,7 +25,7 @@ export default function NhBiRenderer({ url, title }: ExternalRendererProps) {
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-      <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
+      <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-2.5">
         <div className="min-w-0">
           {title && <p className="truncate text-sm font-semibold text-foreground">{title}</p>}
         </div>
@@ -33,10 +33,11 @@ export default function NhBiRenderer({ url, title }: ExternalRendererProps) {
           href={state.embedUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="ml-3 shrink-0 rounded-md border border-primary/20 bg-primary/10 p-1.5 text-primary transition-colors hover:bg-primary/20"
-          title={t('common.openInNewTab')}
+          aria-label={t('common.openInNewTab')}
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-primary/20 bg-primary/10 px-2.5 py-1.5 text-xs font-medium text-primary transition-colors hover:border-primary/40 hover:bg-primary/20"
         >
           <ExternalLink className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">{t('common.openInNewTab')}</span>
         </a>
       </div>
       <iframe

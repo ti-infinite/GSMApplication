@@ -4,6 +4,7 @@ public static class Messages
 {
     public static class Application
     {
+        public const string LocationsLoaded = "Locations loaded successfully.";
         public const string PasswordUpdated = "Password updated successfully.";
         public const string NewPasswordCannotBeSameAsOld = "The new password cannot be the same as the old password.";
         public const string InvalidOldPassword = "The old password provided is incorrect.";

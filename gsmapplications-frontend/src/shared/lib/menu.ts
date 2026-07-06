@@ -19,6 +19,16 @@ export type DashboardOutletCtx = {
   menuOptions: MenuOption[]
 }
 
+/** Primera ruta navegable del subárbol: el nodo, o su primer descendiente con Route. */
+export function firstRoute(item: MenuOption): string | undefined {
+  if (item.Route) return item.Route
+  for (const child of item.Children ?? []) {
+    const r = firstRoute(child)
+    if (r) return r
+  }
+  return undefined
+}
+
 export function getIcon(name?: string): LucideIcon {
   if (!name) return LayoutGrid
   const pascal = name.includes('-')

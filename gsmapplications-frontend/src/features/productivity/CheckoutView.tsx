@@ -3,6 +3,7 @@ import { useTranslation, Trans } from 'react-i18next'
 import { Plus, CheckCircle2, TrendingUp, Users, XCircle, ChevronLeft, ChevronRight, AlertTriangle } from 'lucide-react'
 import { Button } from '@/shared/ui/button'
 import { toast } from 'sonner'
+import { toastApiError } from '@/shared/lib/toast'
 import type { UnitCheckout } from './types'
 
 // Per-card confirmation rendered as an overlay on the card itself (not a full-screen modal).
@@ -137,10 +138,10 @@ export function CheckoutView({ units, onLap, onComplete, onCancel, onFinish }: P
     // Confirm on success; if the backend rejects, bring the card back and notify.
     Promise.resolve(request)
       .then(() => toast.success(t('productivity.toast.unitCompleted')))
-      .catch(() => {
+      .catch((err) => {
         setCompletingIds(prev => { const n = new Set(prev); n.delete(trxId); return n })
         setCompletedIds(prev => { const n = new Set(prev); n.delete(trxId); return n })
-        toast.error(t('productivity.toast.completeFailed'))
+        toastApiError(t('productivity.toast.completeFailed'), err)
       })
   }
 

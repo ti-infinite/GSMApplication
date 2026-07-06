@@ -12,6 +12,13 @@ const modules: Record<string, React.LazyExoticComponent<React.ComponentType>> = 
   'settings':  lazy(() => import('@/features/settings/SettingsPage')),
   'productivity': lazy(() => import('@/features/productivity/ProductivityPage')),
   'operations/products': lazy(() => import('@/features/products/ProductsPage')),
+  'artificial-intelligence/order/orders':    lazy(() => import('@/features/ia/orders/OrdersPage')),
+  'artificial-intelligence/order/chat':      lazy(() => import('@/features/ia/orders/ChatPage')),
+  'artificial-intelligence/order/documents': lazy(() => import('@/features/ia/orders/DocumentsPage')),
+  'artificial-intelligence/order/ih-sales':  lazy(() => import('@/features/ia/orders/IHSalesPage')),
+  'artificial-intelligence/order/metrics':   lazy(() => import('@/features/ia/orders/MetricsPage')),
+  'artificial-intelligence/order/upload':    lazy(() => import('@/features/ia/orders/UploadPage')),
+  'artificial-intelligence/purchase/chat':   lazy(() => import('@/features/ia/purchases/ChatPage')),
 }
 
 function slugToTitle(slug: string): string {

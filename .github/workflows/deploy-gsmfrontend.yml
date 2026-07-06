@@ -79,6 +79,8 @@ jobs:
         env:
           VITE_TENANT_DEFAULT: ${{ vars.VITE_TENANT_DEFAULT }}
           VITE_TENANT_IDS: ${{ vars.VITE_TENANT_IDS }}
+          # API key del agente IH: se hornea en el bundle del cliente (queda pública).
+          VITE_IH_API_KEY: ${{ vars.VITE_IH_API_KEY }}
         run: npm run build
 
       - name: Configure AWS credentials

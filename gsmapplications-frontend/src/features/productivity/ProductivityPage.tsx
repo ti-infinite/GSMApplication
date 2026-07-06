@@ -7,6 +7,7 @@ import { buildTransactionPayload, buildLapPayload, buildCompletePayload, buildCa
 import { createTransaction, updateTransaction, getTransaction } from '@/shared/api/operations/operations/operations'
 import { getStoredUser } from '@/shared/lib/auth'
 import { toast } from 'sonner'
+import { toastApiError } from '@/shared/lib/toast'
 import { Skeleton } from '@/shared/ui/skeleton'
 import type { AssignmentResult, UnitCheckout, LapRecord } from './types'
 
@@ -60,7 +61,7 @@ export default function ProductivityPage() {
       toast.success(t('productivity.toast.assignmentCreated', { count: payloads.length }))
     } catch (err) {
       console.error('[Productivity] create-trx error:', err)
-      toast.error(t('productivity.toast.createFailed'))
+      toastApiError(t('productivity.toast.createFailed'), err)
     }
 
     // Load the freshly created TRX from the DB, then drop the skeleton.
@@ -87,7 +88,7 @@ export default function ProductivityPage() {
           ? { ...u, laps: u.laps.filter(l => l.id !== lap.id), totalQty: u.totalQty - amount, totalWaste: u.totalWaste - waste }
           : u,
       ))
-      toast.error(t('productivity.toast.lapFailed'))
+      toastApiError(t('productivity.toast.lapFailed'), err)
     })
   }
 
@@ -143,7 +144,7 @@ export default function ProductivityPage() {
             return next
           })
         }
-        toast.error(t('productivity.toast.cancelFailed'))
+        toastApiError(t('productivity.toast.cancelFailed'), err)
       })
   }
 

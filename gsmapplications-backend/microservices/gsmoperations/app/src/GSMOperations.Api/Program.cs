@@ -20,14 +20,27 @@ JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
 var builder = WebApplication.CreateBuilder(args);
 var config = builder.Configuration;
 
-var envSecret = Environment.GetEnvironmentVariable("JWT_SECRET");
-
-if (string.IsNullOrWhiteSpace(envSecret))
+// En prod: logs en JSON estructurado → CloudWatch Logs Insights filtra por campo (Level, TraceId, ...).
+// En dev: se mantiene la consola de texto legible.
+if (!builder.Environment.IsDevelopment())
 {
-    throw new InvalidOperationException("JWT_SECRET is not configured for this environment.");
+    builder.Logging.ClearProviders();
+    builder.Logging.AddJsonConsole(options => options.IncludeScopes = true);
 }
 
-config["JwtSettings:SecretKey"] = envSecret;
+// Prod inyecta JWT_SECRET como env var (Parameter Store) → lo mapeamos sobre JwtSettings:SecretKey.
+// Dev lo toma directo de appsettings.Development.json (JwtSettings:SecretKey).
+var envSecret = config["JWT_SECRET"];
+
+if (!string.IsNullOrWhiteSpace(envSecret))
+{
+    config["JwtSettings:SecretKey"] = envSecret;
+}
+
+if (string.IsNullOrWhiteSpace(config["JwtSettings:SecretKey"]))
+{
+    throw new InvalidOperationException("JwtSettings:SecretKey is not configured.");
+}
 
 
 // ------------------------------------------------------------
@@ -95,7 +108,9 @@ builder.Services.AddSwaggerGen(options =>
 // ------------------------------------------------------------
 // Tenant Registry Connection (ENV)
 // ------------------------------------------------------------
-var registryConnection = Environment.GetEnvironmentVariable("DB_MASTER_URL");
+// Prod: env var DB_MASTER_URL (Parameter Store). Dev: ConnectionStrings:TenantRegistryConnection de appsettings.Development.json.
+var registryConnection = config["DB_MASTER_URL"]
+    ?? config.GetConnectionString("TenantRegistryConnection");
 
 if (string.IsNullOrWhiteSpace(registryConnection))
 {

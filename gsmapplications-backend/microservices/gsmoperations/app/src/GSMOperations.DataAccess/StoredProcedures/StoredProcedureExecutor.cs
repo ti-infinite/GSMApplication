@@ -5,95 +5,135 @@ using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 
-namespace GSMOperations.DataAccess.StoredProcedures
+namespace GSMOperations.DataAccess.StoredProcedures;
+
+public sealed class StoredProcedureExecutor : IStoredProcedureExecutor
 {
-    public sealed class StoredProcedureExecutor : IStoredProcedureExecutor
+    private readonly TenantOperationsDbContext _context;
+
+    public StoredProcedureExecutor(TenantOperationsDbContext context)
     {
-        private readonly TenantOperationsDbContext _context;
+        _context = context;
+    }
 
-        public StoredProcedureExecutor(TenantOperationsDbContext context)
+    public async Task<T?> ExecuteSpScalarAsync<T>(StoredProcedureModel sp, CancellationToken cancellationToken = default)
+    {
+        var (sql, parameters) = await BuildSpExecution(sp);
+
+        var connection = _context.Database.GetDbConnection();
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = sql;
+        command.CommandType = System.Data.CommandType.Text;
+
+        foreach (var parameter in parameters)
         {
-            _context = context;
+            command.Parameters.Add(parameter);
         }
 
-        public async Task<T?> ExecuteSpScalarAsync<T>(StoredProcedureModel sp, CancellationToken cancellationToken = default)
+        if (connection.State != System.Data.ConnectionState.Open)
+            await connection.OpenAsync(cancellationToken);
+
+        var result = await command.ExecuteScalarAsync(cancellationToken);
+
+        if (result == null || result == DBNull.Value)
+            return default;
+        
+        var targetType = Nullable.GetUnderlyingType(typeof(T)) ?? typeof(T);
+
+        if (result is T variable)
+            return variable;
+
+        return (T)Convert.ChangeType(result, Nullable.GetUnderlyingType(typeof(T)) ?? typeof(T));
+    }
+
+    public async Task<int> ExecuteSpAsyncNoReturn(StoredProcedureModel sp, CancellationToken cancellationToken = default)
+    {
+        var (sql, parameters) = await BuildSpExecution(sp);
+
+        return await _context.Database
+            .ExecuteSqlRawAsync(sql, parameters, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    public async Task<List<T>> ExecuteSpAsyncWithReturn<T>(StoredProcedureModel sp, CancellationToken cancellationToken = default) where T : class
+    {
+        var (sql, parameters) = await BuildSpExecution(sp);
+
+        return await _context.Database
+            .SqlQueryRaw<T>(sql, parameters)
+            .AsNoTracking()
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private async Task<(string sql, SqlParameter[] parameters)> BuildSpExecution(StoredProcedureModel sp)
+    {
+        var existingSp = await _context.StoredProcedureRules
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.SpKey == sp.Name);
+
+        if (existingSp == null)
+            throw new InvalidOperationException($"Stored procedure '{sp.Name}' not found in database.");
+
+        var spName = existingSp.SpName;
+
+        if (string.IsNullOrWhiteSpace(existingSp.SpParameters))
+            return ($"EXEC {spName}", Array.Empty<SqlParameter>());
+
+        List<Dictionary<string, object?>> paramDefinitions = new();
+
+        try
         {
-            var (sql, parameters) = BuildSpExecution(sp);
+            using var doc = JsonDocument.Parse(existingSp.SpParameters);
 
-            var connection = _context.Database.GetDbConnection();
-
-            await using var command = connection.CreateCommand();
-            command.CommandText = sql;
-            command.CommandType = System.Data.CommandType.Text;
-
-            foreach (var parameter in parameters)
+            if (doc.RootElement.TryGetProperty("Params", out var paramsElement) &&
+                paramsElement.ValueKind == JsonValueKind.Array)
             {
-                command.Parameters.Add(parameter);
+                paramDefinitions = paramsElement
+                    .EnumerateArray()
+                    .Select(p => new Dictionary<string, object?>
+                    {
+                        ["ParamName"] = p.GetProperty("ParamName").GetString()
+                    })
+                    .ToList();
             }
-
-            if (connection.State != System.Data.ConnectionState.Open)
-                await connection.OpenAsync(cancellationToken);
-
-            var result = await command.ExecuteScalarAsync(cancellationToken);
-
-            if (result == null || result == DBNull.Value)
-                return default;
-
-            
-            var targetType = Nullable.GetUnderlyingType(typeof(T)) ?? typeof(T);
-            return (T)Convert.ChangeType(result, targetType);
-
+            else
+            {
+                throw new InvalidOperationException($"Missing or invalid 'Params' array in SpParameters for SP '{sp.Name}'.");
+            }
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException($"Invalid JSON format in SpParameters for SP '{sp.Name}'.", ex);
         }
 
-        public async Task<int> ExecuteSpAsyncNoReturn(StoredProcedureModel sp, CancellationToken cancellationToken = default)
-        {
-            var (sql, parameters) = BuildSpExecution(sp);
-
-            return await _context.Database
-                .ExecuteSqlRawAsync(sql, parameters, cancellationToken)
-                .ConfigureAwait(false);
-        }
-
-        public async Task<List<T>> ExecuteSpAsyncWithReturn<T>(StoredProcedureModel sp, CancellationToken cancellationToken = default) where T : class
-        {
-            var (sql, parameters) = BuildSpExecution(sp);
-
-            return await _context.Database
-                .SqlQueryRaw<T>(sql, parameters)
-                .AsNoTracking()
-                .ToListAsync(cancellationToken)
-                .ConfigureAwait(false);
-        }
-
-        private static (string sql, SqlParameter[] parameters) BuildSpExecution(StoredProcedureModel sp)
-        {
-            if (!StoredProcedureCatalog.Procedures.TryGetValue(sp.Name, out var spContent))
-                throw new InvalidOperationException($"Stored procedure '{sp.Name}' not found in catalog.");
-
-            using var jsonSp = JsonDocument.Parse(spContent);
-            var root = jsonSp.RootElement;
-
-            var spName = root.GetProperty("NameSp").GetString()
-                ?? throw new InvalidOperationException($"Catalog entry '{sp.Name}' has no NameSp.");
-
-            if (!root.TryGetProperty("Params", out var paramsElement))
-                return ($"EXEC {spName}", Array.Empty<SqlParameter>());
-
-            var parameters = paramsElement
-                .EnumerateArray()
-                .Select(p =>
+        var parameters = paramDefinitions
+            .Select(p =>
+            {
+                if (!p.TryGetValue("ParamName", out var paramObj) ||
+                    paramObj is not string paramName || string.IsNullOrWhiteSpace(paramName))
                 {
-                    var paramName = p.GetProperty("ParamName").GetString()!;
-                    if (!sp.Parameters.TryGetValue(paramName, out var paramValue))
-                        throw new InvalidOperationException($"Required parameter '{paramName}' missing for SP '{sp.Name}'.");
-                    return new SqlParameter(paramName, paramValue ?? DBNull.Value);
-                })
-                .ToArray();
+                    throw new InvalidOperationException($"Invalid parameter definition in DB for SP '{sp.Name}'.");
+                }
 
-            var paramAssignments = string.Join(", ",
-                parameters.Select(p => $"{p.ParameterName} = {p.ParameterName}"));
+                if (!sp.Parameters.TryGetValue(paramName, out var value))
+                {
+                    throw new InvalidOperationException($"Required parameter '{paramName}' missing for SP '{sp.Name}'.");
+                }
 
-            return ($"EXEC {spName} {paramAssignments}", parameters);
-        }
+                return new SqlParameter(paramName, value ?? DBNull.Value);
+            })
+            .ToArray();
+
+        var paramAssignments = parameters.Length == 0 ? ""
+            : string.Join(", ", parameters.Select(p => $"{p.ParameterName} = {p.ParameterName}"));
+
+        var sql = string.IsNullOrEmpty(paramAssignments)
+            ? $"EXEC {spName}"
+            : $"EXEC {spName} {paramAssignments}";
+
+        return (sql, parameters);
     }
 }
+

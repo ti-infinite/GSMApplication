@@ -127,6 +127,6 @@ jobs:
         uses: aws-actions/amazon-ecs-deploy-task-definition@v2
         with:
           task-definition: new-task-def.json
-          service: ${{ vars.GSMOPERATIONS_SERVICE_NAME }}
+          service: ${{ vars.OPERATIONS_SERVICE_NAME }}
           cluster: ${{ vars.ECS_CLUSTER }}
           wait-for-service-stability: true

@@ -12,6 +12,7 @@ const modules: Record<string, React.LazyExoticComponent<React.ComponentType>> = 
   'settings':  lazy(() => import('@/pages/settings/SettingsPage')),
   'productivity': lazy(() => import('@/pages/productivity/ProductivityPage')),
   'operations/products': lazy(() => import('@/pages/products/ProductsPage')),
+  'operations/requirements': lazy(() => import('@/pages/requirements/RequirementsPage')),
   'artificial-intelligence/order/orders':    lazy(() => import('@/pages/ia/orders/OrdersPage')),
   'artificial-intelligence/order/chat':      lazy(() => import('@/pages/ia/orders/ChatPage')),
   'artificial-intelligence/order/documents': lazy(() => import('@/pages/ia/orders/DocumentsPage')),

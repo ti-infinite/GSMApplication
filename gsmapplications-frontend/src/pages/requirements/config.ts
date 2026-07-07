@@ -16,8 +16,7 @@ export const STOCK_RESOURCE: Resource = {
   sourceType: 'API',
   cacheIn:    'INDEXED_DB',
   parameters: [
-    { key: 'location',    sourceType: 'CONTEXT', keyValue: 'location',    valueType: 'string' },
-    { key: 'category',    sourceType: 'CONTEXT', keyValue: 'category',    valueType: 'string' },
-    { key: 'subcategory', sourceType: 'CONTEXT', keyValue: 'subcategory', valueType: 'string' },
+    { key: 'location',  sourceType: 'CONTEXT', keyValue: 'location',  valueType: 'string' },
+    { key: 'skuPrefix', sourceType: 'CONTEXT', keyValue: 'skuPrefix', valueType: 'string' },
   ],
 }

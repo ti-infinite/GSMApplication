@@ -17,7 +17,7 @@ export function useTrxData<T = unknown>(resource: Resource | null, ctx: Context,
     setLoading(true)
     resolveResource(resource, ctx, fetcher)
       .then(data => { if (!cancelled) setRows(Array.isArray(data) ? (data as T[]) : []) })
-      .catch(() => { if (!cancelled) setRows([]) })
+      .catch(err => { if (!cancelled) { console.error('[useTrxData] error resolviendo resource:', err); setRows([]) } })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps

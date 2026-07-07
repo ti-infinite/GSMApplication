@@ -4,6 +4,8 @@ import { isSessionActive, getStoredUser } from '@/shared/lib/auth'
 import type { StringApiResponse } from '@/shared/api/operations/model'
 import type { Category } from '@/entities/product'
 import { useTrxData } from '@/entities/trx'
+import type { Pedido } from '@/entities/order'
+import { savePedido } from '@/shared/lib/idb'
 import { Combobox } from '@/shared/ui/combobox'
 import { Button } from '@/shared/ui/button'
 import { DataTable, type TableColumn } from '@/shared/ui/data-table'
@@ -18,7 +20,7 @@ const SAVED_KEY = 'req_active_warehouse'
 
 // Una línea del pedido que se va armando.
 interface OrderLine {
-  sku:         string
+  id:          string
   varietyName: string
   qty:         number
 }
@@ -52,14 +54,22 @@ export default function RequirementsPage() {
   const [search,        setSearch]        = useState('')
   const [qtys,          setQtys]          = useState<Record<string, string>>({})   // cantidad digitada por fila
   const [order,         setOrder]         = useState<OrderLine[]>([])               // pedido en construcción
+  const [orderSeq,      setOrderSeq]      = useState(() => (parseInt(localStorage.getItem('req_order_seq') ?? '0', 10) || 0) + 1)
 
-  const selectedCategory = categories.find(c => String(c.IdCategory) === categoryId) ?? null
-  const subcategories    = selectedCategory?.Children ?? []
+  // Consecutivo del pedido actual (visible en Items). Se consigna al confirmar.
+  const consecutivo = `PED-${String(orderSeq).padStart(4, '0')}`
+
+  const selectedCategory    = categories.find(c => String(c.IdCategory) === categoryId) ?? null
+  const subcategories       = selectedCategory?.Children ?? []
+  const selectedSubcategory = subcategories.find(c => String(c.IdCategory) === subcategoryId) ?? null
+
+  // Prefijo SKU para filtrar productos: la subcategoría si está elegida, si no la categoría.
+  const skuPrefix = (selectedSubcategory ?? selectedCategory)?.AggregatedCode ?? ''
 
   // Data vía el motor: resuelve el resource (fetcher mock) → cache IndexedDB → filas.
   const { rows, loading } = useTrxData<StockRow>(
     location ? STOCK_RESOURCE : null,
-    { location, category: categoryId, subcategory: subcategoryId },
+    { location, skuPrefix },
     mockFetcher,
   )
 
@@ -69,26 +79,31 @@ export default function RequirementsPage() {
 
   // Agregar una fila al pedido (con la cantidad digitada). Si ya está, actualiza la cantidad.
   const addToOrder = (row: StockRow) => {
-    const qty = parseFloat(qtys[row.sku] ?? '')
+    const qty = parseFloat(qtys[row.id] ?? '')
     if (!qty || qty <= 0) return
     setOrder(prev => {
-      const exists = prev.some(l => l.sku === row.sku)
+      const exists = prev.some(l => l.id === row.id)
       return exists
-        ? prev.map(l => (l.sku === row.sku ? { ...l, qty } : l))
-        : [...prev, { sku: row.sku, varietyName: row.varietyName, qty }]
+        ? prev.map(l => (l.id === row.id ? { ...l, qty } : l))
+        : [...prev, { id: row.id, varietyName: row.varietyName, qty }]
     })
-    setQtys(prev => ({ ...prev, [row.sku]: '' }))   // limpia el input tras agregar (queda en Items)
-    toast.success(`${row.varietyName} agregado`)
+    setQtys(prev => ({ ...prev, [row.id]: '' }))   // limpia el input tras agregar (queda en Items)
   }
 
-  const removeFromOrder = (sku: string) =>
-    setOrder(prev => prev.filter(l => l.sku !== sku))
+  const removeFromOrder = (id: string) =>
+    setOrder(prev => prev.filter(l => l.id !== id))
 
   // "Confirmar pedido" → serializa el pedido (por ahora log + toast; el POST/TRX viene después).
   const confirmOrder = () => {
-    const payload = { location, lines: order }
-    console.info('[Requirements] pedido serializado:', JSON.stringify(payload, null, 2))
-    toast.success(`Pedido serializado con ${order.length} producto(s)`)
+    const pedido: Pedido = { consecutivo, location, lines: order, createdAt: Date.now() }
+    void savePedido(consecutivo, pedido)   // consigna en IndexedDB → lo lee Purchase Orders
+    console.info('[Requirements] pedido guardado:', JSON.stringify(pedido, null, 2))
+    toast.success(`Pedido ${consecutivo} confirmado (${order.length} producto${order.length === 1 ? '' : 's'})`)
+
+    localStorage.setItem('req_order_seq', String(orderSeq))   // consigna el consecutivo usado
+    setOrderSeq(s => s + 1)                                    // el siguiente pedido
+    setOrder([])                                              // limpia → listo para el próximo
+    setQtys({})
   }
 
   // ── Tabla 1 (stock): columnas del config + cantidad editable con botón agregar ──
@@ -107,8 +122,8 @@ export default function RequirementsPage() {
             type="number"
             min="0"
             inputMode="numeric"
-            value={qtys[row.sku] ?? ''}
-            onChange={e => setQtys(prev => ({ ...prev, [row.sku]: e.target.value.replace(/[^0-9.]/g, '') }))}
+            value={qtys[row.id] ?? ''}
+            onChange={e => setQtys(prev => ({ ...prev, [row.id]: e.target.value.replace(/[^0-9.]/g, '') }))}
             onKeyDown={e => { if (e.key === 'Enter') addToOrder(row) }}
             placeholder="0"
             className="w-20 min-w-0 rounded-md border border-border bg-background px-2 py-1 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
@@ -138,7 +153,7 @@ export default function RequirementsPage() {
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => removeFromOrder(line.sku)}
+          onClick={() => removeFromOrder(line.id)}
           className="h-7 w-7 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
           aria-label="Quitar del pedido"
         >
@@ -221,13 +236,13 @@ export default function RequirementsPage() {
                       className="w-full min-w-0 rounded-lg border border-border bg-background py-1.5 pl-8 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                     />
                   </div>
-                  <span className="shrink-0 text-xs text-muted-foreground">{filteredRows.length}</span>
+                  <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">{filteredRows.length}</span>
                 </div>
               </div>
             }
             columns={stockColumns}
             data={filteredRows}
-            rowKey={r => r.sku}
+            rowKey={r => r.id}
             emptyMessage={
               loading  ? 'Cargando…'
               : location ? (q ? 'Sin coincidencias.' : 'Sin datos para esta selección.')
@@ -241,7 +256,10 @@ export default function RequirementsPage() {
           <DataTable
             toolbar={
               <div className="flex items-center justify-between gap-3">
-                <h2 className="text-sm font-semibold text-foreground">Items</h2>
+                <div className="flex min-w-0 items-baseline gap-2">
+                  <h2 className="text-sm font-semibold text-foreground">Items</h2>
+                  <span className="truncate text-xs font-medium text-muted-foreground">{consecutivo}</span>
+                </div>
                 {order.length > 0 && (
                   <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
                     {order.length}
@@ -251,7 +269,7 @@ export default function RequirementsPage() {
             }
             columns={orderColumns}
             data={order}
-            rowKey={l => l.sku}
+            rowKey={l => l.id}
             emptyMessage="Agregar productos con el botón + de la tabla."
           />
 

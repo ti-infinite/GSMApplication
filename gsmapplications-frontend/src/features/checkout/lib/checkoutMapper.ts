@@ -1,0 +1,133 @@
+import type { TrxUpdateDTO } from '@/shared/api/operations/model'
+import type { Employee } from '@/entities/employee'
+import { formatUtc } from '@/shared/lib/datetime'
+import type { UnitCheckout, LapRecord } from '../model/types'
+
+// ── lap & complete via PATCH updateTransaction(idTrxHeader, TrxUpdateDTO) ──
+// The idTrxHeader goes in the URL, so it's no longer part of the body.
+
+// A single lap → append one LAP detail (quantity + waste). Waste falls back to 0
+// if it's omitted/undefined, so a forgotten value never breaks the payload.
+export function buildLapPayload(amount: number, waste: number, timestamp: Date): TrxUpdateDTO {
+  return {
+    trxDetails: [{
+      detailType:  'LAP',
+      detailValue: JSON.stringify({ RecordDate: formatUtc(timestamp), QTY: amount, Waste: Number(waste) || 0 }),
+    }],
+  }
+}
+
+// Complete → final QTY/Waste/EndDate attributes + Complete state. The final lap is
+// optional: when finalLapAmount is 0 (closing with the laps already registered) no
+// LAP detail is appended.
+export function buildCompletePayload(
+  unitCheckout:   UnitCheckout,
+  finalLapAmount: number,
+  finalLapWaste:  number,
+  endDate:        Date,
+): TrxUpdateDTO {
+  const payload: TrxUpdateDTO = {
+    trxAttributes: [
+      { attributeKey: 'FinalQTY', attributeValue: String(unitCheckout.totalQty + finalLapAmount) },
+      { attributeKey: 'Waste',    attributeValue: String(unitCheckout.totalWaste + finalLapWaste) },
+      { attributeKey: 'EndDate',  attributeValue: formatUtc(endDate) },
+    ],
+    trxStates: { trxState: 'COMPLETED', comments: '' },
+  }
+  if (finalLapAmount > 0) {
+    payload.trxDetails = [{
+      detailType:  'LAP',
+      detailValue: JSON.stringify({ RecordDate: formatUtc(endDate), QTY: finalLapAmount, Waste: finalLapWaste }),
+    }]
+  }
+  return payload
+}
+
+// Cancel → just flips the transaction state to CANCELLED (append).
+export function buildCancelPayload(): TrxUpdateDTO {
+  return {
+    trxStates: { trxState: 'CANCELLED', comments: '' },
+  }
+}
+
+// ── getTrx response → checkout units (persistence) ────────────────
+// The getTrx response is untyped in the spec, so we model it here from the
+// backend TrxResponse* DTOs (camelCase, as ASP.NET serializes by default).
+
+export interface TrxResponseDTO {
+  idTrxHeader:   number
+  trxPrefix:     string
+  trxDocument:   string
+  status:        string
+  username:      string
+  location?:     string | null
+  trxAttributes: { attributeKey: string; attributeValue?: string | null }[]
+  trxProducts:   { idVariety: number; varietyName?: string | null; sku?: string | null; qty?: number | null }[]
+  trxStates:     { trxState?: string | null; stateDate?: string | null; comments?: string | null }[]
+  trxDetails:    { detailType: string; detailValue?: string | null }[]
+}
+
+function getAttr(trx: TrxResponseDTO, key: string): string {
+  return trx.trxAttributes.find(a => a.attributeKey === key)?.attributeValue ?? ''
+}
+
+// Backend stores LAP timestamps as "yyyy-MM-dd HH:mm:ss" — normalize to ISO for Date()
+function parseUtc(value: string): Date {
+  const d = new Date(value.includes('T') ? value : value.replace(' ', 'T'))
+  return isNaN(d.getTime()) ? new Date() : d
+}
+
+export function mapTrxToUnits(trxList: TrxResponseDTO[]): UnitCheckout[] {
+  let groupNo = 0
+
+  return trxList.map(trx => {
+    // Employees from the "Employee" attribute (JSON string: [{Id, FullName}])
+    let employees: Employee[] = []
+    try {
+      const raw = JSON.parse(getAttr(trx, 'Employee') || '[]') as { Id: number; FullName: string }[]
+      employees = raw.map((e, i) => ({
+        id:         `${trx.idTrxHeader}-${i}`,
+        idEmployee: e.Id,
+        name:       e.FullName,
+        role:       trx.location ?? '',
+      }))
+    } catch { /* malformed attribute → empty list */ }
+
+    // Laps from trxDetails (detailType === 'LAP', detailValue = {RecordDate, QTY})
+    const laps: LapRecord[] = trx.trxDetails
+      .filter(d => d.detailType === 'LAP')
+      .map((d, i) => {
+        let amount = 0
+        let waste = 0
+        let timestamp = new Date()
+        try {
+          const p = JSON.parse(d.detailValue ?? '{}')
+          amount = Number(p.QTY) || 0
+          waste = Number(p.waste) || 0
+          if (p.RecordDate) timestamp = parseUtc(String(p.RecordDate))
+        } catch { /* malformed detail → defaults */ }
+        return { id: `${trx.idTrxHeader}-lap-${i}`, unitTrxId: String(trx.idTrxHeader), amount, waste, timestamp }
+      })
+
+    const totalQty   = laps.reduce((s, l) => s + l.amount, 0)
+    const totalWaste = laps.reduce((s, l) => s + l.waste, 0)
+    const product    = trx.trxProducts[0]
+    const initialQty = Number(getAttr(trx, 'InitialQTY')) || Number(product?.qty) || 0
+    const isMulti    = employees.length > 1
+    const name       = isMulti ? `Grupo ${++groupNo}` : (employees[0]?.name ?? trx.trxDocument)
+
+    return {
+      unit: {
+        trxId:       String(trx.idTrxHeader),   // numeric id → ready for PATCH
+        name,
+        employees,
+        varietyName: product?.varietyName ?? '',
+        sku:         product?.sku ?? '',
+        initialQty,
+      },
+      laps,
+      totalQty,
+      totalWaste,
+    }
+  })
+}

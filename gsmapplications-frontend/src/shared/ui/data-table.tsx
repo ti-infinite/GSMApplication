@@ -16,6 +16,7 @@ interface DataTableProps<T> {
   rowKey:       (row: T) => string
   emptyMessage?: string
   mobileCard?:  (row: T) => ReactNode  // custom mobile card renderer
+  toolbar?:     ReactNode               // barra opcional DENTRO de la tabla (buscador, filtros…)
 }
 
 type SortDir = 'asc' | 'desc' | null
@@ -26,6 +27,7 @@ export function DataTable<T>({
   rowKey,
   emptyMessage = 'No hay datos disponibles.',
   mobileCard,
+  toolbar,
 }: DataTableProps<T>) {
   const [sortKey, setSortKey] = useState<string | null>(null)
   const [sortDir, setSortDir] = useState<SortDir>(null)
@@ -44,68 +46,74 @@ export function DataTable<T>({
       })
     : data
 
-  if (sorted.length === 0) {
-    return (
-      <div className="flex items-center justify-center rounded-xl border border-border bg-card py-12">
-        <p className="text-sm text-muted-foreground">{emptyMessage}</p>
-      </div>
-    )
-  }
+  const empty = (
+    <div className="flex items-center justify-center bg-card py-12">
+      <p className="text-sm text-muted-foreground">{emptyMessage}</p>
+    </div>
+  )
 
   return (
     <>
       {/* ── Desktop table ── */}
-      <div className="hidden overflow-hidden rounded-xl border border-border md:block">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border bg-muted/40">
-                {columns.map(col => (
-                  <th
-                    key={col.key}
-                    className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground"
-                  >
-                    {col.sortable ? (
-                      <button
-                        type="button"
-                        onClick={() => handleSort(col.key)}
-                        className="flex items-center gap-1 hover:text-foreground"
-                      >
-                        {col.header}
-                        <SortIcon active={sortKey === col.key} dir={sortDir} />
-                      </button>
-                    ) : (
-                      col.header
-                    )}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border bg-card">
-              {sorted.map(row => (
-                <tr key={rowKey(row)} className="transition-colors hover:bg-muted/30">
+      <div className="hidden overflow-hidden rounded-xl border border-border bg-card md:block">
+        {toolbar && <div className="border-b border-border px-4 py-3">{toolbar}</div>}
+        {sorted.length === 0 ? empty : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border bg-muted/40">
                   {columns.map(col => (
-                    <td key={col.key} className="px-4 py-3 text-foreground">
-                      {col.render
-                        ? col.render(row)
-                        : String((row as Record<string, unknown>)[col.key] ?? '—')}
-                    </td>
+                    <th
+                      key={col.key}
+                      className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground"
+                    >
+                      {col.sortable ? (
+                        <button
+                          type="button"
+                          onClick={() => handleSort(col.key)}
+                          className="flex items-center gap-1 hover:text-foreground"
+                        >
+                          {col.header}
+                          <SortIcon active={sortKey === col.key} dir={sortDir} />
+                        </button>
+                      ) : (
+                        col.header
+                      )}
+                    </th>
                   ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {sorted.map(row => (
+                  <tr key={rowKey(row)} className="transition-colors hover:bg-muted/30">
+                    {columns.map(col => (
+                      <td key={col.key} className="px-4 py-3 text-foreground">
+                        {col.render
+                          ? col.render(row)
+                          : String((row as Record<string, unknown>)[col.key] ?? '—')}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* ── Mobile cards ── */}
       <div className="flex flex-col gap-3 md:hidden">
-        {sorted.map(row =>
-          mobileCard ? (
-            <div key={rowKey(row)}>{mobileCard(row)}</div>
-          ) : (
-            <DefaultMobileCard key={rowKey(row)} row={row} columns={columns} />
-          ),
+        {toolbar && <div className="rounded-xl border border-border bg-card px-4 py-3">{toolbar}</div>}
+        {sorted.length === 0 ? (
+          <div className="overflow-hidden rounded-xl border border-border">{empty}</div>
+        ) : (
+          sorted.map(row =>
+            mobileCard ? (
+              <div key={rowKey(row)}>{mobileCard(row)}</div>
+            ) : (
+              <DefaultMobileCard key={rowKey(row)} row={row} columns={columns} />
+            ),
+          )
         )}
       </div>
     </>

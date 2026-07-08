@@ -14,10 +14,15 @@ public partial class TrxStates
 
     public long IdTrxHeader { get; set; }
 
-    [Column("TrxState")]
+    [Column("FromTrxState")]
     [StringLength(50)]
     [Unicode(false)]
-    public string? TrxState { get; set; }
+    public string? FromTrxState { get; set; }
+
+    [Column("ToTrxState")]
+    [StringLength(50)]
+    [Unicode(false)]
+    public string? ToTrxState { get; set; }
 
     [Column(TypeName = "datetime2")]
     public DateTime? StateDate { get; set; }

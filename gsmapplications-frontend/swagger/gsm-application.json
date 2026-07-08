@@ -6,7 +6,7 @@
     "version": "v1"
   },
   "paths": {
-    "/api/v1/Application/getMenu": {
+    "/api/v1/Application/menu": {
       "get": {
         "tags": [
           "Application"
@@ -56,7 +56,7 @@
         }
       }
     },
-    "/api/v1/Application/getMediaResources": {
+    "/api/v1/Application/mediaResources": {
       "get": {
         "tags": [
           "Application"
@@ -735,8 +735,7 @@
       },
       "LocationDTO": {
         "required": [
-          "idLocation",
-          "idThirdLocation"
+          "idLocation"
         ],
         "type": "object",
         "properties": {
@@ -745,8 +744,8 @@
             "format": "int32"
           },
           "idThirdLocation": {
-            "type": "integer",
-            "format": "int32"
+            "type": "string",
+            "nullable": true
           },
           "codeLocation": {
             "type": "string",

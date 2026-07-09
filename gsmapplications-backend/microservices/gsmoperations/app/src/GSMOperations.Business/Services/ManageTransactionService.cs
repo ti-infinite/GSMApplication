@@ -37,7 +37,7 @@ public sealed class ManageTransactionService : IManageTransactionService
     public async Task<string> CreateTrx(TrxCreateDTO trxRequest, CancellationToken cancellationToken = default)
     {
         string prefix = trxRequest.TrxPrefix;
-        var trxNumber = await GetNextTransactionNumber(prefix, cancellationToken);
+        var trxNumber = await GetNextTransactionNumber(prefix, trxRequest.Location, cancellationToken);
         var trxId = $"{prefix}{trxNumber}";
 
 
@@ -223,14 +223,15 @@ public sealed class ManageTransactionService : IManageTransactionService
             return ApiResponse<List<TrxResponseDTO>>.SuccessResult(result,Messages.Operations.TransactionLoaded);
     }
 
-    public async Task<long> GetNextTransactionNumber(string prefix, CancellationToken cancellationToken = default)
+    public async Task<long> GetNextTransactionNumber(string prefix, string? location, CancellationToken cancellationToken = default)
     {
         var sp = new StoredProcedureModel
         (
             "GETTRXNUMBER",
             new Dictionary<string, object?>
             {
-                { "@Prefix", prefix }
+                { "@Prefix", prefix },
+                { "@Location", location }
             }
         ); 
 

@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace GSMOperations.DataAccess.Entities;
 
-[Table("TrxProducts", Schema = "db_ms")]
+[Table("TrxProducts", Schema = "db_trx")]
 public partial class TrxProduct
 {
     [Key]

@@ -58,6 +58,17 @@ public partial class TenantApplicationDbContext : DbContext
             entity.HasKey(e => e.IdStoredProcedure).HasName("PK__StoredPr__D79D1B9D75654BA5");
         });
 
+        modelBuilder.Entity<Location>(entity =>
+        {
+            entity.HasKey(e => e.IdLocation).HasName("PK__Location__FB5FABA941C68247");
+
+            entity.Property(e => e.IsActive).HasDefaultValue(true);
+
+            entity.HasIndex(e => e.CodeLocation)
+                .IsUnique()
+                .HasDatabaseName("UQ_Locations_CodeLocation");
+        });
+
         base.OnModelCreating(modelBuilder);
     }
 }

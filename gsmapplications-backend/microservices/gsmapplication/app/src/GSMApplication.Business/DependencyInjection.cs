@@ -13,6 +13,7 @@ public static class DependencyInjection
         services.AddScoped<IMultimediaResourceService, MultimediaResourceService>();
         services.AddScoped<IApiRulesManagementService, ApiRulesManagementService>();
         services.AddScoped<IUsersManagementService, UsersManagementService>();
+        services.AddScoped<ILocationService, LocationService>();
         return services;
     }
 }

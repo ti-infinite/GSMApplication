@@ -2,6 +2,7 @@ using GSMApplication.Abstractions;
 using GSMApplication.Business.Interfaces;
 using GSMApplication.Entities.Common;
 using GSMApplication.Entities.DTOs;
+using GSMApplication.Entities.Models;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GSMApplication.Api.Controllers;
@@ -12,16 +13,19 @@ public sealed class ApplicationController : ControllerBase
 {
     private readonly IMenuService _menuService;
     private readonly IMultimediaResourceService _multimediaResourceService;
+    private readonly ILocationService _locationService;
     private readonly IRequestContext _requestContext;
 
-    public ApplicationController(IMenuService menuService, IMultimediaResourceService multimediaResourceService, IRequestContext requestContext)
+    public ApplicationController(IMenuService menuService, IMultimediaResourceService multimediaResourceService, IRequestContext requestContext,
+        ILocationService locationService)
     {
         _menuService = menuService;
         _multimediaResourceService = multimediaResourceService;
         _requestContext = requestContext;
+        _locationService = locationService;
     }
 
-    [HttpGet("getMenu")]
+    [HttpGet("menu")]
     [ProducesResponseType(typeof(ApiResponse<GetMenuDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<GetMenuDto>), StatusCodes.Status401Unauthorized)]
 
@@ -32,7 +36,7 @@ public sealed class ApplicationController : ControllerBase
         return Ok(response);
     }
 
-    [HttpGet("getMediaResources")]
+    [HttpGet("mediaResources")]
     [ProducesResponseType(typeof(ApiResponse<List<MultimediaResourceDto>>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<MultimediaResourceDto>), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse<MultimediaResourceDto>), StatusCodes.Status404NotFound)]
@@ -50,5 +54,13 @@ public sealed class ApplicationController : ControllerBase
         var serviceResponse = await _multimediaResourceService.GetMultimediaResourceByCategory(categories, cancellationToken);
 
         return Ok(serviceResponse);
+    }
+
+    [HttpGet("filtered-locations")]
+    [ProducesResponseType(typeof(ApiResponse<List<LocationDTO>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetFilteredLocations([FromBody] SearchLocation? searchCriteria, CancellationToken cancellationToken)
+    {
+        var response = await _locationService.GetLocations(searchCriteria, cancellationToken);
+        return Ok(response);
     }
 }

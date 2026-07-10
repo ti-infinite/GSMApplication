@@ -21,6 +21,8 @@ namespace GSMOperations.DataAccess.ContextDb
         public virtual DbSet<TrxProduct> TrxProducts => Set<TrxProduct>();
         public virtual DbSet<TrxStates> TrxStates => Set<TrxStates>();
         public virtual DbSet<TrxDetail> TrxDetails => Set<TrxDetail>();
+        public virtual DbSet<StoredProcedureRule> StoredProcedureRules => Set<StoredProcedureRule>();
+        public virtual DbSet<TrxDefinition> TrxDefinitions => Set<TrxDefinition>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -84,7 +86,6 @@ namespace GSMOperations.DataAccess.ContextDb
             modelBuilder.Entity<TrxHeader>(entity =>
             {
                 entity.HasKey(e => e.IdTrxHeader).HasName("PK_IdTrxHeader");
-
                 //entity.Property(e => e.Status).HasDefaultValue("COMPLETED");
             });
 
@@ -119,6 +120,16 @@ namespace GSMOperations.DataAccess.ContextDb
                     .HasForeignKey(p => p.IdTrxHeader)
                     .OnDelete(DeleteBehavior.Restrict)
                     .HasConstraintName("FK_TrxDetails_TrxHeaders");
+            });
+
+            modelBuilder.Entity<StoredProcedureRule>(entity =>
+            {
+                entity.HasKey(e => e.IdStoredProcedure).HasName("PK__StoredPr__D79D1B9D75654BA5");
+            });
+
+            modelBuilder.Entity<TrxDefinition>(entity =>
+            {
+                entity.HasKey(e => e.IdTrxDefinition).HasName("PK__TrxDefin__57DA74598C6F7410");
             });
 
             base.OnModelCreating(modelBuilder);

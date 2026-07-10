@@ -1,4 +1,5 @@
-﻿using GSMOperations.Business.Interfaces;
+﻿using GSMOperations.Business.Executors.Resources;
+using GSMOperations.Business.Interfaces;
 using GSMOperations.Business.Services;
 using GSMOPerations.Business.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -20,6 +21,8 @@ namespace GSMOperations.Business
             services.AddScoped<ICategoriesService, CategoriesService>();
             services.AddScoped<ISkuDefinitionsService, SkuDefinitionsService>();
             services.AddScoped<IManageTransactionService, ManageTransactionService>();
+            services.AddScoped<IResourceExecutorService, ResourceExecutorService>();
+            services.AddScoped<IResourceExecutor, LoadConsumoSobrante>();
 
             return services;
         }

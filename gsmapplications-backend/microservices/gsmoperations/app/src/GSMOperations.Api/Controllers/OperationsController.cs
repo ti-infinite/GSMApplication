@@ -54,7 +54,7 @@ public sealed class OperationsController : ControllerBase
     }
 
     [HttpPost("execute-trxResource/{resourceEvent}")]
-    public async Task<IActionResult> ExecuteTrxResource(string resourceEvent, [FromBody] Dictionary<string, object> parameters, CancellationToken cancellationToken)
+    public async Task<IActionResult> ExecuteTrxResource([FromRoute] string resourceEvent, [FromBody] Dictionary<string, object> parameters, CancellationToken cancellationToken)
     {
         var response = await _resourceExecutorService.ExecuteAsync(resourceEvent, parameters, cancellationToken);
         return Ok(response);

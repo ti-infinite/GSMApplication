@@ -6,7 +6,7 @@ import {
   CheckoutView, buildLapPayload, buildCompletePayload, buildCancelPayload, mapTrxToUnits,
   type TrxResponseDTO, type UnitCheckout, type LapRecord,
 } from '@/features/checkout'
-import { createTransaction, updateTransaction, getTransaction } from '@/shared/api/operations/operations/operations'
+import { createTransaction, updateTransaction, getTransaction } from '@/shared/api/operations/endpoints'
 import { getStoredUser } from '@/shared/lib/auth'
 import { toast } from 'sonner'
 import { toastApiError } from '@/shared/lib/toast'

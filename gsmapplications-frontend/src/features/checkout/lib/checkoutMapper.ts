@@ -32,7 +32,7 @@ export function buildCompletePayload(
       { attributeKey: 'Waste',    attributeValue: String(unitCheckout.totalWaste + finalLapWaste) },
       { attributeKey: 'EndDate',  attributeValue: formatUtc(endDate) },
     ],
-    trxStates: { trxState: 'COMPLETED', comments: '' },
+    trxStates: { fromTrxState: 'INPROGRESS', toTrxState: 'COMPLETED', comments: '' },
   }
   if (finalLapAmount > 0) {
     payload.trxDetails = [{
@@ -46,7 +46,7 @@ export function buildCompletePayload(
 // Cancel → just flips the transaction state to CANCELLED (append).
 export function buildCancelPayload(): TrxUpdateDTO {
   return {
-    trxStates: { trxState: 'CANCELLED', comments: '' },
+    trxStates: { fromTrxState: 'INPROGRESS', toTrxState: 'CANCELLED', comments: '' },
   }
 }
 
@@ -63,7 +63,7 @@ export interface TrxResponseDTO {
   location?:     string | null
   trxAttributes: { attributeKey: string; attributeValue?: string | null }[]
   trxProducts:   { idVariety: number; varietyName?: string | null; sku?: string | null; qty?: number | null }[]
-  trxStates:     { trxState?: string | null; stateDate?: string | null; comments?: string | null }[]
+  trxStates:     { fromTrxState?: string | null; toTrxState?: string | null; stateDate?: string | null; comments?: string | null }[]
   trxDetails:    { detailType: string; detailValue?: string | null }[]
 }
 

@@ -45,7 +45,7 @@ export function buildTransactionPayload(
       location,
       trxAttributes,
       trxProducts:   [{ idVariety: cp.variety.IdVariety, varietyName: cp.variety.Name, sku: cp.product.SKU, qty }],
-      trxStates:     { trxState: 'INPROGRESS', comments: '' },
+      trxStates:     { fromTrxState: 'UNDEFINED', toTrxState: 'INPROGRESS', comments: '' },
       trxDetails:    [],
     }]
   })

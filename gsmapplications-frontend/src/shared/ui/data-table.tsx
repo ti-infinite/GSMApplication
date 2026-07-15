@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { Fragment, useState, type ReactNode } from 'react'
 import { ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react'
 
 export interface TableColumn<T> {
@@ -6,9 +6,12 @@ export interface TableColumn<T> {
   header:     string
   render?:    (row: T) => ReactNode
   sortable?:  boolean
+  align?:     'left' | 'center' | 'right'   // alineación de header + celda (default left)
   mobileLabel?: string    // label in mobile card view
   hideMobile?: boolean    // hide this column on mobile cards
 }
+
+const alignCls = (a?: 'left' | 'center' | 'right') => (a === 'center' ? 'text-center' : a === 'right' ? 'text-right' : 'text-left')
 
 interface DataTableProps<T> {
   columns:      TableColumn<T>[]
@@ -17,6 +20,7 @@ interface DataTableProps<T> {
   emptyMessage?: string
   mobileCard?:  (row: T) => ReactNode  // custom mobile card renderer
   toolbar?:     ReactNode               // barra opcional DENTRO de la tabla (buscador, filtros…)
+  renderExpanded?: (row: T) => ReactNode  // fila full-width debajo (si devuelve truthy). Ej. comentario de rechazo.
 }
 
 type SortDir = 'asc' | 'desc' | null
@@ -28,6 +32,7 @@ export function DataTable<T>({
   emptyMessage = 'No hay datos disponibles.',
   mobileCard,
   toolbar,
+  renderExpanded,
 }: DataTableProps<T>) {
   const [sortKey, setSortKey] = useState<string | null>(null)
   const [sortDir, setSortDir] = useState<SortDir>(null)
@@ -65,13 +70,13 @@ export function DataTable<T>({
                   {columns.map(col => (
                     <th
                       key={col.key}
-                      className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground"
+                      className={`px-4 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground ${alignCls(col.align)}`}
                     >
                       {col.sortable ? (
                         <button
                           type="button"
                           onClick={() => handleSort(col.key)}
-                          className="flex items-center gap-1 hover:text-foreground"
+                          className={`flex items-center gap-1 hover:text-foreground ${col.align === 'center' ? 'mx-auto' : col.align === 'right' ? 'ml-auto' : ''}`}
                         >
                           {col.header}
                           <SortIcon active={sortKey === col.key} dir={sortDir} />
@@ -84,17 +89,25 @@ export function DataTable<T>({
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {sorted.map(row => (
-                  <tr key={rowKey(row)} className="transition-colors hover:bg-muted/30">
-                    {columns.map(col => (
-                      <td key={col.key} className="px-4 py-3 text-foreground">
-                        {col.render
-                          ? col.render(row)
-                          : String((row as Record<string, unknown>)[col.key] ?? '—')}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
+                {sorted.map(row => {
+                  const expanded = renderExpanded?.(row)
+                  return (
+                    <Fragment key={rowKey(row)}>
+                      <tr className="transition-colors hover:bg-muted/30">
+                        {columns.map(col => (
+                          <td key={col.key} className={`px-4 py-3 text-foreground ${alignCls(col.align)}`}>
+                            {col.render
+                              ? col.render(row)
+                              : String((row as Record<string, unknown>)[col.key] ?? '—')}
+                          </td>
+                        ))}
+                      </tr>
+                      {expanded ? (
+                        <tr><td colSpan={columns.length} className="px-4 pb-3 pt-0">{expanded}</td></tr>
+                      ) : null}
+                    </Fragment>
+                  )
+                })}
               </tbody>
             </table>
           </div>
@@ -107,13 +120,15 @@ export function DataTable<T>({
         {sorted.length === 0 ? (
           <div className="overflow-hidden rounded-xl border border-border">{empty}</div>
         ) : (
-          sorted.map(row =>
-            mobileCard ? (
-              <div key={rowKey(row)}>{mobileCard(row)}</div>
-            ) : (
-              <DefaultMobileCard key={rowKey(row)} row={row} columns={columns} />
-            ),
-          )
+          sorted.map(row => {
+            const expanded = renderExpanded?.(row)
+            return (
+              <div key={rowKey(row)} className="flex flex-col gap-2">
+                {mobileCard ? mobileCard(row) : <DefaultMobileCard row={row} columns={columns} />}
+                {expanded}
+              </div>
+            )
+          })
         )}
       </div>
     </>

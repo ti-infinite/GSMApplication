@@ -5,7 +5,7 @@ import { DataTable, type TableColumn } from '@/shared/ui/data-table'
 import { SlidersHorizontal, CheckCircle2, Trash2, Send, Plus, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { listPedidos, getPedido, saveOrden } from '@/shared/lib/idb'
-import { getMasterProducts } from '@/shared/api/operations/operations/operations'
+import { getMasterProducts } from '@/shared/api/operations/endpoints'
 import type { MasterProductDTOListApiResponse } from '@/shared/api/operations/model'
 import type { Pedido, PedidoLine, Orden } from '@/entities/order'
 
@@ -106,7 +106,7 @@ export default function PurchaseOrdersPage() {
       <div>
         <h1 className="text-2xl font-bold text-foreground">Orden de Compra</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Revisá el requerimiento por proveedor y generá la orden — prototipo
+          Revisa el requerimiento por proveedor y genera la orden — prototipo
         </p>
       </div>
 
@@ -155,7 +155,7 @@ export default function PurchaseOrdersPage() {
         <div className="flex flex-col gap-3 lg:col-span-2">
           <div>
             <h2 className="text-base font-semibold text-foreground">Revisión de Pedidos de Insumos</h2>
-            <p className="text-sm text-muted-foreground">Validá las cantidades antes de generar la orden</p>
+            <p className="text-sm text-muted-foreground">Valida las cantidades antes de generar la orden</p>
           </div>
           <DataTable
             toolbar={
@@ -190,7 +190,7 @@ export default function PurchaseOrdersPage() {
             columns={columns}
             data={items}
             rowKey={l => l.id}
-            emptyMessage={applied ? 'El pedido no tiene insumos.' : 'Elegí un consecutivo y aplicá los filtros.'}
+            emptyMessage={applied ? 'El pedido no tiene insumos.' : 'Elegi un consecutivo y aplica los filtros.'}
           />
         </div>
 

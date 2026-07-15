@@ -3,7 +3,7 @@ import {
   useGetCategories,
   useGetParameters,
   useGetMasterProducts,
-} from '@/shared/api/operations/operations/operations'
+} from '@/shared/api/operations/endpoints'
 import { isSessionActive } from '@/shared/lib/auth'
 import type {
   GlobalParameterListApiResponse,

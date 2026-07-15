@@ -60,16 +60,22 @@ export async function login(credentials: LoginCredentials): Promise<LoginResult>
   // Store only the expiry timestamp so AuthGuard can check session without reading the token
   const expUnix = Math.floor(expires.getTime() / 1000).toString()
 
-  Cookies.set('gsm_exp',       expUnix,          { expires, sameSite: 'strict', path: '/' })
-  Cookies.set('gsm_user_name', displayName ?? '', { expires, sameSite: 'strict', path: '/' })
-  Cookies.set('gsm_company',   companyId,         { expires, sameSite: 'strict', path: '/' })
+  // Session cookies (no `expires`) → the browser clears them on close, so closing
+  // the browser logs the user out. Within a session, isSessionActive() still gates
+  // on the token-expiry timestamp held as the cookie value (logout also on expiry).
+  Cookies.set('gsm_exp',       expUnix,          { sameSite: 'strict', path: '/' })
+  Cookies.set('gsm_user_name', displayName ?? '', { sameSite: 'strict', path: '/' })
+  Cookies.set('gsm_company',   companyId,         { sameSite: 'strict', path: '/' })
 
   if (response.data?.user) {
+    // sessionStorage → auto-cleared on browser close, consistent with the session
+    // cookies above. No user PII lingers after closing the browser and it doesn't
+    // depend on an explicit logout. (Lifetime matches the cookies → no desync.)
     sessionStorage.setItem('gsm_user', JSON.stringify(response.data.user))
   }
 
   if (response.data?.user?.passwordChangeRequired) {
-    Cookies.set('gsm_pwd_change', '1', { expires, sameSite: 'strict', path: '/' })
+    Cookies.set('gsm_pwd_change', '1', { sameSite: 'strict', path: '/' })
   } else {
     Cookies.remove('gsm_pwd_change')
   }

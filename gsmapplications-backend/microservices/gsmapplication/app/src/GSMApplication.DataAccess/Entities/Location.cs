@@ -10,7 +10,9 @@ public partial class Location
     [Key]
     public int IdLocation { get; set; }
 
-    public int IdThirdLocation { get; set; }
+    [StringLength(10)]
+    [Unicode(false)]
+    public string IdThirdLocation { get; set; } = null!;
 
     [StringLength(5)]
     [Unicode(false)]

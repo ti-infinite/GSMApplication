@@ -1,161 +1,163 @@
 import { useEffect, useState } from 'react'
-import { Combobox } from '@/shared/ui/combobox'
-import { Button } from '@/shared/ui/button'
-import { DataTable, type TableColumn } from '@/shared/ui/data-table'
-import { SlidersHorizontal, CheckCircle2, ClipboardCheck } from 'lucide-react'
+import { TrxRuntime, buildRegistry } from '@/entities/trx'
+import type { JsonConfig, Fetcher } from '@/entities/trx'
+import { getConfig, saveConfig } from '@/shared/lib/idb'
+import { getPendingLines, saveReceptionTrx, recepcionValida, guardarBorrador, getOpenOrdenes } from '@/entities/order/receptions'
+import { Skeleton } from '@/shared/ui/skeleton'
 import { toast } from 'sonner'
-import { listOrdenes, getOrden, saveRecepcion } from '@/shared/lib/idb'
-import type { Orden, Recepcion } from '@/entities/order'
+import { getMasterProducts, getCategories } from '@/shared/api/operations/endpoints'
+import type { MasterProductDTOListApiResponse, StringApiResponse } from '@/shared/api/operations/model'
 
-// Fila de recepción: lo solicitado (de la orden) vs lo recibido (editable).
-interface RecRow {
-  id:          string
-  varietyName: string
-  solicitada:  number
-  recibida:    number
+type Row = Record<string, unknown>
+
+const FINCAS = [
+  { location: 'NRJ', name: 'Finca Naranjal' },
+  { location: 'GUA', name: 'Guali' },
+  { location: 'AGC', name: 'Agua Clara' },
+  { location: 'NCD', name: 'Nacederos' },
+]
+
+/* ─────────────────────────── CONFIG (JSON) ─────────────────────────── */
+const REC_CONFIG: JsonConfig = {
+  prefix: 'RECBODCS',   // recepción en bodega
+  JsonFront: {
+    title:    'Recepción en Bodega',
+    subtitle: 'Verifica los insumos recibidos y carga los que lleguen fuera de la orden.',
+    rowKey:   'id',
+    initCollection: 'main',
+    components: [
+      { type: 'filters', filters: [
+        // Bodega = user SIN location → finca sin lock, elige libremente.
+        { key: 'finca',   label: 'Finca',             source: 'FINCAS',  optionValue: 'location', optionLabel: 'name' },
+        { key: 'factura', label: 'Número de factura', source: 'ORDENES', optionValue: 'numero',   optionLabel: 'numero' },
+      ] },
+      { type: 'stack', children: [
+        { type: 'heading', title: 'Insumos del Requerimiento', badge: 'pendientes' },
+        { type: 'table', source: 'collection', rowKey: 'id', expand: 'rejectComment',
+          search: {
+            source: 'CATALOG', optionValue: 'id', optionLabel: 'varietyName',
+            label: 'Cargar insumo', placeholder: 'Buscar insumo…',
+            cascade: [
+              { key: 'category',    label: 'Categoría',    source: 'CATEGORIES', optionValue: 'IdCategory', optionLabel: 'Descr' },
+              { key: 'subcategory', label: 'Subcategoría', dependsOn: 'category', optionsFrom: 'Children', optionValue: 'IdCategory', optionLabel: 'Descr' },
+            ],
+            prefixFrom: 'AggregatedCode', prefixField: 'sku',
+          },
+          fields: [
+            { label: 'Variedad / Producto', selectorValue: 'varietyName' },
+            { label: 'Cant. Pedida',        selectorValue: 'enviada' },
+            { label: 'Cant. Recibida',      selectorValue: 'recibida', renderer: 'input' },
+            { label: 'Estado / Acciones',   selectorValue: 'estado', renderer: 'verifyReject' },
+          ],
+        },
+      ] },
+      { type: 'note', text: 'Al confirmar la recepción se actualizara el inventario de bodega y se notificara al centro de logística.' },
+      { type: 'actions', align: 'end', buttons: [
+        { on: 'CONFIRM', label: 'Confirmar recepción' },
+      ] },
+    ],
+  },
+  JsonREA: {
+    resources: [
+      { id: 'ORDEN_LINES', descr: 'Líneas de la orden', sourceType: 'API', cacheIn: 'INDEXED_DB',
+        parameters: [ { key: 'factura', sourceType: 'CONTEXT', keyValue: 'factura', valueType: 'string' } ] },
+    ],
+    events: [], agents: [],
+  },
+  JsonWorkflow: {
+    initialState: 'PENDIENTE',
+    states: ['PENDIENTE', 'BORRADOR', 'CONFIRMADA'],
+    transitions: [
+      { from: 'PENDIENTE', to: 'BORRADOR',   on: 'SAVE',    event: 'guardarBorrador' },
+      { from: 'BORRADOR',  to: 'BORRADOR',   on: 'SAVE',    event: 'guardarBorrador' },
+      { from: 'PENDIENTE', to: 'CONFIRMADA', on: 'CONFIRM', event: 'confirmRecepcion', guard: 'recepcionValida' },
+      { from: 'BORRADOR',  to: 'CONFIRMADA', on: 'CONFIRM', event: 'confirmRecepcion', guard: 'recepcionValida' },
+    ],
+  },
 }
 
-// Estado según lo recibido vs lo solicitado (misma lógica del flujo diseñado).
-function estadoFor(recibida: number, solicitada: number) {
-  if (recibida <= 0)         return { label: 'Pendiente', badge: 'bg-muted text-muted-foreground',        dot: 'bg-muted-foreground' }
-  if (recibida >= solicitada) return { label: 'Completo',  badge: 'bg-green-500/10 text-green-600',         dot: 'bg-green-500' }
-  return                             { label: 'Parcial',   badge: 'bg-amber-500/10 text-amber-600',         dot: 'bg-amber-500' }
+/* ─────────────────────────── FETCHERS ─────────────────────────── */
+const fincasFetcher: Fetcher = async () => ({ success: 'true', message: '', data: FINCAS, traceId: null })
+
+// Órdenes ABIERTAS (no RECIBIDA) para el combo de N° de factura.
+const ordenesFetcher: Fetcher = async () => {
+  const list = await getOpenOrdenes()
+  return { success: 'true', message: '', data: list, traceId: null }
 }
 
-export default function ReceptionPage() {
-  const [ordenes,   setOrdenes]   = useState<Orden[]>([])
-  const [ocSel,     setOcSel]     = useState('')
-  const [applied,   setApplied]   = useState<Orden | null>(null)
-  const [recibidas, setRecibidas] = useState<Record<string, number>>({})   // cantidad recibida por línea
+// Líneas PENDIENTES por recibir de la factura (orden − ya recibido en recepciones previas).
+const ordenLinesFetcher: Fetcher = async (_id, params) => {
+  const data = await getPendingLines(params.factura ?? '')
+  return { success: 'true', message: '', data, traceId: null }
+}
 
-  // Órdenes generadas (para el combo de número de orden).
-  useEffect(() => { listOrdenes<Orden>().then(setOrdenes) }, [])
+// Categorías REALES (JSON string → parse) para el picker.
+const categoriesFetcher: Fetcher = async () => {
+  const res = await getCategories()
+  let cats: unknown[] = []
+  try { cats = JSON.parse((res.data as StringApiResponse).data ?? '[]') } catch { cats = [] }
+  return { success: 'true', message: '', data: cats, traceId: null }
+}
 
-  const cargar = async () => {
-    if (!ocSel) return
-    const o = await getOrden<Orden>(ocSel)
-    setApplied(o)
-    setRecibidas({})   // arranca en Pendiente (0) para cada insumo
-  }
+// Catálogo para "cargar insumo" — shape de fila de recepción (fuera de la orden → pedida 0).
+const catalogFetcher: Fetcher = async () => {
+  const res = await getMasterProducts()
+  const all = (res.data as MasterProductDTOListApiResponse | undefined)?.data ?? []
+  const data = all.flatMap(p => (p.mv ?? []).map(v => ({
+    id: `${p.sku ?? ''}-${v.idVariety ?? 0}`, varietyName: v.name ?? '',
+    enviada: 0, recibida: 0, estado: 'pendiente', comentario: '', sku: p.sku ?? '',
+  })))
+  return { success: 'true', message: '', data, traceId: null }
+}
 
-  const setRecibida = (id: string, val: number) => setRecibidas(prev => ({ ...prev, [id]: val }))
-
-  const rows: RecRow[] = (applied?.lines ?? []).map(l => ({
-    id:          l.id,
-    varietyName: l.varietyName,
-    solicitada:  l.qty,
-    recibida:    recibidas[l.id] ?? 0,
-  }))
-
-  const completos = rows.filter(r => estadoFor(r.recibida, r.solicitada).label === 'Completo').length
-
-  const register = () => {
-    if (!applied || rows.length === 0) return
-    const rec: Recepcion = {
-      numero:    applied.numero,
-      lines:     rows.map(r => ({ id: r.id, varietyName: r.varietyName, solicitada: r.solicitada, recibida: r.recibida })),
-      createdAt: Date.now(),
-    }
-    void saveRecepcion(applied.numero, rec)   // consigna en IndexedDB → la leerá Facturas
-    console.info('[Reception] recepción registrada:', JSON.stringify(rec, null, 2))
-    toast.success('Recepción registrada correctamente')
-  }
-
-  const columns: TableColumn<RecRow>[] = [
-    { key: 'varietyName', header: 'Insumo', sortable: true },
-    { key: 'solicitada',  header: 'Cant. solicitada' },
-    {
-      key:    'recibida',
-      header: 'Cant. recibida',
-      render: (row: RecRow) => (
-        <input
-          type="number"
-          min="0"
-          inputMode="numeric"
-          value={row.recibida || ''}
-          onChange={e => setRecibida(row.id, Number(e.target.value.replace(/[^0-9.]/g, '')) || 0)}
-          placeholder="0"
-          className="w-24 min-w-0 rounded-md border border-border bg-background px-2 py-1 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-        />
-      ),
+/* ─────────────────────────── REGISTRY ─────────────────────────── */
+const registry = buildRegistry({
+  fetchers: {
+    ORDEN_LINES: ordenLinesFetcher, FINCAS: fincasFetcher, ORDENES: ordenesFetcher,
+    CATALOG: catalogFetcher, CATEGORIES: categoriesFetcher,
+  },
+  computeds: {
+    pendientes: row => {
+      const items = (row.$items as Row[]) ?? []
+      const n = items.filter(i => String(i.estado ?? 'pendiente') === 'pendiente').length
+      return n === 0 ? 'Todo verificado' : `${n} item${n === 1 ? '' : 's'} pendiente${n === 1 ? '' : 's'}`
     },
-    {
-      key:    'estado',
-      header: 'Estado',
-      render: (row: RecRow) => {
-        const e = estadoFor(row.recibida, row.solicitada)
-        return (
-          <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${e.badge}`}>
-            <span className={`h-1.5 w-1.5 rounded-full ${e.dot}`} /> {e.label}
-          </span>
-        )
-      },
+  },
+  guards: {
+    recepcionValida: ({ collection }) => recepcionValida(collection),
+  },
+  actions: {
+    guardarBorrador: ({ collection, context }) => {
+      guardarBorrador(String(context.factura ?? ''), collection)
+      toast('Borrador guardado — podés retomar la recepción luego.')
     },
-  ]
+    confirmRecepcion: ({ collection, context }) => {
+      void saveReceptionTrx(String(context.factura ?? ''), collection).then(({ recibidos, rechazados, ordenCerrada, consecutivo }) => {
+        toast.success(`Recepción ${consecutivo} confirmada — ${recibidos} a inventario${rechazados ? `, ${rechazados} rechazado(s)` : ''}. ${ordenCerrada ? 'Orden RECIBIDA (completa).' : 'Pendientes abiertos.'}`)
+      })
+    },
+  },
+})
 
-  return (
-    <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Recepción de Orden de Compra</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Gestioná el ingreso de insumos y verificá las cantidades recibidas contra las solicitadas — prototipo
-        </p>
+const CONFIG_ID = REC_CONFIG.prefix
+
+export default function ReceptionTrxPage() {
+  const [config, setConfig] = useState<JsonConfig | null>(null)
+  useEffect(() => {
+    void (async () => {
+      await saveConfig(CONFIG_ID, REC_CONFIG, 'operations')
+      setConfig(await getConfig<JsonConfig>(CONFIG_ID))
+    })()
+  }, [])
+
+  if (!config) {
+    return (
+      <div className="flex flex-col gap-6">
+        <Skeleton className="h-8 w-64" />
+        <Skeleton className="h-24 w-full rounded-xl" />
+        <Skeleton className="h-96 w-full rounded-xl" />
       </div>
-
-      {/* ── Selección de orden ── */}
-      <div className="flex flex-col gap-4 rounded-xl border border-border bg-card p-4 shadow-sm">
-        <div className="flex items-center gap-2">
-          <SlidersHorizontal className="h-4 w-4 text-primary" />
-          <span className="text-sm font-semibold text-foreground">Número de Orden</span>
-        </div>
-        <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-[1fr_auto]">
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Orden de compra</label>
-            <Combobox
-              options={ordenes.map(o => ({ value: o.numero, label: o.numero, badge: o.proveedor }))}
-              value={ocSel}
-              onChange={setOcSel}
-              placeholder={ordenes.length === 0 ? 'Sin órdenes' : 'Elegí una orden'}
-              emptyMessage="No hay órdenes generadas"
-            />
-          </div>
-          <Button onClick={cargar} disabled={!ocSel} className="gap-2">
-            <CheckCircle2 className="h-4 w-4" /> Cargar detalle
-          </Button>
-        </div>
-      </div>
-
-      {/* ── Detalle de insumos ── */}
-      <div className="flex flex-col gap-3">
-        <DataTable
-          toolbar={
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <ClipboardCheck className="h-4 w-4 text-primary" />
-                <h2 className="text-sm font-semibold text-foreground">Detalle de Insumos</h2>
-                {applied && (
-                  <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">{applied.numero}</span>
-                )}
-              </div>
-              {applied && (
-                <span className="text-xs text-muted-foreground">
-                  {completos}/{rows.length} completos
-                </span>
-              )}
-            </div>
-          }
-          columns={columns}
-          data={rows}
-          rowKey={r => r.id}
-          emptyMessage={applied ? 'La orden no tiene insumos.' : 'Elegí una orden y cargá el detalle.'}
-        />
-
-        <div className="flex justify-end">
-          <Button onClick={register} disabled={rows.length === 0} className="gap-2 sm:w-auto">
-            <ClipboardCheck className="h-4 w-4" /> Registrar Recepción
-          </Button>
-        </div>
-      </div>
-    </div>
-  )
+    )
+  }
+  return <TrxRuntime config={config} registry={registry} />
 }

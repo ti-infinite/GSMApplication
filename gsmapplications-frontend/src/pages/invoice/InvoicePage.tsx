@@ -1,158 +1,191 @@
 import { useEffect, useState } from 'react'
-import { Combobox } from '@/shared/ui/combobox'
-import { Button } from '@/shared/ui/button'
-import { DataTable, type TableColumn } from '@/shared/ui/data-table'
-import { SlidersHorizontal, CheckCircle2, Save, Trash2, FileText } from 'lucide-react'
+import { TrxRuntime, buildRegistry } from '@/entities/trx'
+import type { JsonConfig, Fetcher } from '@/entities/trx'
+import { getConfig, saveConfig, getOrden, listOrdenes, saveFactura } from '@/shared/lib/idb'
+import { Skeleton } from '@/shared/ui/skeleton'
 import { toast } from 'sonner'
-import { listRecepciones, getRecepcion, saveFactura } from '@/shared/lib/idb'
-import type { Recepcion, Factura, FacturaLine } from '@/entities/order'
+import { getMasterProducts, getCategories } from '@/shared/api/operations/endpoints'
+import type { MasterProductDTOListApiResponse, StringApiResponse } from '@/shared/api/operations/model'
 
-// Línea de factura: nombre y cantidad editables (se factura lo recibido).
-type FacRow = FacturaLine
+type Row = Record<string, unknown>
+const money = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
 
-export default function InvoicePage() {
-  const [recepciones, setRecepciones] = useState<Recepcion[]>([])
-  const [sel,     setSel]     = useState('')
-  const [applied, setApplied] = useState<Recepcion | null>(null)
-  const [items,   setItems]   = useState<FacRow[]>([])
+// Diccionario mock insumo → nombre SAP (mantenido; editable en la UI). Luego será
+// tabla/endpoint. Por ahora normaliza el nombre al "idioma" de SAP (MAYÚSCULAS).
+const sapNameFor = (varietyName: string) => varietyName.trim().toUpperCase().replace(/\s+/g, ' ')
 
-  // Recepciones registradas (para el combo). Se factura sobre lo recibido.
-  useEffect(() => { listRecepciones<Recepcion>().then(setRecepciones) }, [])
+const CENTROS = [
+  { id: 'NRJ', name: 'Finca Naranjal' },
+  { id: 'GUA', name: 'Guali' },
+  { id: 'AGC', name: 'Agua Clara' },
+  { id: 'NCD', name: 'Nacederos' },
+]
 
-  const apply = async () => {
-    if (!sel) return
-    const r = await getRecepcion<Recepcion>(sel)
-    setApplied(r)
-    // La factura arranca con lo recibido (qty = recibida), editable.
-    setItems((r?.lines ?? []).map(l => ({ id: l.id, nombre: l.varietyName, qty: l.recibida })))
+/* ─────────────────────────── CONFIG (JSON) ─────────────────────────── */
+const INV_CONFIG: JsonConfig = {
+  prefix: 'FACCS',
+  JsonFront: {
+    title:    'Factura → SAP',
+    subtitle: 'Ajusta presentaciones al diccionario SAP y exporta la factura para subirla.',
+    rowKey:   'id',
+    initCollection: 'main',
+    components: [
+      { type: 'filters', filters: [
+        { key: 'centro',  label: 'Centro de costo', source: 'CENTROS',  optionValue: 'id',     optionLabel: 'name', cookieDefault: { field: 'location' } },
+        { key: 'factura', label: 'Factura / Orden',  source: 'FACTURAS', optionValue: 'numero', optionLabel: 'numero' },
+      ] },
+      { type: 'stack', children: [
+        { type: 'heading', title: 'Detalle de la factura', badge: 'facturaTotal' },
+        { type: 'table', source: 'collection', rowKey: 'id',
+          search: {
+            source: 'CATALOG', optionValue: 'id', optionLabel: 'varietyName',
+            label: 'Agregar insumo', placeholder: 'Buscar insumo…',
+            cascade: [
+              { key: 'category',    label: 'Categoría',    source: 'CATEGORIES', optionValue: 'IdCategory', optionLabel: 'Descr' },
+              { key: 'subcategory', label: 'Subcategoría', dependsOn: 'category', optionsFrom: 'Children', optionValue: 'IdCategory', optionLabel: 'Descr' },
+            ],
+            prefixFrom: 'AggregatedCode', prefixField: 'sku',
+          },
+          fields: [
+            { label: 'Insumo',     selectorValue: 'varietyName' },
+            { label: 'Nombre SAP', selectorValue: 'sapName', renderer: 'textInput' },
+            { label: 'Cant.',      selectorValue: 'qty', renderer: 'input' },
+            { label: 'Precio',     selectorValue: 'precio', renderer: 'input' },
+            { label: 'Total',      selectorType: 'COMPUTED', selectorValue: 'totalFmt' },
+            { label: '',           selectorValue: 'split', renderer: 'splitButton' },
+            { label: '',           selectorValue: 'rm',    renderer: 'removeAdded' },
+          ],
+        },
+      ] },
+      { type: 'note', text: 'Ajusta la cantidad, dividí una línea o agrega insumos para que la factura calce con las presentaciones de SAP. "Exportar a SAP" descarga el CSV.' },
+      { type: 'actions', align: 'end', buttons: [
+        { on: 'SAVE',   label: 'Guardar', variant: 'secondary' },
+        { on: 'EXPORT', label: 'Exportar SAP (CSV)' },
+      ] },
+    ],
+  },
+  JsonREA: {
+    resources: [
+      { id: 'FACTURA_LINES', descr: 'Líneas de la factura', sourceType: 'API', cacheIn: 'INDEXED_DB',
+        parameters: [ { key: 'factura', sourceType: 'CONTEXT', keyValue: 'factura', valueType: 'string' } ] },
+    ],
+    events: [], agents: [],
+  },
+  JsonWorkflow: {
+    initialState: 'BORRADOR',
+    states: ['BORRADOR', 'EMITIDA'],
+    transitions: [
+      { from: 'BORRADOR', to: 'BORRADOR', on: 'SAVE',   event: 'guardarFactura' },
+      { from: 'EMITIDA',  to: 'EMITIDA',  on: 'SAVE',   event: 'guardarFactura' },
+      { from: 'BORRADOR', to: 'EMITIDA',  on: 'EXPORT', event: 'exportSap' },
+      { from: 'EMITIDA',  to: 'EMITIDA',  on: 'EXPORT', event: 'exportSap' },
+    ],
+  },
+}
+
+/* ─────────────────────────── FETCHERS ─────────────────────────── */
+const centrosFetcher: Fetcher = async () => ({ success: 'true', message: '', data: CENTROS, traceId: null })
+
+// Órdenes RECIBIDA (completas) → facturables.
+const facturasFetcher: Fetcher = async () => {
+  const list = await listOrdenes<{ numero: string; estado?: string }>()
+  const data = list.filter(o => o.estado === 'RECIBIDA').map(o => ({ numero: o.numero }))
+  return { success: 'true', message: '', data, traceId: null }
+}
+
+// Líneas de la factura (de la orden) + nombre SAP del diccionario (editable).
+const facturaLinesFetcher: Fetcher = async (_id, params) => {
+  const factura = params.factura ?? ''
+  if (!factura) return { success: 'true', message: '', data: [], traceId: null }
+  const orden = await getOrden<{ lines?: Array<{ id: string; varietyName: string; qty: number; precioUnit?: number }> }>(factura)
+  const data = (orden?.lines ?? []).map(l => ({
+    id: l.id, varietyName: l.varietyName, qty: l.qty, precio: l.precioUnit ?? 0,
+    sapName: sapNameFor(l.varietyName),
+  }))
+  return { success: 'true', message: '', data, traceId: null }
+}
+
+// Categorías REALES (JSON string → parse) para el picker.
+const categoriesFetcher: Fetcher = async () => {
+  const res = await getCategories()
+  let cats: unknown[] = []
+  try { cats = JSON.parse((res.data as StringApiResponse).data ?? '[]') } catch { cats = [] }
+  return { success: 'true', message: '', data: cats, traceId: null }
+}
+
+// Catálogo para "agregar insumo" — shape de línea de factura (agregada → borrable).
+const catalogFetcher: Fetcher = async () => {
+  const res = await getMasterProducts()
+  const all = (res.data as MasterProductDTOListApiResponse | undefined)?.data ?? []
+  const data = all.flatMap(p => (p.mv ?? []).map(v => ({
+    id: `${p.sku ?? ''}-${v.idVariety ?? 0}`, varietyName: v.name ?? '',
+    qty: 1, precio: 0, sapName: sapNameFor(v.name ?? ''), sku: p.sku ?? '', added: true,
+  })))
+  return { success: 'true', message: '', data, traceId: null }
+}
+
+/* ─────────────────────────── REGISTRY ─────────────────────────── */
+const registry = buildRegistry({
+  fetchers: { FACTURAS: facturasFetcher, FACTURA_LINES: facturaLinesFetcher, CENTROS: centrosFetcher, CATEGORIES: categoriesFetcher, CATALOG: catalogFetcher },
+  computeds: {
+    precioFmt:    row => money(Number(row.precio || 0)),
+    totalFmt:     row => money(Number(row.qty || 0) * Number(row.precio || 0)),
+    // Total de la factura (badge del heading) → para reconciliar el split.
+    facturaTotal: row => {
+      const items = (row.$items as Row[]) ?? []
+      return `Total: ${money(items.reduce((s, l) => s + Number(l.qty || 0) * Number(l.precio || 0), 0))}`
+    },
+  },
+  actions: {
+    // Guarda la factura (borrador) en IndexedDB.
+    guardarFactura: ({ collection, context }) => {
+      const factura = String(context.factura ?? '')
+      void saveFactura(factura || `FAC-${Date.now()}`, {
+        factura,
+        lines: collection.map(r => ({ id: r.id, varietyName: r.varietyName, sapName: r.sapName, qty: Number(r.qty || 0), precio: Number(r.precio || 0) })),
+        createdAt: Date.now(),
+      })
+      toast.success('Factura guardada')
+    },
+    // Exporta la factura como CSV con los nombres SAP (para subir al tercero).
+    exportSap: ({ collection, context }) => {
+      const esc = (s: string) => `"${s.replace(/"/g, '""')}"`
+      const header = 'nombre_sap,cantidad,precio_unit,total'
+      const body = collection.map(r => {
+        const qty = Number(r.qty || 0), precio = Number(r.precio || 0)
+        return [esc(String(r.sapName ?? '')), qty, precio, qty * precio].join(',')
+      }).join('\n')
+      const blob = new Blob([`${header}\n${body}`], { type: 'text/csv;charset=utf-8;' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `factura-sap-${String(context.factura || 'export')}.csv`
+      a.click()
+      URL.revokeObjectURL(url)
+      toast.success('Factura exportada para SAP (CSV)')
+    },
+  },
+})
+
+const CONFIG_ID = INV_CONFIG.prefix
+
+export default function InvoiceTrxPage() {
+  const [config, setConfig] = useState<JsonConfig | null>(null)
+  useEffect(() => {
+    void (async () => {
+      await saveConfig(CONFIG_ID, INV_CONFIG, 'operations')
+      setConfig(await getConfig<JsonConfig>(CONFIG_ID))
+    })()
+  }, [])
+
+  if (!config) {
+    return (
+      <div className="flex flex-col gap-6">
+        <Skeleton className="h-8 w-64" />
+        <Skeleton className="h-24 w-full rounded-xl" />
+        <Skeleton className="h-96 w-full rounded-xl" />
+      </div>
+    )
   }
-
-  const setNombre  = (id: string, nombre: string) => setItems(prev => prev.map(l => (l.id === id ? { ...l, nombre } : l)))
-  const setQty     = (id: string, qty: number)    => setItems(prev => prev.map(l => (l.id === id ? { ...l, qty } : l)))
-  const removeItem = (id: string)                 => setItems(prev => prev.filter(l => l.id !== id))
-
-  const save = () => {
-    if (items.length === 0) return
-    const seq    = (parseInt(localStorage.getItem('fac_seq') ?? '0', 10) || 0) + 1
-    const numero = `FAC-${String(seq).padStart(4, '0')}`
-    const factura: Factura = { numero, origen: applied?.numero ?? '', lines: items, createdAt: Date.now() }
-    void saveFactura(numero, factura)   // consigna en IndexedDB → continúa el flujo (pagos/reportes)
-    localStorage.setItem('fac_seq', String(seq))
-    console.info('[Invoice] factura guardada:', JSON.stringify(factura, null, 2))
-    toast.success(`Factura ${numero} guardada correctamente`)
-    setItems([]); setApplied(null); setSel('')
-  }
-
-  const columns: TableColumn<FacRow>[] = [
-    {
-      key:    'nombre',
-      header: 'Insumo',
-      render: (row: FacRow) => (
-        <input
-          type="text"
-          value={row.nombre}
-          onChange={e => setNombre(row.id, e.target.value)}
-          className="w-full min-w-0 rounded-md border border-border bg-background px-2.5 py-1 text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-        />
-      ),
-    },
-    {
-      key:    'qty',
-      header: 'Cantidad',
-      render: (row: FacRow) => (
-        <input
-          type="number"
-          min="0"
-          inputMode="numeric"
-          value={row.qty || ''}
-          onChange={e => setQty(row.id, Number(e.target.value.replace(/[^0-9.]/g, '')) || 0)}
-          placeholder="0"
-          className="w-24 min-w-0 rounded-md border border-border bg-background px-2 py-1 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-        />
-      ),
-    },
-    {
-      key:    'remove',
-      header: '',
-      render: (row: FacRow) => (
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => removeItem(row.id)}
-          className="h-7 w-7 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-          aria-label="Quitar insumo"
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-        </Button>
-      ),
-    },
-  ]
-
-  return (
-    <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Facturas</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Generá la factura sobre lo recibido — ajustá nombre y cantidad de cada insumo — prototipo
-        </p>
-      </div>
-
-      {/* ── Filtrado de factura ── */}
-      <div className="flex flex-col gap-4 rounded-xl border border-border bg-card p-4 shadow-sm">
-        <div className="flex items-center gap-2">
-          <SlidersHorizontal className="h-4 w-4 text-primary" />
-          <span className="text-sm font-semibold text-foreground">Filtrado de Factura</span>
-        </div>
-        <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-[1fr_auto]">
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Número de orden recibida</label>
-            <Combobox
-              options={recepciones.map(r => ({ value: r.numero, label: r.numero }))}
-              value={sel}
-              onChange={setSel}
-              placeholder={recepciones.length === 0 ? 'Sin recepciones' : 'Elegí una recepción'}
-              emptyMessage="No hay recepciones registradas"
-            />
-          </div>
-          <Button onClick={apply} disabled={!sel} className="gap-2">
-            <CheckCircle2 className="h-4 w-4" /> Aplicar Filtros
-          </Button>
-        </div>
-      </div>
-
-      {/* ── Detalle de insumos (factura) ── */}
-      <div className="flex flex-col gap-3">
-        <DataTable
-          toolbar={
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <FileText className="h-4 w-4 text-primary" />
-                <h2 className="text-sm font-semibold text-foreground">Detalle de Insumos (Factura)</h2>
-                {applied && (
-                  <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">{applied.numero}</span>
-                )}
-              </div>
-              {applied && (
-                <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">{items.length}</span>
-              )}
-            </div>
-          }
-          columns={columns}
-          data={items}
-          rowKey={l => l.id}
-          emptyMessage={applied ? 'La recepción no tiene insumos.' : 'Elegí una recepción y aplicá los filtros.'}
-        />
-
-        <p className="text-xs italic text-muted-foreground">
-          ¿Faltan insumos? En una versión real podrías agregarlos manualmente al centro de costo.
-        </p>
-
-        <div className="flex justify-end">
-          <Button onClick={save} disabled={items.length === 0} className="gap-2 sm:w-auto">
-            <Save className="h-4 w-4" /> Guardar
-          </Button>
-        </div>
-      </div>
-    </div>
-  )
+  return <TrxRuntime config={config} registry={registry} />
 }

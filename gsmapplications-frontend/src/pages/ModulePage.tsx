@@ -12,10 +12,21 @@ const modules: Record<string, React.LazyExoticComponent<React.ComponentType>> = 
   'settings':  lazy(() => import('@/pages/settings/SettingsPage')),
   'productivity': lazy(() => import('@/pages/productivity/ProductivityPage')),
   'operations/products': lazy(() => import('@/pages/products/ProductsPage')),
-  'operations/requirements': lazy(() => import('@/pages/requirements/RequirementsPage')),
-  'operations/purchase-order': lazy(() => import('@/pages/purchase-orders/PurchaseOrdersPage')),
-  'operations/reception': lazy(() => import('@/pages/reception/ReceptionPage')),
-  'operations/invoice': lazy(() => import('@/pages/invoice/InvoicePage')),
+  // Operaciones — config-driven (motor TRX) en la ruta OFICIAL · las viejas en -trx.
+  'operations/requirements':       lazy(() => import('@/pages/requirements/RequirementsPage')),
+  'operations/requirements-trx':   lazy(() => import('@/pages/requirements/RequirementsTrxPage')),
+  'operations/purchase-order':     lazy(() => import('@/pages/purchase-orders/PurchaseOrderTrxPage')),
+  'operations/purchase-order-trx': lazy(() => import('@/pages/purchase-orders/PurchaseOrdersPage')),
+  'operations/reception':          lazy(() => import('@/pages/reception/ReceptionPage')),
+  'operations/reception-trx':      lazy(() => import('@/pages/reception/ReceptionTrxPage')),
+  'operations/invoice':            lazy(() => import('@/pages/invoice/InvoicePage')),
+  'operations/invoice-trx':        lazy(() => import('@/pages/invoice/InvoiceTrx1Page')),
+  'operations/verification':       lazy(() => import('@/pages/verification/VerificationTrxPage')),
+  'operations/trx-demo':           lazy(() => import('@/pages/trx-demo/TrxDemoPage')),
+  'record': lazy(() => import('@/pages/record/RecordExpenseTrxPage')),
+  'operations/record': lazy(() => import('@/pages/record/RecordExpenseTrxPage')),
+  'adjust': lazy(() => import('@/pages/adjust/AjustesInventarioTrxPage')),
+  'operations/adjust': lazy(() => import('@/pages/adjust/AjustesInventarioTrxPage')),
   'artificial-intelligence/order/orders':    lazy(() => import('@/pages/ia/orders/OrdersPage')),
   'artificial-intelligence/order/chat':      lazy(() => import('@/pages/ia/orders/ChatPage')),
   'artificial-intelligence/order/documents': lazy(() => import('@/pages/ia/orders/DocumentsPage')),
@@ -68,7 +79,5 @@ export default function ModulePage() {
     )
   }
 
-  // The route maps to a real menu option but has no implementation yet → ComingSoon.
-  // The route matches nothing in the menu → genuine 404.
   return option ? <ComingSoon title={slugToTitle(slug)} /> : <NotFound />
 }

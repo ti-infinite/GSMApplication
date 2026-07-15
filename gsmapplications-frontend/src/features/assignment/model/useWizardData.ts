@@ -1,12 +1,13 @@
 import { useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import {
   useGetCategories,
   useGetSkuDefinitions,
   useGetParameters,
   useGetMasterProducts,
-  useGetFilteredEmployees,
-  useGetFilteredSuppliers,
-} from '@/shared/api/operations/operations/operations'
+  getFilteredEmployees,
+  getFilteredSuppliers,
+} from '@/shared/api/operations/endpoints'
 import { getStoredUser, isSessionActive } from '@/shared/lib/auth'
 import type {
   GlobalParameterListApiResponse,
@@ -88,39 +89,41 @@ export function useWizardData() {
   })
 
   // ── Employees — filtered by the current user's location ─────────
-  const { data: employees = [], isLoading: l5, isError: e5 } = useGetFilteredEmployees(undefined, {
-    query: {
-      enabled,
-      staleTime: 2 * 60 * 1000,
-      select: res => {
-        const userLocation = (getStoredUser()?.location ?? '').toLowerCase()
-        return ((res.data as EmployeeDTOListApiResponse).data ?? [])
-          .filter(e => !userLocation || (e.location ?? '').toLowerCase() === userLocation)
-          .map((e, i) => ({
-            id:         `emp-${i}`,
-            idEmployee: e.idEmployee,   // real backend Id → used in create-trx Employee attr
-            name:       e.fullName ?? '',
-            role:       e.location ?? 'Harvester',
-          }) satisfies Employee)
-      },
+  // POST endpoint → driven through useQuery with the raw fetcher.
+  const { data: employees = [], isLoading: l5, isError: e5 } = useQuery({
+    queryKey: ['filtered-employees'],
+    enabled,
+    staleTime: 2 * 60 * 1000,
+    queryFn: () => getFilteredEmployees(),
+    select: res => {
+      const userLocation = (getStoredUser()?.location ?? '').toLowerCase()
+      return ((res.data as EmployeeDTOListApiResponse).data ?? [])
+        .filter(e => !userLocation || (e.location ?? '').toLowerCase() === userLocation)
+        .map((e, i) => ({
+          id:         `emp-${i}`,
+          idEmployee: e.idEmployee,   // real backend Id → used in create-trx Employee attr
+          name:       e.fullName ?? '',
+          role:       e.location ?? 'Harvester',
+        }) satisfies Employee)
     },
   })
 
   // ── Suppliers / Growers ─────────────────────────────────────────
-  const { data: growers = [], isLoading: l6, isError: e6 } = useGetFilteredSuppliers(undefined, {
-    query: {
-      enabled,
-      staleTime: 5 * 60 * 1000,
-      select: res => ((res.data as SupplierDTOListApiResponse).data ?? []).map(s => ({
-        id:               s.idSupplier ?? '',
-        idThirdSupplier:  s.idThirdSupplier ?? '',
-        name:             s.nameSupplier ?? '',
-        location:         s.region ?? undefined,
-        region:           s.region ?? undefined,
-        country:          s.country ?? undefined,
-        categorySupplier: s.categorySupplier ?? undefined,
-      }) satisfies Grower),
-    },
+  // POST endpoint → driven through useQuery with the raw fetcher.
+  const { data: growers = [], isLoading: l6, isError: e6 } = useQuery({
+    queryKey: ['filtered-suppliers'],
+    enabled,
+    staleTime: 5 * 60 * 1000,
+    queryFn: () => getFilteredSuppliers(),
+    select: res => ((res.data as SupplierDTOListApiResponse).data ?? []).map(s => ({
+      id:               s.idSupplier ?? '',
+      idThirdSupplier:  s.idThirdSupplier ?? '',
+      name:             s.nameSupplier ?? '',
+      location:         s.region ?? undefined,
+      region:           s.region ?? undefined,
+      country:          s.country ?? undefined,
+      categorySupplier: s.categorySupplier ?? undefined,
+    }) satisfies Grower),
   })
 
   const isLoading = l1 || l2 || l3 || l4 || l5 || l6

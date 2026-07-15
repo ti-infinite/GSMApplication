@@ -6,7 +6,7 @@
     "version": "v1"
   },
   "paths": {
-    "/api/v1/Application/getMenu": {
+    "/api/v1/Application/menu": {
       "get": {
         "tags": [
           "Application"
@@ -56,7 +56,7 @@
         }
       }
     },
-    "/api/v1/Application/getMediaResources": {
+    "/api/v1/Application/mediaResources": {
       "get": {
         "tags": [
           "Application"
@@ -669,6 +669,70 @@
           },
           "data": {
             "$ref": "#/components/schemas/GetMenuDto"
+          },
+          "errorType": {
+            "$ref": "#/components/schemas/ErrorType"
+          },
+          "traceId": {
+            "type": "string",
+            "nullable": true
+          },
+          "details": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "LocationDTO": {
+        "required": [
+          "idLocation"
+        ],
+        "type": "object",
+        "properties": {
+          "idLocation": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "idThirdLocation": {
+            "type": "string",
+            "nullable": true
+          },
+          "codeLocation": {
+            "type": "string",
+            "nullable": true
+          },
+          "email": {
+            "type": "string",
+            "nullable": true
+          },
+          "phoneNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "addressLocation": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "LocationDTOListApiResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string",
+            "nullable": true
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LocationDTO"
+            },
+            "nullable": true
           },
           "errorType": {
             "$ref": "#/components/schemas/ErrorType"

@@ -1,4 +1,4 @@
-import { getMasterProducts } from '@/shared/api/operations/operations/operations'
+import { getMasterProducts } from '@/shared/api/operations/endpoints'
 import type { MasterProductDTOListApiResponse } from '@/shared/api/operations/model'
 import type { Fetcher } from '@/entities/trx'
 import type { StockRow } from './stockResponse'

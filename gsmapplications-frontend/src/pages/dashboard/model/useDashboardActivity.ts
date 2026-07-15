@@ -1,6 +1,6 @@
 import { isSessionActive } from '@/shared/lib/auth'
 import { parseConfig, type MediaResource } from '@/shared/lib/mediaConfig'
-import { useGetMediaResources } from '@/shared/api/application/application/application'
+import { useGetMediaResources } from '@/shared/api/application/endpoints'
 import type { MultimediaResourceDtoListApiResponse } from '@/shared/api/application/model'
 
 type UseDashboardActivityResult = {

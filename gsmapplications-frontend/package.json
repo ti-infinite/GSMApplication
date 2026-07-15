@@ -5,10 +5,14 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "predev": "orval",
     "build": "tsc -b && vite build",
+    "prebuild": "orval",
     "preview": "vite preview",
     "lint": "eslint",
-    "generate": "orval"
+    "generate": "orval",
+    "swagger:refresh": "curl -k https://localhost:8081/swagger/v1/swagger.json -o swagger/gsm-auth.json && curl -k https://localhost:8082/swagger/v1/swagger.json -o swagger/gsm-application.json && curl -k https://localhost:8083/swagger/v1/swagger.json -o swagger/gsm-operations.json",
+    "api:sync": "npm run swagger:refresh && npm run generate"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.15",

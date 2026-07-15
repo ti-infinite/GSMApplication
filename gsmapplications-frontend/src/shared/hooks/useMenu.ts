@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { isSessionActive } from '@/shared/lib/auth'
 import type { MenuOption } from '@/shared/lib/menu'
-import { useGetMenu } from '@/shared/api/application/application/application'
+import { useGetMenu } from '@/shared/api/application/endpoints'
 import type { GetMenuDtoApiResponse } from '@/shared/api/application/model'
 
 type RawItem = MenuOption & {

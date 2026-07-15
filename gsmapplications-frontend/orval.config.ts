@@ -7,9 +7,9 @@ export default defineConfig({
     },
     output: {
       client:  'react-query',
-      target:  './src/shared/api/application',
+      target:  './src/shared/api/application/endpoints.ts',
       schemas: './src/shared/api/application/model',
-      mode:    'tags-split',
+      mode:    'split',
       override: {
         mutator: {
           path: './src/shared/lib/fetcher.ts',
@@ -24,9 +24,9 @@ export default defineConfig({
     },
     output: {
       client:  'react-query',
-      target:  './src/shared/api/auth',
+      target:  './src/shared/api/auth/endpoints.ts',
       schemas: './src/shared/api/auth/model',
-      mode:    'tags-split',
+      mode:    'split',
       override: {
         mutator: {
           path: './src/shared/lib/fetcher.ts',
@@ -38,15 +38,12 @@ export default defineConfig({
   gsmOperations: {
     input: {
       target: './swagger/gsm-operations.json',
-      filters: {
-        tags: ['Integrations', 'Operations'],
-      },
     },
     output: {
       client:  'react-query',
-      target:  './src/shared/api/operations',
+      target:  './src/shared/api/operations/endpoints.ts',
       schemas: './src/shared/api/operations/model',
-      mode:    'tags-split',
+      mode:    'split',
       override: {
         mutator: {
           path: './src/shared/lib/fetcher.ts',

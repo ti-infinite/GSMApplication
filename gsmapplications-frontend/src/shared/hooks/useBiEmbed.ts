@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import i18n from 'i18next'
 import { getStoredUser } from '@/shared/lib/auth'
-import { useGetApiRuleById } from '@/shared/api/application/integrations/integrations'
-import { execApi } from '@/shared/api/operations/integrations/integrations'
+import { useGetApiRuleById } from '@/shared/api/application/endpoints'
+import { execApi } from '@/shared/api/operations/endpoints'
 import type { ApiRuleApiResponse } from '@/shared/api/application/model'
 import type { ObjectApiResponse } from '@/shared/api/operations/model'
 

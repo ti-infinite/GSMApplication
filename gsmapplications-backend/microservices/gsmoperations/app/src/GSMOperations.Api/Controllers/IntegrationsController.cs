@@ -24,7 +24,6 @@ public sealed class IntegrationsController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status409Conflict)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status500InternalServerError)]
 
-
     public async Task<IActionResult> ExecApi([FromBody] GenericApiDTO genericApiDTO, CancellationToken cancellationToken)
     {
         var response = await _apiManagementService.ExecApi(genericApiDTO, cancellationToken);

@@ -5,6 +5,7 @@ namespace GSMOperations.Entities.Common
     {
         public static class Operations
         {
+            public const string ResourceExecutedSuccessfully = "Resource executed successfully.";
             public const string TrxDefinitionsLoaded = "Transaction definitions loaded succesfully.";
             public const string TransactionLoaded = "Transactions loaded successfully.";
             public const string TransactionAppend = "The values were appended to the TRX successfully";

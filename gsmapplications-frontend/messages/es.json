@@ -18,8 +18,8 @@
   },
   "products": {
     "title": "Productos",
-    "subtitle": "Buscá un producto por categoría y parámetros",
-    "selectPrompt": "Seleccioná un producto para continuar",
+    "subtitle": "Busca un producto por categoría y parámetros",
+    "selectPrompt": "Selecciona un producto para continuar",
     "next": "Siguiente",
     "confirm": "Confirmar producto",
     "confirmed": "Producto seleccionado: {{name}}",

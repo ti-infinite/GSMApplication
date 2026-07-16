@@ -8,5 +8,6 @@ public interface IManageTransactionService
 {
     Task<ApiResponse<string>> CreateTransaction(TrxCreateDTO request, CancellationToken cancellationToken = default);
     Task<ApiResponse<string>> UpdateTrx(long idTrxHeader, TrxUpdateDTO trxRequest, CancellationToken cancellationToken = default);
-    Task<ApiResponse<List<TrxResponseDTO>>> GetTrx(SearchTrx searchTrx, CancellationToken cancellationToken = default);
+    Task<ApiResponse<List<TrxResponseDTO>>> GetTrx(SearchTrx? searchTrx, CancellationToken cancellationToken = default);
+    Task<ApiResponse<List<TrxDefinitionDTO>>> GetFilteredTrxDefinition(SearchTrxDefinition? searchTrxDefinition, CancellationToken cancellationToken = default);
 }

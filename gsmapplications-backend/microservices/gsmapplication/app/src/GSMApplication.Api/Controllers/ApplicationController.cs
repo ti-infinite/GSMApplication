@@ -25,7 +25,7 @@ public sealed class ApplicationController : ControllerBase
         _locationService = locationService;
     }
 
-    [HttpGet("getMenu")]
+    [HttpGet("menu")]
     [ProducesResponseType(typeof(ApiResponse<GetMenuDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<GetMenuDto>), StatusCodes.Status401Unauthorized)]
 
@@ -36,7 +36,7 @@ public sealed class ApplicationController : ControllerBase
         return Ok(response);
     }
 
-    [HttpGet("getMediaResources")]
+    [HttpGet("mediaResources")]
     [ProducesResponseType(typeof(ApiResponse<List<MultimediaResourceDto>>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<MultimediaResourceDto>), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse<MultimediaResourceDto>), StatusCodes.Status404NotFound)]

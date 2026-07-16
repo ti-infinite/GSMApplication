@@ -37,18 +37,17 @@ public sealed class ManageTransactionService : IManageTransactionService
     public async Task<string> CreateTrx(TrxCreateDTO trxRequest, CancellationToken cancellationToken = default)
     {
         string prefix = trxRequest.TrxPrefix;
-        var trxNumber = await GetNextTransactionNumber(prefix, cancellationToken);
+        var trxNumber = await GetNextTransactionNumber(prefix, trxRequest.Location, cancellationToken);
         var trxId = $"{prefix}{trxNumber}";
-        var status = trxRequest.TrxStates!.TrxState;
 
 
         var entity = new TrxHeader
         {
             TrxPrefix = prefix,
-            TrxDocument = $"{prefix}{trxNumber}",
+            TrxDocument = trxId,
             Descr = trxRequest.Descr,
             TrxDate = DateTime.UtcNow,
-            Status = trxRequest.TrxStates!.TrxState,
+            Status = trxRequest.TrxStates!.ToTrxState,
             Username = trxRequest.Username,
             Location = trxRequest.Location,
             TrxAttributes = trxRequest.TrxAttributes.Select(a => new TrxAttribute
@@ -67,7 +66,8 @@ public sealed class ManageTransactionService : IManageTransactionService
             {
                 new TrxStates
                 {
-                    TrxState = trxRequest.TrxStates!.TrxState,
+                    FromTrxState = trxRequest.TrxStates!.FromTrxState,
+                    ToTrxState = trxRequest.TrxStates!.ToTrxState,
                     Comments = trxRequest.TrxStates.Comments,
                     StateDate = DateTime.UtcNow
                 }
@@ -98,12 +98,13 @@ public sealed class ManageTransactionService : IManageTransactionService
 
         if (trxRequest.TrxStates != null)
         {
-            trx.Status = trxRequest.TrxStates.TrxState;
+            trx.Status = trxRequest.TrxStates.ToTrxState;
 
             _context.TrxStates.Add(new TrxStates
             {
                 IdTrxHeader = idTrxHeader,
-                TrxState = trxRequest.TrxStates.TrxState,
+                FromTrxState = trxRequest.TrxStates.FromTrxState,
+                ToTrxState = trxRequest.TrxStates.ToTrxState,
                 Comments = trxRequest.TrxStates.Comments,
                 StateDate = DateTime.UtcNow
             });
@@ -150,9 +151,13 @@ public sealed class ManageTransactionService : IManageTransactionService
         return ApiResponse<string>.SuccessResultWithoutData(Messages.Operations.TransactionAppend);
     }
 
-    public async Task<ApiResponse<List<TrxResponseDTO>>> GetTrx(SearchTrx searchTrx, CancellationToken cancellationToken = default)
+    public async Task<ApiResponse<List<TrxResponseDTO>>> GetTrx(SearchTrx? searchTrx, CancellationToken cancellationToken = default)
     {
-        var query = _context.TrxHeaders.AsQueryable();
+        searchTrx ??= new SearchTrx();
+
+        var query = _context.TrxHeaders
+            .AsNoTracking()
+            .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(searchTrx.TrxPrefix))
         {
@@ -197,11 +202,12 @@ public sealed class ManageTransactionService : IManageTransactionService
                         Qty = x.Qty
                     }).ToList(),
                 TrxStates = x.TrxStates
-                    .OrderBy(x => x.TrxState)
+                    .OrderBy(x => x.FromTrxState)
                     .Select(x => new TrxResponseStateDTO
                     {
                         IdTrxState = x.IdTrxState,
-                        TrxState = x.TrxState,
+                        FromTrxState = x.FromTrxState,
+                        ToTrxState = x.ToTrxState,
                         StateDate = x.StateDate,
                         Comments = x.Comments
                     }).ToList(),
@@ -217,20 +223,57 @@ public sealed class ManageTransactionService : IManageTransactionService
             return ApiResponse<List<TrxResponseDTO>>.SuccessResult(result,Messages.Operations.TransactionLoaded);
     }
 
-    public async Task<long> GetNextTransactionNumber(string prefix, CancellationToken cancellationToken = default)
+    public async Task<long> GetNextTransactionNumber(string prefix, string? location, CancellationToken cancellationToken = default)
     {
         var sp = new StoredProcedureModel
         (
             "GETTRXNUMBER",
             new Dictionary<string, object?>
             {
-                { "@Prefix", prefix }
+                { "@Prefix", prefix },
+                { "@Location", location }
             }
         ); 
 
         var result = await _spExecutor.ExecuteSpScalarAsync<long?>(sp, cancellationToken);
         
         return result ?? throw new InvalidOperationException("Stored procedure returned null");    
+    }
+
+    public async Task<ApiResponse<List<TrxDefinitionDTO>>> GetFilteredTrxDefinition(SearchTrxDefinition? searchTrxDefinition, CancellationToken cancellationToken = default)
+    {
+
+        searchTrxDefinition ??= new SearchTrxDefinition();
+
+        var query = _context.TrxDefinitions
+            .AsNoTracking()
+            .AsQueryable();
+
+        if (searchTrxDefinition.IdTrxDefinition is int idTrxDefinition)
+        {
+            query = query.Where(x => x.IdTrxDefinition == idTrxDefinition);
+        }
+        if (searchTrxDefinition.IdTrxSerie is int idTrxSerie)
+        {
+            query = query.Where(x => x.IdTrxSerie == idTrxSerie);
+        }
+        if (!string.IsNullOrWhiteSpace(searchTrxDefinition.TrxPrefix))
+        {
+            query = query.Where(x => EF.Functions.Like(x.Prefix, $"%{searchTrxDefinition.TrxPrefix}%"));
+        }
+
+        var result = await query
+            .OrderBy(x => x.IdTrxDefinition)
+            .Select(x => new TrxDefinitionDTO
+            {
+                IdTrxDefinition = x.IdTrxDefinition,
+                Prefix = x.Prefix,
+                JsonFront = x.JsonFront,
+                JsonRea = x.JsonRea,
+                JsonWorkflow = x.JsonWorkflow
+            }).ToListAsync(cancellationToken);
+
+        return ApiResponse<List<TrxDefinitionDTO>>.SuccessResult(result, Messages.Operations.TrxDefinitionsLoaded);
     }
 
 }

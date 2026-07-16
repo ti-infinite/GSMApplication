@@ -7,17 +7,32 @@ import ExternalPage from '@/shared/components/ExternalPage'
 import type { DashboardOutletCtx } from '@/shared/lib/menu'
 
 const modules: Record<string, React.LazyExoticComponent<React.ComponentType>> = {
-  'resources': lazy(() => import('@/features/resources/ResourcesPage')),
-  'sop':       lazy(() => import('@/features/sop/SopPage')),
-  'settings':  lazy(() => import('@/features/settings/SettingsPage')),
-  'productivity': lazy(() => import('@/features/productivity/ProductivityPage')),
-  'operations/products': lazy(() => import('@/features/products/ProductsPage')),
-  'artificial-intelligence/order/orders':    lazy(() => import('@/features/ia/orders/OrdersPage')),
-  'artificial-intelligence/order/chat':      lazy(() => import('@/features/ia/orders/ChatPage')),
-  'artificial-intelligence/order/documents': lazy(() => import('@/features/ia/orders/DocumentsPage')),
-  'artificial-intelligence/order/ih-sales':  lazy(() => import('@/features/ia/orders/IHSalesPage')),
-  'artificial-intelligence/order/metrics':   lazy(() => import('@/features/ia/orders/MetricsPage')),
-  'artificial-intelligence/order/upload':    lazy(() => import('@/features/ia/orders/UploadPage')),
+  'resources': lazy(() => import('@/pages/resources/ResourcesPage')),
+  'sop':       lazy(() => import('@/pages/sop/SopPage')),
+  'settings':  lazy(() => import('@/pages/settings/SettingsPage')),
+  'productivity': lazy(() => import('@/pages/productivity/ProductivityPage')),
+  'operations/products': lazy(() => import('@/pages/products/ProductsPage')),
+  // Operaciones — config-driven (motor TRX) en la ruta OFICIAL · las viejas en -trx.
+  'operations/requirements':       lazy(() => import('@/pages/requirements/RequirementsPage')),
+  'operations/requirements-trx':   lazy(() => import('@/pages/requirements/RequirementsTrxPage')),
+  'operations/purchase-order':     lazy(() => import('@/pages/purchase-orders/PurchaseOrderTrxPage')),
+  'operations/purchase-order-trx': lazy(() => import('@/pages/purchase-orders/PurchaseOrdersPage')),
+  'operations/reception':          lazy(() => import('@/pages/reception/ReceptionPage')),
+  'operations/reception-trx':      lazy(() => import('@/pages/reception/ReceptionTrxPage')),
+  'operations/invoice':            lazy(() => import('@/pages/invoice/InvoicePage')),
+  'operations/invoice-trx':        lazy(() => import('@/pages/invoice/InvoiceTrx1Page')),
+  'operations/verification':       lazy(() => import('@/pages/verification/VerificationTrxPage')),
+  'operations/trx-demo':           lazy(() => import('@/pages/trx-demo/TrxDemoPage')),
+  'record': lazy(() => import('@/pages/record/RecordExpenseTrxPage')),
+  'operations/record': lazy(() => import('@/pages/record/RecordExpenseTrxPage')),
+  'adjust': lazy(() => import('@/pages/adjust/AjustesInventarioTrxPage')),
+  'operations/adjust': lazy(() => import('@/pages/adjust/AjustesInventarioTrxPage')),
+  'artificial-intelligence/order/orders':    lazy(() => import('@/pages/ia/orders/OrdersPage')),
+  'artificial-intelligence/order/chat':      lazy(() => import('@/pages/ia/orders/ChatPage')),
+  'artificial-intelligence/order/documents': lazy(() => import('@/pages/ia/orders/DocumentsPage')),
+  'artificial-intelligence/order/ih-sales':  lazy(() => import('@/pages/ia/orders/IHSalesPage')),
+  'artificial-intelligence/order/metrics':   lazy(() => import('@/pages/ia/orders/MetricsPage')),
+  'artificial-intelligence/order/upload':    lazy(() => import('@/pages/ia/orders/UploadPage')),
   'artificial-intelligence/purchase/chat':   lazy(() => import('@/features/ia/purchases/ChatPage')),
 }
 
@@ -64,7 +79,5 @@ export default function ModulePage() {
     )
   }
 
-  // The route maps to a real menu option but has no implementation yet → ComingSoon.
-  // The route matches nothing in the menu → genuine 404.
   return option ? <ComingSoon title={slugToTitle(slug)} /> : <NotFound />
 }

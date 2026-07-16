@@ -49,18 +49,20 @@ public class ExceptionMiddleware
 
         var (statusCode, message, errorType) = exception switch
         {
-            ArgumentNullException => (StatusCodes.Status400BadRequest, "Missing required parameter.", ErrorType.Validation),
+            ArgumentNullException ex => (StatusCodes.Status400BadRequest, ex.Message, ErrorType.Validation),
 
-            ArgumentException => (StatusCodes.Status400BadRequest, "Invalid argument.", ErrorType.Validation),
+            ArgumentException ex => (StatusCodes.Status400BadRequest, ex.Message, ErrorType.Validation),
 
-            UnauthorizedAccessException => (StatusCodes.Status401Unauthorized, "Access denied.", ErrorType.Unauthorized),
+            UnauthorizedAccessException ex => (StatusCodes.Status401Unauthorized, ex.Message, ErrorType.Unauthorized),
 
             OperationCanceledException when context.RequestAborted.IsCancellationRequested => 
             (StatusCodes.Status408RequestTimeout, "Request was cancelled.", ErrorType.Internal),
 
             TaskCanceledException => (StatusCodes.Status408RequestTimeout, "Request timeout.", ErrorType.Internal),
 
-            KeyNotFoundException => (StatusCodes.Status404NotFound, "Resource not found.", ErrorType.NotFound),
+            KeyNotFoundException ex => (StatusCodes.Status404NotFound, ex.Message, ErrorType.NotFound),
+
+            InvalidOperationException  ex => (StatusCodes.Status404NotFound, ex.Message, ErrorType.NotFound),
 
             _ => (
                 StatusCodes.Status500InternalServerError,

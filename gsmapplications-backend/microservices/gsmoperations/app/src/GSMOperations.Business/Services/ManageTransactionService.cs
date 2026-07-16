@@ -223,7 +223,7 @@ public sealed class ManageTransactionService : IManageTransactionService
             return ApiResponse<List<TrxResponseDTO>>.SuccessResult(result,Messages.Operations.TransactionLoaded);
     }
 
-    public async Task<long> GetNextTransactionNumber(string prefix, string? location, CancellationToken cancellationToken = default)
+    public async Task<string> GetNextTransactionNumber(string prefix, string? location, CancellationToken cancellationToken = default)
     {
         var sp = new StoredProcedureModel
         (
@@ -235,9 +235,9 @@ public sealed class ManageTransactionService : IManageTransactionService
             }
         ); 
 
-        var result = await _spExecutor.ExecuteSpScalarAsync<long?>(sp, cancellationToken);
+        var result = await _spExecutor.ExecuteSpScalarAsync<string>(sp, cancellationToken);
         
-        return result ?? throw new InvalidOperationException("Stored procedure returned null");    
+        return result ?? throw new InvalidOperationException("Stored procedure returned no transaction number.");
     }
 
     public async Task<ApiResponse<List<TrxDefinitionDTO>>> GetFilteredTrxDefinition(SearchTrxDefinition? searchTrxDefinition, CancellationToken cancellationToken = default)

@@ -41,6 +41,7 @@ public sealed class LocationService : ILocationService
                 IdLocation = l.IdLocation,
                 IdThirdLocation = l.IdThirdLocation,
                 CodeLocation = l.CodeLocation,
+                Descr = l.Descr,
                 Email = l.Email,
                 PhoneNumber = l.PhoneNumber,
                 AddressLocation = l.AddressLocation

@@ -17,10 +17,10 @@ public sealed class ResourceExecutorService : IResourceExecutorService
         
         if (!_executors.TryGetValue(resourceEvent, out var executor))
         {
-            return ApiResponse<object>.FailResult($"Resource '{resourceEvent}' not found.",ErrorType.NotFound);
+            throw new KeyNotFoundException($"Resource '{resourceEvent}' not found.");
         }
 
         var response = await executor.ExecuteAsync(parameters, cancellationToken);
-        return ApiResponse<object>.SuccessResult(response, Messages.Operations.ApiExecutedSuccessfully);
+        return ApiResponse<object>.SuccessResult(response, Messages.Operations.ResourceExecutedSuccessfully);
     }
 }

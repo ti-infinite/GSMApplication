@@ -58,7 +58,7 @@ public sealed class ApplicationController : ControllerBase
 
     [HttpGet("filtered-locations")]
     [ProducesResponseType(typeof(ApiResponse<List<LocationDTO>>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetFilteredLocations([FromBody] SearchLocation? searchCriteria, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetFilteredLocations([FromQuery] SearchLocation? searchCriteria, CancellationToken cancellationToken)
     {
         var response = await _locationService.GetLocations(searchCriteria, cancellationToken);
         return Ok(response);

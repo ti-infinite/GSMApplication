@@ -22,7 +22,7 @@ public sealed class OperationsController : ControllerBase
 
 
     [HttpPost("create-trx")]
-    [ProducesResponseType(typeof(ApiResponse<string>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<ResponseCreateTransactionDTO>), StatusCodes.Status200OK)]
     public async Task<IActionResult> CreateTransaction([FromBody] TrxCreateDTO  request, CancellationToken cancellationToken)
     {
         var response = await _manageTransactionService.CreateTransaction(request, cancellationToken);

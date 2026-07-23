@@ -23,6 +23,7 @@ namespace GSMOperations.DataAccess.ContextDb
         public virtual DbSet<TrxDetail> TrxDetails => Set<TrxDetail>();
         public virtual DbSet<StoredProcedureRule> StoredProcedureRules => Set<StoredProcedureRule>();
         public virtual DbSet<TrxDefinition> TrxDefinitions => Set<TrxDefinition>();
+        public virtual DbSet<TrxProductAttribute> TrxProductAttributes => Set<TrxProductAttribute>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -130,6 +131,23 @@ namespace GSMOperations.DataAccess.ContextDb
             modelBuilder.Entity<TrxDefinition>(entity =>
             {
                 entity.HasKey(e => e.IdTrxDefinition).HasName("PK__TrxDefin__57DA74598C6F7410");
+            });
+
+            modelBuilder.Entity<TrxProductAttribute>(entity =>
+            {
+                entity.HasKey(e => e.IdTrxProductAttributes).HasName("PK__TrxProdu__B3EE77414C637D07");
+
+                entity.HasOne(d => d.TrxHeader)
+                    .WithMany(p => p.TrxProductAttributes)
+                    .HasForeignKey(p => p.IdTrxHeader)
+                    .OnDelete(DeleteBehavior.Restrict)
+                    .HasConstraintName("FK_TrxProductAttributes_TrxHeaders");
+
+                entity.HasOne(d => d.TrxProduct)
+                    .WithMany(p => p.TrxProductAttributes)
+                    .HasForeignKey(p => p.IdTrxProduct)
+                    .OnDelete(DeleteBehavior.Restrict)
+                    .HasConstraintName("FK_TrxProductAttributes_TrxProducts");                
             });
 
             base.OnModelCreating(modelBuilder);

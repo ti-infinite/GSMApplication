@@ -1,3 +1,4 @@
+using System.Text.Json;
 using GSMOperations.Business.Interfaces;
 using GSMOperations.DataAccess.ContextDb;
 using GSMOperations.DataAccess.Entities;
@@ -5,6 +6,7 @@ using GSMOperations.DataAccess.Interfaces;
 using GSMOperations.Entities.Common;
 using GSMOperations.Entities.DTOs;
 using GSMOperations.Entities.Models;
+using GSMOperations.Entities.Models.Transactions;
 using Microsoft.EntityFrameworkCore;
 
 namespace GSMOperations.Business.Services;
@@ -12,29 +14,106 @@ namespace GSMOperations.Business.Services;
 public sealed class ManageTransactionService : IManageTransactionService
 {
     private readonly IStoredProcedureExecutor _spExecutor;
+    private readonly IEventExecutorService _eventExecutorService;
     private readonly TenantOperationsDbContext _context;
 
-    public ManageTransactionService(IStoredProcedureExecutor spExecutor, TenantOperationsDbContext context)
+    public ManageTransactionService(IStoredProcedureExecutor spExecutor, 
+        IEventExecutorService eventExecutorService,
+        TenantOperationsDbContext context)
     {
         _spExecutor = spExecutor;
+        _eventExecutorService = eventExecutorService;
         _context = context;
     }
 
-    public async Task<ApiResponse<string>> CreateTransaction(TrxCreateDTO request, CancellationToken cancellationToken = default)
+    public async Task<ApiResponse<ResponseCreateTransactionDTO>> CreateTransaction(TrxCreateDTO trxRequest, CancellationToken cancellationToken = default)
     {
-        string prefix = request.TrxPrefix;
+        string prefix = trxRequest.TrxPrefix;
 
         if (string.IsNullOrWhiteSpace(prefix))
         {
-            return ApiResponse<string>.FailResult(Messages.Operations.PrefixMissing, ErrorType.BadRequest);
+            return ApiResponse<ResponseCreateTransactionDTO>.FailResult(Messages.Operations.PrefixMissing, ErrorType.BadRequest);
         }
 
-        var trxDoc = await CreateTrx(request, cancellationToken);
+        var trxEntity = await CreateTrx(trxRequest, cancellationToken);
 
-        return ApiResponse<string>.SuccessResult(trxDoc, Messages.Operations.TransactionCreated);
+        var eventResults = new List<EventExecutionResultDTO>();
+
+        var trxDefinition = await GetJsonTrxDefinition(trxRequest.TrxPrefix, cancellationToken);
+        
+        if (trxDefinition is not null)
+        {
+            var transition = GetJsonWorkflowTransition(trxRequest.TrxStates.FromTrxState, trxRequest.TrxStates.ToTrxState, trxDefinition.Workflow);
+            var events = transition.Event ?? [];
+
+            if (events.Any())
+            {
+                var reaEvents = GetJsonReaEvents(events, trxDefinition.Rea.Events);
+                eventResults = await _eventExecutorService.ExecuteAsync(reaEvents, trxEntity, cancellationToken);
+            }
+        }
+
+        var response = new ResponseCreateTransactionDTO
+        {
+            TrxDocument = trxEntity.TrxDocument,
+            Events = eventResults
+        };
+        return ApiResponse<ResponseCreateTransactionDTO>.SuccessResult(response, Messages.Operations.TransactionCreated);
     }
+    public async Task<JsonTrxDefinition?> GetJsonTrxDefinition(string trxPrefix, CancellationToken cancellationToken = default)
+    {
+        var trx = await _context.TrxDefinitions
+            .AsNoTracking()
+            .Where(x => x.Prefix == trxPrefix)
+            .Select(x => new {x.JsonWorkflow, x.JsonRea})
+            .FirstOrDefaultAsync(cancellationToken);
 
-    public async Task<string> CreateTrx(TrxCreateDTO trxRequest, CancellationToken cancellationToken = default)
+        if (trx is null)
+        {
+            return null;
+        }    
+
+        var rea = JsonSerializer.Deserialize<JsonReaDefinition>(trx.JsonRea) 
+            ?? throw new InvalidOperationException($"Invalid REA JSON for prefix '{trxPrefix}'.");
+
+        var workflow = JsonSerializer.Deserialize<JsonWorkflowDefinition>(trx.JsonWorkflow)
+            ?? throw new InvalidOperationException($"Invalid Workflow JSON for prefix '{trxPrefix}'.");
+
+        return new JsonTrxDefinition
+        {
+            Rea = rea,
+            Workflow = workflow
+        };
+    }
+    public JsonWorkflowTransition GetJsonWorkflowTransition(string fromState, string toState, JsonWorkflowDefinition jsonWorkflow)
+    {
+        var transition = jsonWorkflow.Transitions
+            .FirstOrDefault(x => x.From == fromState && x.To == toState);
+
+        if (transition is null)
+        {
+            throw new InvalidOperationException($"No valid transition from '{fromState} to {toState} was found in Workflow Json.");
+        }
+        return transition;
+    }
+    public List<JsonReaEvents> GetJsonReaEvents(List<string> events, List<JsonReaEvents> jsonReaEvents)
+    {
+        var reaEvents = jsonReaEvents
+            .Where(x => events.Contains(x.Id))
+            .ToList();
+
+        var missingEvents = events
+            .Except(reaEvents.Select(x => x.Id))
+            .ToList();
+
+        if (missingEvents.Any())
+        {
+            throw new InvalidOperationException($"Events not configured in REA: {string.Join(", ", missingEvents)}");
+        }
+
+        return reaEvents;
+    }
+    public async Task<TrxHeader> CreateTrx(TrxCreateDTO trxRequest, CancellationToken cancellationToken = default)
     {
         string prefix = trxRequest.TrxPrefix;
         var trxNumber = await GetNextTransactionNumber(prefix, trxRequest.Location, cancellationToken);
@@ -62,6 +141,11 @@ public sealed class ManageTransactionService : IManageTransactionService
                 Sku = p.SKU,
                 Qty = p.Qty
             }).ToList(),
+            TrxProductAttributes = trxRequest.TrxProductAttributes.Select(pa => new TrxProductAttribute
+            {
+                AttributeKey = pa.AttributeKey,
+                AttributeValue = pa.AttributeValue
+            }).ToList(),
             TrxStates = new List<TrxStates>
             {
                 new TrxStates
@@ -83,7 +167,7 @@ public sealed class ManageTransactionService : IManageTransactionService
 
         await _context.SaveChangesAsync(cancellationToken);
 
-        return entity.TrxDocument;
+        return entity;
     }
 
     public async Task<ApiResponse<string>> UpdateTrx(long idTrxHeader, TrxUpdateDTO trxRequest, CancellationToken cancellationToken = default)
@@ -159,6 +243,10 @@ public sealed class ManageTransactionService : IManageTransactionService
             .AsNoTracking()
             .AsQueryable();
 
+        if (!string.IsNullOrWhiteSpace(searchTrx.TrxDocument))
+        {
+            query = query.Where(x => x.TrxDocument == searchTrx.TrxDocument);
+        }
         if (!string.IsNullOrWhiteSpace(searchTrx.TrxPrefix))
         {
             query = query.Where(x => x.TrxPrefix == searchTrx.TrxPrefix);

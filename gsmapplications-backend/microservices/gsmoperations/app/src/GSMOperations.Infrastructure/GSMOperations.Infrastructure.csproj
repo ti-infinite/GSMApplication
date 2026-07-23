@@ -9,4 +9,7 @@
     <ProjectReference Include="..\GSMOperations.DataAccess\GSMOperations.DataAccess.csproj" />
     <ProjectReference Include="..\GSMOperations.Entities\GSMOperations.Entities.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Resend" Version="0.6.0" />
+  </ItemGroup>
 </Project>

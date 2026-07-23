@@ -44,6 +44,10 @@ public partial class TenantApplicationDbContext : DbContext
             entity.Property(e => e.IsActive).HasDefaultValue(true);
 
             entity.HasOne(d => d.IdProfileNavigation).WithMany(p => p.Users).HasConstraintName("FK_Users_Profiles");
+
+            entity.HasIndex(e => e.Username)
+                .IsUnique()
+                .HasDatabaseName("UQ__Users__536C85E4F46828F2");
         });
 
         modelBuilder.Entity<Location>(entity =>

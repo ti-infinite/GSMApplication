@@ -29,4 +29,6 @@ public partial class TrxProduct
     public decimal? Qty { get; set; }
 
     public TrxHeader TrxHeader { get; set; } = null!;
+
+    public ICollection<TrxProductAttribute> TrxProductAttributes { get; set; } = new List<TrxProductAttribute>();
 }

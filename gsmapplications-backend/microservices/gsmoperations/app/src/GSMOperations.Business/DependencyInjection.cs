@@ -22,6 +22,7 @@ namespace GSMOperations.Business
             services.AddScoped<ISkuDefinitionsService, SkuDefinitionsService>();
             services.AddScoped<IManageTransactionService, ManageTransactionService>();
             services.AddScoped<IResourceExecutorService, ResourceExecutorService>();
+            services.AddScoped<IEventExecutorService, EventExecutorService>();
             services.AddScoped<IResourceExecutor, LoadConsumoSobrante>();
 
             return services;

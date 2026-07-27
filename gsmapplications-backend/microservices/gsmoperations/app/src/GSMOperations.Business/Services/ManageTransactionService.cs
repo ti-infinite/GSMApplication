@@ -40,7 +40,7 @@ public sealed class ManageTransactionService : IManageTransactionService
         var eventResults = new List<EventExecutionResultDTO>();
 
         var trxDefinition = await GetJsonTrxDefinition(trxRequest.TrxPrefix, cancellationToken);
-        
+
         if (trxDefinition is not null)
         {
             var transition = GetJsonWorkflowTransition(trxRequest.TrxStates.FromTrxState, trxRequest.TrxStates.ToTrxState, trxDefinition.Workflow);
@@ -73,10 +73,15 @@ public sealed class ManageTransactionService : IManageTransactionService
             return null;
         }    
 
-        var rea = JsonSerializer.Deserialize<JsonReaDefinition>(trx.JsonRea) 
+        var options = new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        };
+
+        var rea = JsonSerializer.Deserialize<JsonReaDefinition>(trx.JsonRea, options)
             ?? throw new InvalidOperationException($"Invalid REA JSON for prefix '{trxPrefix}'.");
 
-        var workflow = JsonSerializer.Deserialize<JsonWorkflowDefinition>(trx.JsonWorkflow)
+        var workflow = JsonSerializer.Deserialize<JsonWorkflowDefinition>(trx.JsonWorkflow, options)
             ?? throw new InvalidOperationException($"Invalid Workflow JSON for prefix '{trxPrefix}'.");
 
         return new JsonTrxDefinition
@@ -101,15 +106,6 @@ public sealed class ManageTransactionService : IManageTransactionService
         var reaEvents = jsonReaEvents
             .Where(x => events.Contains(x.Id))
             .ToList();
-
-        var missingEvents = events
-            .Except(reaEvents.Select(x => x.Id))
-            .ToList();
-
-        if (missingEvents.Any())
-        {
-            throw new InvalidOperationException($"Events not configured in REA: {string.Join(", ", missingEvents)}");
-        }
 
         return reaEvents;
     }

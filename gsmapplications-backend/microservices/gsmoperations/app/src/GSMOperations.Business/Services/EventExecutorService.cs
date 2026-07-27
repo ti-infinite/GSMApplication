@@ -1,7 +1,7 @@
 using GSMOperations.Business.Interfaces;
 using GSMOperations.DataAccess.Entities;
 using GSMOperations.Entities.DTOs;
-using GSMOperations.Entities.Models;
+using GSMOperations.Entities.Models.Transactions;
 
 namespace GSMOperations.Business.Services;
 

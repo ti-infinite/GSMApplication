@@ -24,6 +24,7 @@ namespace GSMOperations.DataAccess.ContextDb
         public virtual DbSet<StoredProcedureRule> StoredProcedureRules => Set<StoredProcedureRule>();
         public virtual DbSet<TrxDefinition> TrxDefinitions => Set<TrxDefinition>();
         public virtual DbSet<TrxProductAttribute> TrxProductAttributes => Set<TrxProductAttribute>();
+        public virtual DbSet<InventoryTraceability> InventoryTraceabilities => Set<InventoryTraceability>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -148,6 +149,11 @@ namespace GSMOperations.DataAccess.ContextDb
                     .HasForeignKey(p => p.IdTrxProduct)
                     .OnDelete(DeleteBehavior.Restrict)
                     .HasConstraintName("FK_TrxProductAttributes_TrxProducts");                
+            });
+
+            modelBuilder.Entity<InventoryTraceability>(entity =>
+            {
+                entity.HasKey(e => e.IdInventoryTraceability).HasName("PK__Inventor__B5604AA8C2969FDE");
             });
 
             base.OnModelCreating(modelBuilder);

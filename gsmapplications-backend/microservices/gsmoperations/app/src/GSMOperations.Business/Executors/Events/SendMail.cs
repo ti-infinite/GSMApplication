@@ -1,6 +1,7 @@
 using GSMOperations.Abstractions;
 using GSMOperations.Business.Interfaces;
 using GSMOperations.DataAccess.Entities;
+using GSMOperations.Entities.Common;
 using GSMOperations.Entities.DTOs;
 using GSMOperations.Entities.Models.Events;
 using GSMOperations.Entities.Models.Transactions;
@@ -61,7 +62,7 @@ public sealed class SendMail : IEventExecutor
             {
                 EventName = EventExecutorName,
                 Success = true,
-                Message = "Email sent successfully."
+                Message = Messages.Events.EventMailSuccess
             };
         }
         catch (Exception ex)

@@ -27,6 +27,11 @@ namespace GSMOperations.Entities.Common
             public const string HttpMethodUnknown = "Http method not implemented.";
         }
 
+    public static class Events
+        {
+            public const string EventMailSuccess = "Email sent successfully.";
+            public const string EventAdjustSuccess = "Inventory adjusted successfully.";
+        }
         public static class Tenant
         {
             public const string TenantHeaderMissing = "Tenant header is missing.";

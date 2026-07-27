@@ -5,16 +5,17 @@ using GSMOperations.Entities.Models;
 
 namespace GSMOperations.Business.Executors.Resources;
 
-public class LoadConsumoSobrante : IResourceExecutor
+public sealed class LoadSobrante : IResourceExecutor
 {
     private readonly IStoredProcedureExecutor _spExecutor;
-    public const string EventName = "LOADCS";
+    public const string EventName = "LOADS";
     public string ResourceEvent => EventName;
 
-    public LoadConsumoSobrante(IStoredProcedureExecutor spExecutor)
+    public LoadSobrante(IStoredProcedureExecutor spExecutor)
     {
         _spExecutor = spExecutor;
     }
+
     public async Task<object> ExecuteAsync(Dictionary<string, object> parameters, CancellationToken cancellationToken)
     {
         if (!parameters.TryGetValue("location", out var locationValue))
@@ -38,9 +39,8 @@ public class LoadConsumoSobrante : IResourceExecutor
             }  
         );
 
-        var result = await _spExecutor.ExecuteSpAsyncWithReturn<InventoryCsDTO>(sp, cancellationToken);
+        var result = await _spExecutor.ExecuteSpAsyncWithReturn<InventorySDTO>(sp, cancellationToken);
 
         return result;
-
     }
 }

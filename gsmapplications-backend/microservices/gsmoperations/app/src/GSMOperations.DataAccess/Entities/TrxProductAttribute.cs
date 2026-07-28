@@ -14,16 +14,12 @@ public partial class TrxProductAttribute
 
     public long IdTrxProduct { get; set; }
 
-    public long IdTrxHeader { get; set; }
-
     [StringLength(50)]
     [Unicode(false)]
     public string AttributeKey { get; set; } = null!;
 
     [Unicode(false)]
     public string? AttributeValue { get; set; }
-
-    public TrxHeader TrxHeader { get; set; } = null!;
 
     public TrxProduct TrxProduct { get; set; } = null!;
 }

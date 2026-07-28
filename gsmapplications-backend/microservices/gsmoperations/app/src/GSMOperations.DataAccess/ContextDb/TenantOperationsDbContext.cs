@@ -138,12 +138,6 @@ namespace GSMOperations.DataAccess.ContextDb
             {
                 entity.HasKey(e => e.IdTrxProductAttributes).HasName("PK__TrxProdu__B3EE77414C637D07");
 
-                entity.HasOne(d => d.TrxHeader)
-                    .WithMany(p => p.TrxProductAttributes)
-                    .HasForeignKey(p => p.IdTrxHeader)
-                    .OnDelete(DeleteBehavior.Restrict)
-                    .HasConstraintName("FK_TrxProductAttributes_TrxHeaders");
-
                 entity.HasOne(d => d.TrxProduct)
                     .WithMany(p => p.TrxProductAttributes)
                     .HasForeignKey(p => p.IdTrxProduct)

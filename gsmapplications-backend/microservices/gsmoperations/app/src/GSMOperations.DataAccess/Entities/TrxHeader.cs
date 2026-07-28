@@ -40,8 +40,6 @@ public partial class TrxHeader
 
     public  ICollection<TrxProduct> TrxProducts { get; set; } = new List<TrxProduct>();
 
-    public ICollection<TrxProductAttribute> TrxProductAttributes { get; set; } = new List<TrxProductAttribute>();
-
     public  ICollection<TrxStates> TrxStates { get; set; } = new List<TrxStates>();
 
     public  ICollection<TrxDetail> TrxDetails { get; set; } = new List<TrxDetail>();

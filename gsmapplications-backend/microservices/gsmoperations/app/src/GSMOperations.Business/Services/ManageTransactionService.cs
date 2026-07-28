@@ -135,12 +135,12 @@ public sealed class ManageTransactionService : IManageTransactionService
                 IdVariety = p.IdVariety,
                 VarietyName = p.VarietyName,
                 Sku = p.SKU,
-                Qty = p.Qty
-            }).ToList(),
-            TrxProductAttributes = trxRequest.TrxProductAttributes.Select(pa => new TrxProductAttribute
-            {
-                AttributeKey = pa.AttributeKey,
-                AttributeValue = pa.AttributeValue
+                Qty = p.Qty,
+                TrxProductAttributes = p.TrxProductAttributes .Select(pa => new TrxProductAttribute
+                {
+                    AttributeKey = pa.AttributeKey,
+                    AttributeValue = pa.AttributeValue
+                }).ToList()
             }).ToList(),
             TrxStates = new List<TrxStates>
             {

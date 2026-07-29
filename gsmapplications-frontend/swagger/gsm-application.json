@@ -144,25 +144,23 @@
           "Application"
         ],
         "operationId": "GetFilteredLocations",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SearchLocation"
-              }
-            },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SearchLocation"
-              }
-            },
-            "application/*+json": {
-              "schema": {
-                "$ref": "#/components/schemas/SearchLocation"
-              }
+        "parameters": [
+          {
+            "name": "IdLocation",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "CodeLocation",
+            "in": "query",
+            "schema": {
+              "type": "string"
             }
           }
-        },
+        ],
         "responses": {
           "200": {
             "description": "OK",
@@ -751,6 +749,10 @@
             "type": "string",
             "nullable": true
           },
+          "descr": {
+            "type": "string",
+            "nullable": true
+          },
           "email": {
             "type": "string",
             "nullable": true
@@ -867,21 +869,6 @@
             "nullable": true
           },
           "details": {
-            "type": "string",
-            "nullable": true
-          }
-        },
-        "additionalProperties": false
-      },
-      "SearchLocation": {
-        "type": "object",
-        "properties": {
-          "idLocation": {
-            "type": "integer",
-            "format": "int32",
-            "nullable": true
-          },
-          "codeLocation": {
             "type": "string",
             "nullable": true
           }

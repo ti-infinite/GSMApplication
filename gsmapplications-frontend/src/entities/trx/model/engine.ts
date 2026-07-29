@@ -1,6 +1,7 @@
 import { saveResource, getResource } from '@/shared/lib/idb'
 import { getValueByPath } from '@/shared/lib/pathResolver'
 import { operationsFetch } from '@/shared/lib/fetcher'
+import { DEFAULT_VALUE_SOURCES } from './valueSources'
 import type { Resource, ResourceParameter, ApiEnvelope, TrxItem } from './types'
 
 /** Contexto runtime (location, category, inputs…) — las variables en uso. */
@@ -10,13 +11,16 @@ export type Context = Record<string, unknown>
  *  Recibe el `resource` para poder leer su `endpoint` (fetcher genérico). */
 export type Fetcher = (process: string, params: Record<string, string>, resource?: Resource) => Promise<ApiEnvelope<unknown>>
 
+// El valor de un param sale del MISMO `sourceType` que las columnas (DEFAULT_VALUE_SOURCES,
+// única definición de CONTEXT/COOKIE/…): la fuente da el BASE y el path (`value`) navega.
+// STATIC es literal (no es un lookup). Fuentes no registradas (ROW/INPUT) caen al context.
+// `value` es el campo actual; `keyValue` es su alias legacy.
 function resolveParam(param: ResourceParameter, ctx: Context): string {
-  switch (param.sourceType) {
-    case 'STATIC':  return String(param.keyValue ?? '')
-    case 'CONTEXT': return String(ctx[param.keyValue ?? param.key] ?? '')
-    // COOKIE / ROW / INPUT: en el proto ya vienen resueltos en el context.
-    default:        return String(ctx[param.key] ?? '')
-  }
+  const path = param.values?.[0] ?? param.value ?? param.keyValue ?? param.key
+  if (param.sourceType === 'STATIC') return String(param.values?.[0] ?? param.value ?? param.keyValue ?? '')
+  const src  = DEFAULT_VALUE_SOURCES[param.sourceType ?? 'CONTEXT']
+  const base = src ? src({ row: {}, context: ctx as Record<string, string> }) : ctx
+  return String(getValueByPath(base, path) ?? '')
 }
 
 // Cache key = resourceId + params → "LOADCS::location=BOS". Cada location cachea
@@ -31,26 +35,44 @@ function cacheKey(resource: Resource, params: Record<string, string>): string {
  * resource+params); si no está → fetcher → desempaca el envelope → guarda `data`
  * en IndexedDB → lo devuelve.
  */
-export async function resolveResource(resource: Resource, ctx: Context, fetcher: Fetcher): Promise<unknown> {
+// Resuelve los params del resource (location…) contra el context. Exportado para que
+// useTrxData keye el re-fetch SOLO por lo que el recurso usa (no por todo el context →
+// cambiar categoría/skuPrefix no re-fetchea LOADCS).
+export function resolveParams(resource: Resource, ctx: Context): Record<string, string> {
   const params: Record<string, string> = {}
   for (const p of resource.parameters) params[p.key] = resolveParam(p, ctx)
+  return params
+}
 
-  // Solo cachea si el resource lo pide (cacheIn: 'INDEXED_DB'). Los que leen data
-  // VIVA (ej. inventario) omiten cacheIn → siempre re-resuelven (consistente).
+export async function resolveResource(
+  resource: Resource, ctx: Context, fetcher: Fetcher,
+  onRevalidate?: (data: unknown) => void,   // SWR: recibe lo FRESCO cuando el resource cachea y ya se devolvió el cache
+): Promise<unknown> {
+  const params = resolveParams(resource, ctx)
   const useCache = resource.cacheIn === 'INDEXED_DB'
   const key      = cacheKey(resource, params)
+
+  const fetchFresh = async (): Promise<unknown> => {
+    const envelope = await fetcher(resource.id, params, resource)
+    if (envelope.success !== 'true') {
+      throw new Error(envelope.message || `Error en resource "${resource.id}"`)
+    }
+    if (useCache) await saveResource(key, envelope.data)
+    return envelope.data
+  }
+
+  // SWR GENÉRICO — para CUALQUIER resource con `cacheIn` (por su config, no por su id: LOADC,
+  // LOADCS, lo que sea): devuelve el cache YA y revalida en background → onRevalidate recibe lo
+  // fresco y la tabla se re-organiza sola si cambió. Los resources sin cacheIn fetchean directo.
   if (useCache) {
     const cached = await getResource(key)
-    if (cached != null) return cached
+    if (cached != null) {
+      if (onRevalidate) void fetchFresh().then(onRevalidate).catch(() => {})
+      return cached
+    }
   }
 
-  const envelope = await fetcher(resource.id, params, resource)
-  if (envelope.success !== 'true') {
-    throw new Error(envelope.message || `Error en resource "${resource.id}"`)
-  }
-
-  if (useCache) await saveResource(key, envelope.data)
-  return envelope.data
+  return fetchFresh()
 }
 
 /** Extrae el valor de un item (columna) sobre la data — con el resolver nativo. */
@@ -66,13 +88,16 @@ export function resolveItemValue(data: unknown, item: TrxItem): unknown {
  */
 export const httpFetcher: Fetcher = async (_process, params, resource) => {
   const id       = resource?.id ?? ''
-  // Endpoint = template; {id} es el proceso. Default: el dispatch único /Resources/{id}
-  // → el backend elige el SP por el id. Un resource puede overridear con otra ruta.
-  const template = resource?.endpoint ?? '/api/v1/Resources/{id}'
+  // Ruta del executor genérico por id, en UN solo lugar (si se renombra, se cambia
+  // acá y ya). El {id} es el resourceEvent → el backend elige el SP. Un resource
+  // puede overridear con `endpoint`. Los params van como body (POST).
+  const template = resource?.endpoint ?? '/api/v1/Operations/execute-trxResource/{id}'
   const path     = template.replace('{id}', id)
-  const qs  = new URLSearchParams(params).toString()
-  const url = `${path}${qs ? `?${qs}` : ''}`
-  const res  = await operationsFetch<{ data: ApiEnvelope<unknown> }>(url)
+  const res  = await operationsFetch<{ data: ApiEnvelope<unknown> }>(path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(params),
+  })
   const body = res.data
   return {
     success: String(body?.success ?? 'false'),

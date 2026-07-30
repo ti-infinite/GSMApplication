@@ -89,9 +89,14 @@ public abstract class SendNotification : IEventExecutor
                 BodyType = bodyType
             };
 
-            await _agentNotificacions.SendAsync(
+            var inserted = await _agentNotificacions.SendAsync(
                 notificationRequest,
                 cancellationToken);
+
+            if (inserted <= 0)
+            {    
+                throw new InvalidOperationException("Notification was not inserted.");
+            }
 
             return new EventExecutionResultDTO
             {
@@ -99,6 +104,7 @@ public abstract class SendNotification : IEventExecutor
                 Success = true,
                 Message = Messages.Events.EventNotificationSuccess
             };
+            
         }
         catch (Exception ex)
         {

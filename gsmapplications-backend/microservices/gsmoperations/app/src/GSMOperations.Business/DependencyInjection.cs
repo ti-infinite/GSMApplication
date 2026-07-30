@@ -25,7 +25,7 @@ namespace GSMOperations.Business
             services.AddScoped<IResourceExecutorService, ResourceExecutorService>();
             services.AddScoped<IEventExecutorService, EventExecutorService>();
             services.AddScoped<IResourceExecutor, LoadConsumoSobrante>();
-            services.AddScoped<IEventExecutor, SendMail>();
+            services.AddScoped<IEventExecutor, SendEmailNotification>();
             services.AddScoped<IResourceExecutor, LoadSobrante>();
             services.AddScoped<IEventExecutor, AdjustInventory>();
 

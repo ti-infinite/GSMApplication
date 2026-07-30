@@ -19,7 +19,7 @@ public sealed class EmailNotificationAgentService : IAgentNotificacions
     {
         var notificationType = request.NotificationType;
 
-        object body = request.BodyType == "HTML" ? 
+        object body = request.BodyType.Equals("HTML", StringComparison.OrdinalIgnoreCase) ? 
                 new { html = request.Body } : 
                 new { text = request.Body };
 

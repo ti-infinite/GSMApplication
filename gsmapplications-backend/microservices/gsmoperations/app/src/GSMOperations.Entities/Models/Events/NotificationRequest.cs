@@ -17,6 +17,6 @@ public sealed class NotificationRequest
 
     public string? Body { get; set; }
 
-    public string? BodyType { get; set; }
+    public required string BodyType { get; set; }
 
 }

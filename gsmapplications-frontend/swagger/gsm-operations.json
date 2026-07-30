@@ -218,17 +218,17 @@
             "content": {
               "text/plain": {
                 "schema": {
-                  "$ref": "#/components/schemas/StringApiResponse"
+                  "$ref": "#/components/schemas/ResponseCreateTransactionDTOApiResponse"
                 }
               },
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/StringApiResponse"
+                  "$ref": "#/components/schemas/ResponseCreateTransactionDTOApiResponse"
                 }
               },
               "text/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/StringApiResponse"
+                  "$ref": "#/components/schemas/ResponseCreateTransactionDTOApiResponse"
                 }
               }
             }
@@ -434,7 +434,24 @@
         },
         "responses": {
           "200": {
-            "description": "Success"
+            "description": "Success",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryCsDTOListApiResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryCsDTOListApiResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryCsDTOListApiResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -792,6 +809,23 @@
         ],
         "type": "string"
       },
+      "EventExecutionResultDTO": {
+        "type": "object",
+        "properties": {
+          "eventName": {
+            "type": "string",
+            "nullable": true
+          },
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "GenericApiDTO": {
         "type": "object",
         "properties": {
@@ -872,6 +906,67 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/GlobalParameter"
+            },
+            "nullable": true
+          },
+          "errorType": {
+            "$ref": "#/components/schemas/ErrorType"
+          },
+          "traceId": {
+            "type": "string",
+            "nullable": true
+          },
+          "details": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "InventoryCsDTO": {
+        "type": "object",
+        "properties": {
+          "idVariety": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "varietyName": {
+            "type": "string",
+            "nullable": true
+          },
+          "measurementUnit": {
+            "type": "string",
+            "nullable": true
+          },
+          "sku": {
+            "type": "string",
+            "nullable": true
+          },
+          "consumption": {
+            "type": "number",
+            "format": "double"
+          },
+          "remaining": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "additionalProperties": false
+      },
+      "InventoryCsDTOListApiResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string",
+            "nullable": true
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InventoryCsDTO"
             },
             "nullable": true
           },
@@ -1036,6 +1131,50 @@
         },
         "additionalProperties": false
       },
+      "ResponseCreateTransactionDTO": {
+        "type": "object",
+        "properties": {
+          "trxDocument": {
+            "type": "string",
+            "nullable": true
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EventExecutionResultDTO"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ResponseCreateTransactionDTOApiResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string",
+            "nullable": true
+          },
+          "data": {
+            "$ref": "#/components/schemas/ResponseCreateTransactionDTO"
+          },
+          "errorType": {
+            "$ref": "#/components/schemas/ErrorType"
+          },
+          "traceId": {
+            "type": "string",
+            "nullable": true
+          },
+          "details": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "SearchEmployee": {
         "type": "object",
         "properties": {
@@ -1076,6 +1215,10 @@
         "type": "object",
         "properties": {
           "trxPrefix": {
+            "type": "string",
+            "nullable": true
+          },
+          "trxDocument": {
             "type": "string",
             "nullable": true
           },
@@ -1337,6 +1480,20 @@
         },
         "additionalProperties": false
       },
+      "TrxProductAttributesDTO": {
+        "type": "object",
+        "properties": {
+          "attributeKey": {
+            "type": "string",
+            "nullable": true
+          },
+          "attributeValue": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "TrxProductsDTO": {
         "type": "object",
         "properties": {
@@ -1355,6 +1512,13 @@
           "qty": {
             "type": "number",
             "format": "double",
+            "nullable": true
+          },
+          "trxProductAttributes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrxProductAttributesDTO"
+            },
             "nullable": true
           }
         },

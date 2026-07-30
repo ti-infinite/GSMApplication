@@ -5,7 +5,12 @@ import type { StringApiResponse, MasterProductDTOListApiResponse } from '@/share
 import { getFilteredLocations } from '@/shared/api/application/endpoints'
 import type { LocationDTOListApiResponse } from '@/shared/api/application/model'
 
-const PREFIX = 'REQ'   // tipo de TRX → marca la definición (TrxDefinition) y la cabeza del trxId
+const PREFIX = 'GST'
+
+/* ───────────────────────────────────────────────────────────────────────────
+ * REGISTRY del módulo — lo ESPECÍFICO. Genéricos (renderers/guards/createTrx) de
+ * buildRegistry. El CONFIG (JsonFront/REA/Workflow) vive SOLO en el backend (por prefix).
+ * ─────────────────────────────────────────────────────────────────────────── */
 
 const fincasFetcher: Fetcher = async () => {
   const res  = await getFilteredLocations()
@@ -14,7 +19,6 @@ const fincasFetcher: Fetcher = async () => {
   return { success: 'true', message: '', data, traceId: null }
 }
 
-// Categorías REALES (JSON string → parse). Cada categoría trae Children (subcats).
 const categoriesFetcher: Fetcher = async () => {
   const res = await getCategories()
   let cats: unknown[] = []
@@ -40,24 +44,23 @@ const catalogFetcher: Fetcher = async () => {
 const registry = buildRegistry({
   fetchers: { FINCAS: fincasFetcher, CATEGORIES: categoriesFetcher, CATALOG: catalogFetcher },
   computeds: {
-    // skuPrefix = AggregatedCode de la subcategoría (o categoría) ELEGIDA.
+    // skuPrefix = AggregatedCode de la subcategoría (o categoría) ELEGIDA (igual que REQ).
     skuPrefix: ctx => {
       const opts = (ctx.$options ?? {}) as Record<string, { AggregatedCode?: string } | undefined>
-      const opt = opts.subcategory ?? opts.category
-      return opt?.AggregatedCode ?? ''
+      return (opts.subcategory ?? opts.category)?.AggregatedCode ?? ''
     },
   },
 })
 
-export default function RequirementsPage() {
+export default function ExpensePage() {
   return (
     <TrxModule
       prefix={PREFIX}
       registry={registry}
-      title="requirements"
-      subtitle="requirementsSubtitle"
-      heading="makeSupplyRequirement"
-      trxLabel="requirement"
+      title="expenses"
+      subtitle="expensesSubtitle"
+      heading="recordExpense"
+      trxLabel="expense"
     />
   )
 }

@@ -44,11 +44,13 @@ export interface TrxAttribute {
 export type ParamSource = 'COOKIE' | 'CONTEXT' | 'ROW' | 'INPUT' | 'STATIC'
 
 export interface ResourceParameter {
-  key:         string
+  key:         string      // nombre del parámetro que se envía en el request
   sourceType:  ParamSource
   cookieName?: string
-  keyValue?:   string
-  valueType?:  string
+  value?:      string      // path en la fuente de donde se lee (el motor usa value ?? key)
+  values?:     string[]    // convención actual: path(s) en un array; el motor usa el 1º
+  keyValue?:   string      // legacy: alias de `value` (módulos aún no migrados)
+  valueType?:  string      // decorativo/contrato (no se consume)
 }
 
 export interface Resource {

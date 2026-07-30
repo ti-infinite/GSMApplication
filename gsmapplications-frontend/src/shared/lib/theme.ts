@@ -7,6 +7,7 @@ export type TenantTheme = {
     defaultLocale: string
     logo?: string
     tagline: Record<string, string>
+    currency?: string   // ISO 4217 (COP/USD/…) → moneda del tenant para formateo $ (solo display)
   }
 }
 

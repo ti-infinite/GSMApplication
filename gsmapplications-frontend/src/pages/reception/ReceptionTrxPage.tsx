@@ -147,7 +147,7 @@ export default function ReceptionPage() {
           columns={columns}
           data={rows}
           rowKey={r => r.id}
-          emptyMessage={applied ? 'La orden no tiene insumos.' : 'Elegí una orden y cargá el detalle.'}
+          emptyMessage={applied ? 'La orden no tiene insumos.' : 'Elegi una orden y carga el detalle.'}
         />
 
         <div className="flex justify-end">

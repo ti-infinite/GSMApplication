@@ -4,12 +4,13 @@ import { ChevronDown, Check, Plus, Search, Filter, X } from 'lucide-react'
 import { Combobox } from '@/shared/ui/combobox'
 import { Button } from '@/shared/ui/button'
 import { DataTable, type TableColumn } from '@/shared/ui/data-table'
+import { ErrorState } from '@/shared/components/ErrorState'
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/shared/ui/dropdown-menu'
 import { getValueByPath } from '@/shared/lib/pathResolver'
 import type { ComponentNode, RuntimeCtx, SearchConfig, FilterConfig, TrxField, WfButton, WfTransition } from '../model/runtime'
 
 const countBadge = (n: number) => (
-  <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">{n}</span>
+  <span className="shrink-0 rounded-md bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">{n}</span>
 )
 // Clases literales para que Tailwind no las purgue (span/cols dinámicos no funcionan).
 const COL_SPAN: Record<number, string> = {
@@ -34,7 +35,7 @@ function buttonBar(buttons: WfButton[], ctx: RuntimeCtx, align?: string) {
     <div className={wrap}>
       {pairs.map(({ b, t }) => (
         <Button key={b.on} variant={b.variant ?? 'default'} onClick={() => ctx.fire(t)} disabled={!ctx.canFire(t)} className={inline ? '' : 'w-full'}>
-          {b.label}
+          {ctx.t(b.label)}
         </Button>
       ))}
     </div>
@@ -147,7 +148,7 @@ function CatalogPicker({ cfg, ctx }: { cfg: SearchConfig; ctx: RuntimeCtx }) {
   return (
     <>
       <Button ref={btnRef} type="button" variant="outline" size="sm" className="gap-2" onClick={toggle}>
-        <Plus className="h-4 w-4" /> {cfg.label ?? 'Cargar…'}
+        <Plus className="h-4 w-4" /> {cfg.label ? ctx.t(cfg.label) : ctx.t('addSupply')}
       </Button>
 
       {open && pos && createPortal(
@@ -201,6 +202,109 @@ function CatalogPicker({ cfg, ctx }: { cfg: SearchConfig; ctx: RuntimeCtx }) {
   )
 }
 
+// Picker "Cargar insumo": botón junto al buscador → cascada categoría→subcategoría (REUSA
+// las categorías ya traídas, sin re-fetch) + lista del catálogo (1 solo llamado) filtrada
+// por el skuPrefix de la subcategoría elegida en el picker. Elegir agrega la fila a la tabla.
+function AddProductPicker({ ctx, source }: { ctx: RuntimeCtx; source: string }) {
+  const [open, setOpen]       = useState(false)
+  const [catalog, setCatalog] = useState<Record<string, unknown>[]>([])
+  const [query, setQuery]     = useState('')
+  const [sel, setSel]         = useState<{ category?: string; subcategory?: string }>({})
+  const [pos, setPos]         = useState<{ top: number; left: number; width: number } | null>(null)
+  const btnRef = useRef<HTMLButtonElement>(null)
+
+  // Catálogo: 1 solo fetch (al abrir la 1ª vez); después se filtra en cliente.
+  useEffect(() => {
+    if (!open || catalog.length) return
+    const f = ctx.registry.fetchers[source]
+    if (!f) return
+    let cancel = false
+    void f(source, {}).then(e => { if (!cancel) setCatalog(Array.isArray(e.data) ? e.data as Record<string, unknown>[] : []) })
+    return () => { cancel = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, source])
+
+  // Cascada REUSANDO las categorías ya traídas por los filtros de arriba (ctx.filterData) — sin re-fetch.
+  const cats     = (ctx.filterData.category ?? []) as Record<string, unknown>[]
+  const catObj   = cats.find(c => String(c.IdCategory ?? '') === (sel.category ?? ''))
+  const subs     = (catObj?.Children as Record<string, unknown>[] | undefined) ?? []
+  const subObj   = subs.find(s => String(s.IdCategory ?? '') === (sel.subcategory ?? ''))
+  const catOpts  = cats.map(c => ({ value: String(c.IdCategory ?? ''), label: String(c.Descr ?? '') }))
+  const subOpts  = subs.map(s => ({ value: String(s.IdCategory ?? ''), label: String(s.Descr ?? '') }))
+  const skuPrefix = String((subObj ?? catObj)?.AggregatedCode ?? '')
+
+  const kf        = ctx.keyField
+  const inTable   = new Set(ctx.rows.map(r => String(r[kf] ?? '')))
+  const q         = query.trim().toLowerCase()
+  const filtered  = catalog.filter(p => {
+    if (inTable.has(String(p[kf] ?? '')))                            return false   // ya está en la tabla
+    if (skuPrefix && !String(p.sku ?? '').startsWith(skuPrefix))     return false   // por la subcategoría del picker
+    if (q && !String(p.varietyName ?? '').toLowerCase().includes(q)) return false
+    return true
+  })
+
+  const place = () => {
+    const r = btnRef.current?.getBoundingClientRect(); if (!r) return
+    const width = 360
+    setPos({ top: r.bottom + 4, left: Math.max(8, Math.min(r.left, window.innerWidth - width - 8)), width })
+  }
+  const toggle = () => { if (!open) place(); setOpen(o => !o) }
+
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
+    const onResize = () => place()
+    document.addEventListener('keydown', onKey)
+    window.addEventListener('resize', onResize)
+    return () => { document.removeEventListener('keydown', onKey); window.removeEventListener('resize', onResize) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
+
+  return (
+    <>
+      <Button ref={btnRef} type="button" variant="outline" size="sm" onClick={toggle}
+        className="shrink-0 gap-2 border-primary/20 bg-primary/10 text-primary hover:border-primary/40 hover:bg-primary/20">
+        <Plus className="h-4 w-4" /> {ctx.t('addSupply')}
+      </Button>
+      {open && pos && createPortal(
+        <>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 9998 }} onClick={() => setOpen(false)} />
+          <div style={{ position: 'fixed', top: pos.top, left: pos.left, width: pos.width, zIndex: 9999 }}
+            className="flex flex-col gap-3 rounded-xl border border-border bg-popover p-3 shadow-[0_8px_30px_rgb(0,0,0,0.12)] ring-1 ring-black/5">
+            <div className="grid grid-cols-2 gap-2">
+              <Combobox size="sm" options={catOpts} value={sel.category ?? ''}
+                onChange={v => setSel({ category: v })} placeholder={ctx.t('category')} />
+              <Combobox size="sm" options={subOpts} value={sel.subcategory ?? ''}
+                onChange={v => setSel(s => ({ ...s, subcategory: v }))} disabled={!sel.category} placeholder={ctx.t('subcategory')} />
+            </div>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <input value={query} onChange={e => setQuery(e.target.value)} placeholder={ctx.t('searchSupply')}
+                className="w-full min-w-0 rounded-lg border border-border bg-background py-1.5 pl-8 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+            </div>
+            <div className="max-h-56 overflow-y-auto rounded-lg border border-border">
+              {!skuPrefix ? (
+                <p className="px-3 py-4 text-center text-sm text-muted-foreground">{ctx.t('selectCategoryFirst')}</p>
+              ) : filtered.length === 0 ? (
+                <p className="px-3 py-4 text-center text-sm text-muted-foreground">{ctx.t('noResults')}</p>
+              ) : filtered.map(p => (
+                <div key={String(p[kf] ?? '')} className="flex items-center justify-between gap-2 px-3 py-2 text-sm hover:bg-muted/50">
+                  <span className="truncate text-foreground">{String(p.varietyName ?? '')}</span>
+                  <button type="button" onClick={() => { ctx.addProductRow(p); setQuery('') }} aria-label="Agregar"
+                    className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-primary/30 bg-primary/10 text-primary hover:bg-primary/20">
+                    <Plus className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>,
+        document.body,
+      )}
+    </>
+  )
+}
+
 // Renderiza el buscador del toolbar: picker (si hay cascada) o combo simple.
 function renderSearch(cfg: SearchConfig, ctx: RuntimeCtx) {
   return cfg.cascade?.length
@@ -213,6 +317,7 @@ function renderSearch(cfg: SearchConfig, ctx: RuntimeCtx) {
 // los filtros se auto-aplican al cambiar.
 function FiltersBar({ filters, applyLabel, ctx }: { filters: FilterConfig[]; applyLabel?: string; ctx: RuntimeCtx }) {
   const [staged, setStaged] = useState<Record<string, string>>({})
+  const [open, setOpen] = useState(false)   // toggle del panel en mobile (en sm+ siempre visible)
   const apply = !!applyLabel
   const valueOf = (k: string) => (apply ? (staged[k] ?? ctx.context[k] ?? '') : (ctx.context[k] ?? ''))
   const onPick = (f: FilterConfig, v: string) => {
@@ -224,15 +329,25 @@ function FiltersBar({ filters, applyLabel, ctx }: { filters: FilterConfig[]; app
     })
   }
   return (
-    <div className="flex flex-wrap items-end gap-3 rounded-xl border border-border bg-card p-4 shadow-sm sm:w-fit">
+    <div className="flex flex-col gap-3 sm:w-fit">
+      {/* Botón toggle SOLO en mobile → muestra/oculta el panel de filtros (soft primary del tenant) */}
+      <button
+        type="button" onClick={() => setOpen(o => !o)}
+        className="flex items-center justify-between gap-2 rounded-lg border border-primary/20 bg-primary/10 px-4 py-2.5 text-sm font-medium text-primary shadow-sm transition-colors hover:border-primary/40 hover:bg-primary/20 sm:hidden"
+      >
+        <span className="flex items-center gap-2"><Filter className="h-4 w-4" /> {ctx.t('filters')}</span>
+        <ChevronDown className={`h-4 w-4 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {/* Panel: oculto en mobile si !open; en sm+ siempre visible */}
+      <div className={`${open ? 'flex' : 'hidden'} flex-wrap items-end gap-3 rounded-xl border border-border bg-card p-4 shadow-sm sm:flex`}>
       {filters.map(f => (
         <div key={f.key} className="flex w-full flex-col gap-1.5 sm:w-60">
-          <label className="text-sm font-medium text-foreground">{f.label}</label>
+          <label className="text-sm font-medium text-foreground">{ctx.t(f.label)}</label>
           {f.input === 'text' ? (
             <input
               value={valueOf(f.key)}
               onChange={e => onPick(f, e.target.value)}
-              placeholder={f.placeholder ?? f.label}
+              placeholder={ctx.t(f.placeholder ?? f.label)}
               disabled={ctx.locked.has(f.key)}
               className="rounded-lg border border-border bg-card px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
             />
@@ -241,7 +356,7 @@ function FiltersBar({ filters, applyLabel, ctx }: { filters: FilterConfig[]; app
               options={ctx.options[f.key] ?? []}
               value={valueOf(f.key)}
               onChange={v => onPick(f, v)}
-              placeholder={f.placeholder ?? `Selecciona ${f.label.toLowerCase()}`}
+              placeholder={ctx.t(f.placeholder ?? f.label)}
               disabled={ctx.locked.has(f.key)}
             />
           )}
@@ -252,6 +367,7 @@ function FiltersBar({ filters, applyLabel, ctx }: { filters: FilterConfig[]; app
           <Filter className="h-4 w-4" /> {applyLabel}
         </Button>
       )}
+      </div>
     </div>
   )
 }
@@ -302,26 +418,35 @@ function TrxTable({ node, ctx }: { node: ComponentNode; ctx: RuntimeCtx }) {
   const kf  = node.rowKey ?? ctx.keyField
   const { search, select, dynamicFields: df } = node
 
-  const query = q.trim().toLowerCase()
-  const data = node.rowFilter && query
-    ? raw.filter(r => Object.values(r).some(v => String(v ?? '').toLowerCase().includes(query)))
+  // Filtro cliente por context (ej. categoría → skuPrefix): la fila entra si
+  // row[field] empieza con context[prefixFrom]. Vacío = no filtra.
+  const scoped = node.filterBy
+    ? raw.filter(r => { if (r._added) return true; const pre = ctx.context[node.filterBy!.prefixFrom] ?? ''; return !pre || String(r[node.filterBy!.field] ?? '').startsWith(pre) })
     : raw
 
-  const tb = node.title || search || select || node.rowFilter ? (
-    <div className="flex flex-wrap items-center justify-between gap-3">
-      <div className="flex flex-wrap items-center gap-3">
+  const query = q.trim().toLowerCase()
+  const data = node.rowFilter && query
+    ? scoped.filter(r => Object.values(r).some(v => String(v ?? '').toLowerCase().includes(query)))
+    : scoped
+
+  // "Cargar insumo": solo en la tabla principal (no carrito) y si el módulo provee un fetcher CATALOG.
+  const showAddPicker = !isCollection && !!ctx.registry.fetchers.CATALOG && node.addSupply !== false
+  const tb = node.title || search || select || node.rowFilter || showAddPicker ? (
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex items-center gap-3">
         {node.title && (
           <div className="flex items-center gap-2">
-            <h2 className="text-sm font-semibold text-foreground">{node.title}</h2>{countBadge(raw.length)}
+            <h2 className="text-sm font-semibold text-foreground">{ctx.t(node.title)}</h2>{countBadge(raw.length)}
           </div>
         )}
         {search && renderSearch(search, ctx)}
       </div>
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex items-center gap-2">
+        {showAddPicker && <AddProductPicker ctx={ctx} source="CATALOG" />}
         {node.rowFilter && (
-          <div className="relative w-full sm:w-56">
+          <div className="relative flex-1 sm:w-56">
             <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-            <input value={q} onChange={e => setQ(e.target.value)} placeholder={String(node.placeholder ?? 'Buscar…')}
+            <input value={q} onChange={e => setQ(e.target.value)} placeholder={ctx.t(String(node.placeholder ?? 'search'))}
               className="w-full min-w-0 rounded-lg border border-border bg-background py-1.5 pl-8 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
           </div>
         )}
@@ -365,19 +490,75 @@ function TrxTable({ node, ctx }: { node: ComponentNode; ctx: RuntimeCtx }) {
   const renderExpanded = node.expand
     ? (row: Record<string, unknown>) => {
         const r = ctx.registry.renderers[node.expand!]
-        return r ? r({ value: undefined, row, field: {} as TrxField, context: ctx.context, setValue: () => {}, collection: ctx.collection }) : null
+        return r ? r({ value: undefined, row, field: {} as TrxField, context: ctx.context, setValue: () => {}, collection: ctx.collection, keyField: kf }) : null
       }
     : undefined
 
   const columns = [...ctx.makeColumns(node.fields ?? [], kf, isCollection), ...dynCols]
+
+  // Card mobile propio: separa la fila en Título (variedad) · Datos (grilla) · Acción
+  // (input + botones abajo). Categoriza por el renderer de cada field (ya normalizado).
+  const baseFields = node.fields ?? []
+  const mobileCard = (r: Record<string, unknown>) => {
+    const cells   = baseFields.map((f, i) => ({ f, col: columns[i] })).filter(c => c.col)
+    const title   = cells.find(c => c.f.selectorValue === 'varietyName')
+    const rest    = cells.filter(c => c !== title)
+    const actions = rest.filter(c => /button/i.test(c.f.renderer ?? ''))
+    const inputs  = rest.filter(c => /input/i.test(c.f.renderer ?? ''))
+    const data    = rest.filter(c => !actions.includes(c) && !inputs.includes(c))
+    return (
+      <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
+        {title && <p className="mb-3 text-sm font-semibold text-foreground">{title.col.render?.(r)}</p>}
+        {data.length > 0 && (
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
+            {data.map((c, i) => (
+              <div key={i} className="flex flex-col gap-0.5">
+                <dt className="text-xs text-muted-foreground">{c.col.header}</dt>
+                <dd className="text-sm font-medium text-foreground">{c.col.render?.(r)}</dd>
+              </div>
+            ))}
+          </dl>
+        )}
+        {(inputs.length > 0 || actions.length > 0) && (
+          <div className="mt-3 flex items-end justify-between gap-3 border-t border-border pt-3">
+            <div className="flex flex-1 flex-col gap-1">
+              {inputs.map((c, i) => (
+                <div key={i} className="flex flex-col gap-1">
+                  <span className="text-xs text-muted-foreground">{c.col.header}</span>
+                  {c.col.render?.(r)}
+                </div>
+              ))}
+            </div>
+            <div className="flex shrink-0 items-center gap-2 self-end">
+              {actions.map((c, i) => <span key={i}>{c.col.render?.(r)}</span>)}
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // Estados de la tabla principal (no aplica al carrito): gated (sin location, no fetch) ·
+  // loading (skeleton) · error (inline + retry) · noData. El carrito usa su propio hint.
+  const gated     = !isCollection && !ctx.ready
+  const showError = !isCollection && ctx.ready && !ctx.loading && !!ctx.error
+  const emptyMsg  = isCollection ? 'addProductsHint' : gated ? 'pickLocation' : 'noData'
+
+  // Fallo de carga de data: el shell (filtros arriba) queda; la zona de la tabla muestra
+  // el error con Reintentar (design system), en vez de "sin datos" silencioso.
+  if (showError) return <ErrorState error={ctx.error} onRetry={ctx.retry} />
+
   return (
     <DataTable
       columns={columns}
       data={data}
       rowKey={r => String(r[kf] ?? '')}
-      emptyMessage={isCollection ? 'Cargá productos con el buscador de arriba.' : ctx.loading ? 'Cargando…' : 'Sin datos para esta selección.'}
+      emptyMessage={ctx.t(emptyMsg)}
+      loading={!isCollection && ctx.ready && ctx.loading && ctx.rows.length === 0}
       toolbar={tb}
       renderExpanded={renderExpanded}
+      mobileCard={mobileCard}
+      pageSize={10}
     />
   )
 }
@@ -403,7 +584,7 @@ function TrxDrawer({ node, ctx }: { node: ComponentNode; ctx: RuntimeCtx }) {
   return (
     <>
       <div className="flex justify-end">
-        <Button onClick={() => { measure(); setOpen(true) }}>{node.trigger ?? 'Continuar'}</Button>
+        <Button onClick={() => { measure(); setOpen(true) }}>{ctx.t(node.trigger ?? 'continue')}</Button>
       </div>
       {open && box && createPortal(
         <>
@@ -412,7 +593,7 @@ function TrxDrawer({ node, ctx }: { node: ComponentNode; ctx: RuntimeCtx }) {
           <div style={{ position: 'fixed', top: box.top, right: 0, bottom: 0, zIndex: 40 }}
             className="flex w-full max-w-md flex-col border-l border-border bg-card shadow-xl">
             <div className="flex items-center justify-between border-b border-border px-5 py-4">
-              <h2 className="text-base font-semibold text-foreground">{node.title ?? 'Resumen'}</h2>
+              <h2 className="text-base font-semibold text-foreground">{ctx.t(node.title ?? 'summary')}</h2>
               <button type="button" onClick={() => setOpen(false)} aria-label="Cerrar"
                 className="flex h-8 w-8 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-muted">
                 <X className="h-4 w-4" />
@@ -421,6 +602,18 @@ function TrxDrawer({ node, ctx }: { node: ComponentNode; ctx: RuntimeCtx }) {
             <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-5">
               {(node.children ?? []).map((c, i) => ctx.renderNode(c, i))}
             </div>
+            {node.footerActions === true && (() => {
+              const ts = ctx.transitions.filter(t => t.label)   // acciones del workflow del estado actual
+              return ts.length ? (
+                <div className="flex flex-col gap-2 border-t border-border px-5 py-4">
+                  {ts.map(t => (
+                    <Button key={t.on} variant={t.variant ?? 'default'} onClick={() => ctx.fire(t)} disabled={!ctx.canFire(t)} className="w-full">
+                      {ctx.t(t.label ?? '')}
+                    </Button>
+                  ))}
+                </div>
+              ) : null
+            })()}
           </div>
         </>,
         document.body,
@@ -440,7 +633,7 @@ export const DEFAULT_COMPONENTS: Record<string, (node: ComponentNode, ctx: Runti
     const badge = node.badge ? ctx.registry.computeds[node.badge]?.({ $items: ctx.collection.items }) : null
     return (
       <div className="flex items-center gap-2">
-        <h2 className="text-base font-semibold text-foreground">{node.title}</h2>
+        <h2 className="text-base font-semibold text-foreground">{ctx.t(node.title ?? '')}</h2>
         {badge != null && badge !== '' && (
           <span className="rounded-full bg-chart-1/10 px-2.5 py-0.5 text-xs font-medium text-chart-1">{String(badge)}</span>
         )}
@@ -465,7 +658,7 @@ export const DEFAULT_COMPONENTS: Record<string, (node: ComponentNode, ctx: Runti
       <div className="flex flex-col gap-3">
         {node.title && (
           <div className="flex items-center gap-2">
-            <h2 className="text-sm font-semibold text-foreground">{node.title}</h2>{countBadge(items.length)}
+            <h2 className="text-sm font-semibold text-foreground">{ctx.t(node.title)}</h2>{countBadge(items.length)}
           </div>
         )}
         {items.length === 0 ? (
@@ -478,7 +671,7 @@ export const DEFAULT_COMPONENTS: Record<string, (node: ComponentNode, ctx: Runti
             <dl className="flex flex-col gap-1">
               {(node.fields ?? []).map((f, j) => (
                 <div key={j} className="flex items-center justify-between gap-3">
-                  <dt className="text-xs text-muted-foreground">{f.label}</dt>
+                  <dt className="text-xs text-muted-foreground">{ctx.t(f.label ?? '')}</dt>
                   <dd className="text-sm font-medium text-foreground">{ctx.renderField(f, row)}</dd>
                 </div>
               ))}
@@ -524,11 +717,11 @@ export const DEFAULT_COMPONENTS: Record<string, (node: ComponentNode, ctx: Runti
     const row = ctx.rows[0] ?? {}   // (por ahora el 1er registro; luego se puede parametrizar)
     return (
       <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-        {node.title && <h2 className="mb-3 text-sm font-semibold text-foreground">{node.title}</h2>}
+        {node.title && <h2 className="mb-3 text-sm font-semibold text-foreground">{ctx.t(node.title)}</h2>}
         <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {fields.map((f, i) => (
             <div key={i} className="flex flex-col gap-0.5">
-              <dt className="text-xs text-muted-foreground">{f.label}</dt>
+              <dt className="text-xs text-muted-foreground">{ctx.t(f.label ?? '')}</dt>
               <dd className="text-sm font-medium text-foreground">{ctx.renderField(f, row)}</dd>
             </div>
           ))}
@@ -542,11 +735,11 @@ export const DEFAULT_COMPONENTS: Record<string, (node: ComponentNode, ctx: Runti
     const data = { ...ctx.context, count: ctx.collection.items.length, items: ctx.collection.items }
     return (
       <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-        {node.title && <div className="border-b border-border px-4 py-3"><h2 className="text-sm font-semibold text-foreground">{node.title}</h2></div>}
+        {node.title && <div className="border-b border-border px-4 py-3"><h2 className="text-sm font-semibold text-foreground">{ctx.t(node.title)}</h2></div>}
         <div className="divide-y divide-border/60">
           {(node.fields ?? []).map((f, i) => (
             <div key={i} className="flex items-center justify-between px-4 py-3">
-              <span className="text-sm text-muted-foreground">{f.label}</span>
+              <span className="text-sm text-muted-foreground">{ctx.t(f.label ?? '')}</span>
               <span className="text-sm font-semibold text-foreground">{ctx.renderField(f, data)}</span>
             </div>
           ))}

@@ -283,7 +283,13 @@ public sealed class ManageTransactionService : IManageTransactionService
                         IdVariety = x.IdVariety,
                         VarietyName = x.VarietyName,
                         Sku = x.Sku,
-                        Qty = x.Qty
+                        Qty = x.Qty,
+                        TrxProductAttributes = x.TrxProductAttributes
+                            .Select(x => new TrxProductAttributesDTO
+                            {
+                                AttributeKey = x.AttributeKey,
+                                AttributeValue = x.AttributeValue!
+                            }).ToList()
                     }).ToList(),
                 TrxStates = x.TrxStates
                     .OrderBy(x => x.FromTrxState)

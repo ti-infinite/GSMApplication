@@ -1,5 +1,6 @@
 using GSMOperations.Business.Interfaces;
 using GSMOperations.DataAccess.Interfaces;
+using GSMOperations.Entities.DTOs;
 using GSMOperations.Entities.Models;
 
 namespace GSMOperations.Business.Executors.Resources;
@@ -45,7 +46,7 @@ public sealed class LoadTrxDocumentSource : IResourceExecutor
             }
         );
 
-        var result = await _spExecutor.ExecuteSpAsyncWithReturn<List<string>>(sp, cancellationToken);
+        var result = await _spExecutor.ExecuteSpAsyncWithReturn<MissingTrxDocumentDTO>(sp, cancellationToken);
 
         return result;
     }

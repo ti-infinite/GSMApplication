@@ -8,28 +8,45 @@ using GSMOperations.Entities.Models.Transactions;
 
 namespace GSMOperations.Business.Executors.Events;
 
-public sealed class SendMail : IEventExecutor
+public abstract class SendNotification : IEventExecutor
 {
-    private readonly IEmailService _emailService;
+    protected readonly IAgentNotificacions _agentNotificacions;
+    public abstract string EventName { get; }
+    protected abstract string NotificationType { get; }
 
-    public const string EventExecutorName = "SEND_EMAIL";
 
-    public string EventName => EventExecutorName;
-
-    public SendMail(IEmailService emailService)
+    protected SendNotification(IAgentNotificacions agentNotificacions)
     {
-        _emailService = emailService;
+        _agentNotificacions = agentNotificacions;
     }
 
     public async Task<EventExecutionResultDTO> ExecuteAsync(JsonReaEvents eventDefinition, TrxHeader trxRequest, CancellationToken cancellationToken)
     {
         try
         {
-            var from = ResolveParameter(
+            var bodyType = ResolveParameter(
                 eventDefinition,
-                "from",
+                "bodyType",
                 trxRequest)
-                .First();
+                .Single();
+
+            var attType = ResolveParameter(
+                eventDefinition,
+                "attType",
+                trxRequest)
+                .Single();
+
+            var attDocumentType = ResolveParameter(
+                eventDefinition,
+                "attDocumentType",
+                trxRequest)
+                .Single();
+
+            var attValueTemplate = ResolveParameter(
+                eventDefinition,
+                "attValue",
+                trxRequest)
+                .Single();
 
             var to = ResolveParameter(
                 eventDefinition,
@@ -40,36 +57,54 @@ public sealed class SendMail : IEventExecutor
                 eventDefinition,
                 "subject",
                 trxRequest)
-                .First();
+                .Single();
+
+            var bodyTemplate = ResolveParameter(
+                eventDefinition,
+                "body",
+                trxRequest)
+                .Single();
+
+            var attValue = ResolveTemplate(
+                attValueTemplate,
+                trxRequest);
 
             var subject = ResolveTemplate(
                 subjectTemplate,
                 trxRequest);
 
-            var emailRequest = new EmailRequest
+            var body = ResolveTemplate(
+                bodyTemplate,
+                trxRequest);
+
+            var notificationRequest = new NotificationRequest
             {
-                From = from,
+                NotificationType = NotificationType,
+                AttType = attType,
+                AttDocumentType = attDocumentType,
+                AttValue = attValue,
                 To = to,
                 Subject = subject,
-                Body = "Funciono!"
+                Body = body,
+                BodyType = bodyType
             };
 
-            await _emailService.SendAsync(
-                emailRequest,
+            await _agentNotificacions.SendAsync(
+                notificationRequest,
                 cancellationToken);
 
             return new EventExecutionResultDTO
             {
-                EventName = EventExecutorName,
+                EventName = EventName,
                 Success = true,
-                Message = Messages.Events.EventMailSuccess
+                Message = Messages.Events.EventNotificationSuccess
             };
         }
         catch (Exception ex)
         {
             return new EventExecutionResultDTO
             {
-                EventName = EventExecutorName,
+                EventName = EventName,
                 Success = false,
                 Message = ex.Message
             };

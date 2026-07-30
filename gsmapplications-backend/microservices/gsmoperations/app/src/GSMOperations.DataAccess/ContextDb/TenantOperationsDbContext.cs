@@ -25,6 +25,7 @@ namespace GSMOperations.DataAccess.ContextDb
         public virtual DbSet<TrxDefinition> TrxDefinitions => Set<TrxDefinition>();
         public virtual DbSet<TrxProductAttribute> TrxProductAttributes => Set<TrxProductAttribute>();
         public virtual DbSet<InventoryTraceability> InventoryTraceabilities => Set<InventoryTraceability>();
+        public virtual DbSet<Notification> Notifications => Set<Notification>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -148,6 +149,17 @@ namespace GSMOperations.DataAccess.ContextDb
             modelBuilder.Entity<InventoryTraceability>(entity =>
             {
                 entity.HasKey(e => e.IdInventoryTraceability).HasName("PK__Inventor__B5604AA8C2969FDE");
+            });
+
+            modelBuilder.Entity<Notification>(entity =>
+            {
+                entity.HasKey(e => e.IdNotification).HasName("PK__Notifica__950094B10449DB6F");
+
+                entity.HasIndex(e => new { e.ProcessingSince, e.RetryCount }, "IX_Notifications_Pending").HasFilter("([IsSent]=(0))");
+
+                entity.Property(e => e.CreatedAt).HasDefaultValueSql("(sysutcdatetime())");
+
+                entity.Property(e => e.IsSent).HasDefaultValueSql("((0))");
             });
 
             base.OnModelCreating(modelBuilder);

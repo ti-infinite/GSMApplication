@@ -13,7 +13,7 @@ namespace GSMOperations.Infrastructure
         {
             services.AddScoped<ITenantConnectionResolver, TenantConnectionResolver>();
 
-            services.AddScoped<IEmailService, InfobipEmailService>();
+            services.AddScoped<IAgentNotificacions, EmailNotificationAgentService>();
             return services;
         }
     }

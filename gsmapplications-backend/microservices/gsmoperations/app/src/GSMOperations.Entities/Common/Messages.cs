@@ -29,7 +29,7 @@ namespace GSMOperations.Entities.Common
 
     public static class Events
         {
-            public const string EventMailSuccess = "Email sent successfully.";
+            public const string EventNotificationSuccess = "Notification queued successfully.";
             public const string EventAdjustSuccess = "Inventory adjusted successfully.";
         }
         public static class Tenant

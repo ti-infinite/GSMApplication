@@ -26,6 +26,7 @@ namespace GSMOperations.DataAccess.ContextDb
         public virtual DbSet<TrxProductAttribute> TrxProductAttributes => Set<TrxProductAttribute>();
         public virtual DbSet<InventoryTraceability> InventoryTraceabilities => Set<InventoryTraceability>();
         public virtual DbSet<Notification> Notifications => Set<Notification>();
+        public virtual DbSet<VarietyCostBySupplier> VarietyCostBySuppliers  => Set<VarietyCostBySupplier>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -160,6 +161,13 @@ namespace GSMOperations.DataAccess.ContextDb
                 entity.Property(e => e.CreatedAt).HasDefaultValueSql("(sysutcdatetime())");
 
                 entity.Property(e => e.IsSent).HasDefaultValueSql("((0))");
+            });
+
+            modelBuilder.Entity<VarietyCostBySupplier>(entity =>
+            {
+                entity.HasKey(e => e.IdCostBySupplier).HasName("PK__VarietyC__5776FE2E0118EEED");
+
+                entity.Property(e => e.IsActive).HasDefaultValue(true);
             });
 
             base.OnModelCreating(modelBuilder);

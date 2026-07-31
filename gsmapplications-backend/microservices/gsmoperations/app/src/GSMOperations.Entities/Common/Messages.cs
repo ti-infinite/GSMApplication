@@ -25,6 +25,7 @@ namespace GSMOperations.Entities.Common
             public const string Healthy = "Application is healthy.";
             public const string EmptyFields = "The url endpoint and the operation fields are required.";
             public const string HttpMethodUnknown = "Http method not implemented.";
+            public const string VarietiesLoaded = "Varieties loaded succesfully";
         }
 
     public static class Events

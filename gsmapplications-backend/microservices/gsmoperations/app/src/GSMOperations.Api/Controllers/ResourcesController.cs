@@ -18,11 +18,13 @@ public sealed class ResourcesController : ControllerBase
     private readonly ISuppliersService _suppliersService;
     private readonly ICategoriesService _categoriesService;
     private readonly ISkuDefinitionsService _skuDefinitionsService;
+    private readonly IVarietyCostBySupplierService _varietyCostService;
 
 
     public ResourcesController(IGlobalAndParamAttributeService paramAttributeService, IMasterHerbsService masterHerbsService, 
         IEmployeesService employeesService, ISuppliersService suppliersService, ICategoriesService categoriesService,
-        ISkuDefinitionsService skuDefinitionsService)
+        ISkuDefinitionsService skuDefinitionsService,
+        IVarietyCostBySupplierService varietyCostService)
     {
         _paramAttributeService = paramAttributeService;
         _masterHerbsService = masterHerbsService;
@@ -30,6 +32,7 @@ public sealed class ResourcesController : ControllerBase
         _suppliersService = suppliersService;
         _categoriesService = categoriesService;
         _skuDefinitionsService = skuDefinitionsService; 
+        _varietyCostService = varietyCostService;
     }
 
 
@@ -81,6 +84,14 @@ public sealed class ResourcesController : ControllerBase
     public async Task<IActionResult> GetSkuDefinitions(CancellationToken cancellationToken)
     {
         var response = await _skuDefinitionsService.GetSkuDefinitions(cancellationToken);
+        return Ok(response);
+    }
+
+    [HttpPost("filtered-varieties")]
+    [ProducesResponseType(typeof(ApiResponse<List<VarietyCostBySupplierDTO>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetFilteredVarieties([FromBody] SearchVarietyCost? searchCriteria, CancellationToken cancellationToken)
+    {
+        var response = await _varietyCostService.GetFilteredVarietyCost(searchCriteria, cancellationToken);
         return Ok(response);
     }
 

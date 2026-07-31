@@ -29,6 +29,7 @@ namespace GSMOperations.Business
             services.AddScoped<IResourceExecutor, LoadTrxDocumentSource>();
             services.AddScoped<IResourceExecutor, LoadSobrante>();
             services.AddScoped<IEventExecutor, AdjustInventory>();
+            services.AddScoped<IVarietyCostBySupplierService, VarietyCostBySupplierService>();
 
             return services;
         }

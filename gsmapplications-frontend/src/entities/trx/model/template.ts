@@ -46,6 +46,11 @@ function addFilterSpec(spec: FilterSpec, acc: Second): void {
     // COMBO ESTÁTICO: opciones quemadas en el JSON (no todo se llena por un source).
     acc.filters.push({ key: spec.key ?? slug(spec.label ?? 'filter'), label: spec.label ?? 'filter',
                        values: spec.values, optionValue: 'value', optionLabel: 'label' })
+  } else if (typeof spec === 'object' && 'type' in spec && spec.type === 'resource') {
+    // COMBO DESDE RESOURCE: opciones desde un resource (JsonREA) con params del context + gate.
+    // Ej. Requerimiento ← LOADMISSINGTRX(location, origen, destino). Al elegir → context → líneas.
+    acc.filters.push({ key: spec.key ?? slug(spec.label ?? spec.resource), label: spec.label ?? 'document', resource: spec.resource,
+                       optionValue: spec.optionValue ?? 'id', optionLabel: spec.optionLabel ?? 'name', placeholder: spec.placeholder })
   } else if (typeof spec === 'object' && 'source' in spec) {
     // DOCUMENTO (recepción/OC/factura): recibe location → lista los docs a derivar.
     acc.filters.push({ key: 'document', label: spec.label ?? 'document', source: spec.source,

@@ -76,7 +76,9 @@ export function useMenu(): UseMenuResult {
     })),
   }))
 
-  const allItems = translated.flatMap(i => [i, ...(i.Children ?? [])])
+  const flatten = (items: MenuOption[]): MenuOption[] =>
+    items.flatMap(i => [i, ...flatten(i.Children ?? [])])
+  const allItems = flatten(translated)
 
   return {
     menuItems:  translated,

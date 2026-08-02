@@ -38,6 +38,7 @@ export interface FilterConfig {
   key:            string
   label:          string
   source?:        string   // fetcher de opciones (filtros base; los dependientes no lo usan)
+  resource?:      string   // id de un resource (JsonREA) → las opciones salen de ESE resource (params resueltos del context, con gate). Alternativa a `source` (fetcher sin params): sirve para combos que dependen de otros filtros (ej. Requerimiento ← location/origen/destino).
   values?:        { value: string; label: string }[]   // opciones INLINE (combo ESTÁTICO, sin source)
   optionValue:    string
   optionLabel:    string
@@ -71,6 +72,11 @@ export interface CollectionSection {
   trigger?: string                // label del botón que abre el drawer (si display=drawer)
 }
 
+/** Multi-select del toolbar → ctx.selections[key] (comparativa de opciones, ej. proveedores). */
+export interface SelectConfig { key: string; label: string; source: string; optionValue: string; optionLabel: string }
+/** Columnas DERIVADAS de una selección múltiple: 1 col por opción elegida (comparativa). */
+export interface DynamicFieldsConfig { from: string; label: string; selector: string; pick?: string }
+
 /** Slot de la tabla principal (template). El transformer lo vuelve un component `table`. */
 export interface MainSlot {
   source?:      string
@@ -80,6 +86,8 @@ export interface MainSlot {
   filterBy?:    { field: string; prefixFrom: string }
   search?:      SearchConfig
   addSupply?:   boolean   // false → oculta el picker "cargar insumo" (ej. gasto: se consume del stock, no se agrega)
+  select?:      SelectConfig          // multi-select del toolbar (ej. proveedores)
+  dynamicFields?: DynamicFieldsConfig  // comparativa: 1 columna por opción elegida
   fields:       TrxField[]
 }
 
@@ -101,8 +109,22 @@ export interface ComboFilter {
   values: { value: string; label: string }[]
 }
 
-/** Un spec de `filter`: keyword ('category'), documento (source) o combo estático. */
-export type FilterSpec = string | DocFilter | ComboFilter
+/** 2do filtro tipo COMBO desde RESOURCE: las opciones salen de un resource (JsonREA)
+ *  con params resueltos del context + gate (no fetchea hasta que sus params estén). Ej.
+ *  Requerimiento ← LOADMISSINGTRX(location, origen, destino). Al elegir, su value entra
+ *  al context → dispara el resource principal (líneas). Combo dependiente sin cascada estática. */
+export interface ResourceFilter {
+  type:     'resource'
+  resource: string   // id del resource (JsonREA) que da las opciones
+  key?:     string
+  label?:   string
+  optionValue?: string
+  optionLabel?: string
+  placeholder?: string
+}
+
+/** Un spec de `filter`: keyword ('category'), documento (source), combo estático o combo desde resource. */
+export type FilterSpec = string | DocFilter | ComboFilter | ResourceFilter
 
 /** Slot tabla principal — forma MÍNIMA: solo `columns` (el resto lo pone el template). */
 export interface ProductsSlot {
@@ -113,6 +135,8 @@ export interface ProductsSlot {
   filterBy?:    { field: string; prefixFrom: string }
   search?:      SearchConfig
   addSupply?:   boolean   // false → oculta el picker "cargar insumo"
+  select?:      SelectConfig          // multi-select del toolbar (ej. proveedores) — específico de una TRX, NO va por el template
+  dynamicFields?: DynamicFieldsConfig  // comparativa: 1 columna por opción elegida (ej. precio por proveedor)
 }
 
 /** Slot resumen — forma MÍNIMA: `columns` + `title` (varía por módulo). `target`
@@ -210,10 +234,10 @@ export interface ComponentNode {
 export interface WfTransition {
   from:     string
   to:       string
-  on:       string      // acción/trigger que dispara la transición (verbo: COMPLETE, NEW…)
+  on?:      string      // acción/trigger que dispara la transición (verbo: COMPLETE, NEW…). Omitible: el botón sale por `label`, sin necesitar un `on` que casar.
   label?:   string      // texto del botón que GENERA esta transición (sin label → no hay botón, ej. auto)
   variant?: 'default' | 'secondary' | 'ghost'
-  event?:   string      // efecto → registry.actions[event] (a futuro: cadena/back)
+  event?:   string | string[]   // efecto(s) post-success. El backend ejecuta los del workflow; el front corre SOLO los que existan en registry.actions (uno o varios).
   guard?:   string      // precondición → registry.guards[guard]  (FSM/UI)
 }
 

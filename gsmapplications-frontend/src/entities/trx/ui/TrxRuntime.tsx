@@ -10,8 +10,9 @@ import type { TableColumn } from '@/shared/ui/data-table'
 import { useTrxData } from '../model/useTrxData'
 import { DEFAULT_SELECTORS } from '../model/selectors'
 import { DEFAULT_VALUE_SOURCES } from '../model/valueSources'
-import { httpFetcher } from '../model/engine'
+import { httpFetcher, resolveResource, resolveParams } from '../model/engine'
 import type { Fetcher } from '../model/engine'
+import type { Resource } from '../model/types'
 import type {
   JsonConfig, FrontConfig, FilterConfig, TrxField, TrxRegistry, CollectionApi, WfTransition, ComponentNode, RuntimeCtx,
 } from '../model/runtime'
@@ -114,6 +115,10 @@ function defaultTree(front: FrontConfig, heading?: string): ComponentNode[] {
     filterBy:    front.main?.filterBy,
     search:      front.main?.search,
     addSupply:   front.main?.addSupply,
+    // Multi-select + columnas comparativas (ej. proveedores/precio). El template NO los
+    // propaga (son específicos de una TRX); acá se leen del slot products/main que los declara.
+    select:        front.main?.select        ?? front.products?.select,
+    dynamicFields: front.main?.dynamicFields ?? front.products?.dynamicFields,
     fields:      (front.main?.fields ?? front.fields ?? []).map(normField),
   }
 
@@ -138,6 +143,15 @@ function defaultTree(front: FrontConfig, heading?: string): ComponentNode[] {
 
 const NO_FETCHER: Fetcher = async () => ({ success: 'false', message: 'sin fetcher', data: [], traceId: null })
 
+// Gate genérico: ¿todos los params que el resource saca del CONTEXT (location, trxDocument…)
+// tienen valor? Reusado por la tabla principal (no fetchea sin finca) y por los combos-desde-
+// resource (no cargan opciones hasta tener sus params). Un solo lugar para la regla del gate.
+function paramsReady(resource: Resource, ctx: Record<string, string>): boolean {
+  return resource.parameters
+    .filter(p => (p.sourceType ?? 'CONTEXT') === 'CONTEXT')
+    .every(p => String(ctx[p.values?.[0] ?? p.value ?? p.keyValue ?? p.key] ?? '') !== '')
+}
+
 /**
  * Renderiza un módulo entero desde su JsonConfig: JsonFront (SDUI: components →
  * registry.components, layout DENTRO del componente) + JsonREA (data por resource,
@@ -153,8 +167,14 @@ export function TrxRuntime({ config, registry, title, subtitle, heading, trxLabe
   // El template expande el JsonFront mínimo (filter/products/cart) a la forma interna
   // (location gate + filters + derive + main/collection). Todo lo demás lee de acá.
   const front = useMemo(() => expandFront(config.JsonFront), [config.JsonFront])
-  const mainResource = rea.resources[0] ?? null
+  // Tabla principal: resource marcado `main:true` (explícito, sin depender del orden) o resources[0] (fallback).
+  const mainResource = rea.resources.find(r => r.main) ?? rea.resources[0] ?? null
   const filters = useMemo(() => getFilters(front), [front])
+
+  // Elige el fetcher de un resource: custom por id (registry) → httpFetcher (API/endpoint) → none.
+  // Único para la tabla principal y los combos-desde-resource (mismo resolver de datos).
+  const fetcherFor = (r: Resource): Fetcher =>
+    r.id in registry.fetchers ? registry.fetchers[r.id] : (r.sourceType === 'API' || r.endpoint ? httpFetcher : NO_FETCHER)
 
   const [context,        setContext]        = useState<Record<string, string>>(() => initialContext(filters))
   const [fetchedOptions, setFetchedOptions] = useState<Record<string, unknown[]>>({})
@@ -162,6 +182,7 @@ export function TrxRuntime({ config, registry, title, subtitle, heading, trxLabe
   const [edits,      setEdits]      = useState<Record<string, Record<string, unknown>>>({})
   const [collection, setCollection] = useState<Row[]>([])
   const [extraRows,  setExtraRows]  = useState<Row[]>([])   // filas agregadas a mano (ej. "cargar insumo" del catálogo)
+  const [enrichRows, setEnrichRows] = useState<Record<string, Row[]>>({})   // datos de recursos de enriquecimiento (enrichBy), por resource id
   const [state,      setState]      = useState<string>(workflow.initialState)
   const [refreshKey, setRefreshKey] = useState(0)   // bump → re-resuelve resources (refresh de módulo)
 
@@ -194,7 +215,9 @@ export function TrxRuntime({ config, registry, title, subtitle, heading, trxLabe
           await saveResource(cacheK, data)
         } catch { next[f.key] = [] }
       }
-      if (!cancelled) setFetchedOptions(next)
+      // MERGE (no replace): preserva las opciones de los combos-desde-resource, que los
+      // llena el otro efecto (params del context) y no deben pisarse acá.
+      if (!cancelled) setFetchedOptions(prev => ({ ...prev, ...next }))
     })()
     return () => { cancelled = true }
   }, [filters, registry])
@@ -210,11 +233,14 @@ export function TrxRuntime({ config, registry, title, subtitle, heading, trxLabe
         : f.dependsOn && f.optionsFrom                                   // CASCADA (opción del padre)
           ? ((getValueByPath(selected[f.dependsOn], f.optionsFrom) as unknown[]) ?? [])
           : (fetchedOptions[f.key] ?? [])                               // fetch por source
-      combo[f.key] = data.map(o => ({
-        value: String((o as Record<string, unknown>)?.[f.optionValue] ?? ''),
-        label: String((o as Record<string, unknown>)?.[f.optionLabel] ?? ''),
-      }))
-      selected[f.key] = data.find(o => String((o as Record<string, unknown>)?.[f.optionValue] ?? '') === (context[f.key] ?? ''))
+      // Opción PRIMITIVA (string/number, ej. LOADMISSINGTRX → List<string>): value=label=el valor.
+      // Opción OBJETO: se leen optionValue/optionLabel.
+      const valOf = (o: unknown) =>
+        o != null && typeof o === 'object' ? String((o as Record<string, unknown>)[f.optionValue] ?? '') : String(o ?? '')
+      const labOf = (o: unknown) =>
+        o != null && typeof o === 'object' ? String((o as Record<string, unknown>)[f.optionLabel] ?? '') : String(o ?? '')
+      combo[f.key] = data.map(o => ({ value: valOf(o), label: labOf(o) }))
+      selected[f.key] = data.find(o => valOf(o) === (context[f.key] ?? ''))
     }
     return { comboOptions: combo, selectedOptions: selected }
   }, [filters, fetchedOptions, context])
@@ -230,6 +256,69 @@ export function TrxRuntime({ config, registry, title, subtitle, heading, trxLabe
     return c
   }, [context, selectedOptions, front, registry])
 
+  // Combos-desde-resource: opciones desde un resource (JsonREA) con params del context + gate.
+  // Ej. Requerimiento ← LOADMISSINGTRX(location, origen, destino). Se re-resuelve SOLO cuando
+  // cambian los params del combo (no todo el context). Al elegir, su value entra al context →
+  // dispara el resource principal (líneas). SWR: el 4º arg de resolveResource revalida en bg.
+  const resourceFilters = useMemo(() => filters.filter(f => f.resource), [filters])
+  const resFiltersKey = useMemo(
+    () => resourceFilters.map(f => {
+      const r = rea.resources.find(x => x.id === f.resource)
+      return r ? `${f.key}:${paramsReady(r, enrichedContext) ? JSON.stringify(resolveParams(r, enrichedContext)) : 'GATED'}` : f.key
+    }).join('|'),
+    [resourceFilters, rea.resources, enrichedContext],
+  )
+  useEffect(() => {
+    if (!resourceFilters.length) return
+    let cancelled = false
+    void (async () => {
+      for (const f of resourceFilters) {
+        const resource = rea.resources.find(r => r.id === f.resource)
+        if (!resource) continue
+        const set = (data: unknown) => { if (!cancelled) setFetchedOptions(prev => ({ ...prev, [f.key]: Array.isArray(data) ? (data as unknown[]) : [] })) }
+        // Gate: sin los params completos (ej. falta location) → sin opciones (limpia lo previo).
+        if (!paramsReady(resource, enrichedContext)) { set([]); continue }
+        try { set(await resolveResource(resource, enrichedContext, fetcherFor(resource), set)) }
+        catch { set([]) }
+      }
+    })()
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resFiltersKey, refreshKey])
+
+  // Recursos de ENRIQUECIMIENTO (enrichBy): fusionan sus filas sobre las del main por una llave.
+  // Ej. precio por proveedor (loadproductsbygrower) ← se dispara al elegir proveedor y cruza por idVariety.
+  // Se cargan igual que los combos-desde-resource (gate + params del context); su data se merge-a en effectiveRows.
+  const enrichResources = useMemo(() => rea.resources.filter(r => r.enrichBy), [rea.resources])
+  const enrichKey = useMemo(
+    () => enrichResources.map(r => `${r.id}:${paramsReady(r, enrichedContext) ? JSON.stringify(resolveParams(r, enrichedContext)) : 'GATED'}`).join('|'),
+    [enrichResources, enrichedContext],
+  )
+  useEffect(() => {
+    if (!enrichResources.length) return
+    let cancelled = false
+    void (async () => {
+      for (const r of enrichResources) {
+        const set = (data: unknown) => { if (!cancelled) setEnrichRows(prev => ({ ...prev, [r.id]: Array.isArray(data) ? (data as Row[]) : [] })) }
+        if (!paramsReady(r, enrichedContext)) { set([]); continue }
+        try { set(await resolveResource(r, enrichedContext, fetcherFor(r), set) as Row[]) }
+        catch { set([]) }
+      }
+    })()
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enrichKey, refreshKey])
+
+  // Mapa de enriquecimiento: `${enrichBy}::${valor}` → campos a fusionar en la fila del main.
+  const enrichMap = useMemo(() => {
+    const map: Record<string, Row> = {}
+    for (const r of enrichResources) {
+      const k = r.enrichBy!
+      for (const row of enrichRows[r.id] ?? []) { const mk = `${k}::${String(row[k] ?? '')}`; map[mk] = { ...map[mk], ...row } }
+    }
+    return map
+  }, [enrichResources, enrichRows])
+
   const setSelection = (key: string, options: Row[]) => setSelections(s => ({ ...s, [key]: options }))
 
   // Setea un filtro y RESETEA sus dependientes (cascada).
@@ -239,19 +328,12 @@ export function TrxRuntime({ config, registry, title, subtitle, heading, trxLabe
     return next
   })
 
-  const custom      = mainResource && mainResource.id in registry.fetchers ? registry.fetchers[mainResource.id] : undefined
-  // Resources API sin fetcher custom → executor genérico por id (httpFetcher).
-  const isApi       = mainResource?.sourceType === 'API'
+  const hasFetcher  = !!mainResource && (mainResource.id in registry.fetchers || mainResource.sourceType === 'API' || !!mainResource.endpoint)
   // GATE: no fetchea hasta que los params que el recurso saca del CONTEXT (location…) tengan
   // valor. Sin finca no se pide nada (evita la llamada vacía/con error al entrar sin ubicación).
-  const ready = useMemo(() => {
-    if (!mainResource) return false
-    return mainResource.parameters
-      .filter(p => (p.sourceType ?? 'CONTEXT') === 'CONTEXT')
-      .every(p => String(enrichedContext[p.values?.[0] ?? p.value ?? p.keyValue ?? p.key] ?? '') !== '')
-  }, [mainResource, enrichedContext])
-  const canFetch    = !!mainResource && ready && (!!custom || isApi || !!mainResource.endpoint)
-  const mainFetcher = custom ?? (isApi || mainResource?.endpoint ? httpFetcher : NO_FETCHER)
+  const ready = useMemo(() => !!mainResource && paramsReady(mainResource, enrichedContext), [mainResource, enrichedContext])
+  const canFetch    = !!mainResource && ready && hasFetcher
+  const mainFetcher = mainResource ? fetcherFor(mainResource) : NO_FETCHER
   const { rows, loading, error } = useTrxData<Row>(canFetch ? mainResource : null, enrichedContext, mainFetcher, refreshKey)
   const retry = () => setRefreshKey(k => k + 1)
 
@@ -277,8 +359,14 @@ export function TrxRuntime({ config, registry, title, subtitle, heading, trxLabe
   // La tabla principal = filas del resource (LOADCS) + filas agregadas a mano (catálogo),
   // con la edición inline aplicada por encima (edits).
   const effectiveRows = useMemo(
-    () => [...rows, ...extraRows].map(r => { const id = String(r[keyField] ?? ''); return edits[id] ? { ...r, ...edits[id] } : r }),
-    [rows, extraRows, edits, keyField],
+    () => [...rows, ...extraRows].map(r => {
+      // enriquecimiento: fusiona los campos de los resources `enrichBy` por su llave (ej. precio por idVariety)
+      let m = r
+      for (const er of enrichResources) { const e = enrichMap[`${er.enrichBy}::${String(r[er.enrichBy!] ?? '')}`]; if (e) m = { ...m, ...e } }
+      const id = String(m[keyField] ?? '')
+      return edits[id] ? { ...m, ...edits[id] } : m
+    }),
+    [rows, extraRows, enrichResources, enrichMap, edits, keyField],
   )
 
   // Agrega una fila EXTRA a la tabla (ej. "cargar insumo"). Dedupe contra el resource y las ya
@@ -370,16 +458,20 @@ export function TrxRuntime({ config, registry, title, subtitle, heading, trxLabe
     setCollection([])
     setEdits({})
     setExtraRows([])   // limpia las filas agregadas a mano (catálogo) tras crear
+    // Resetea los filtros variables (requerimiento/proveedor/categoría…) preservando la finca → empezar limpio.
+    setContext(c => { const next = initialContext(filters); if (c.location) next.location = c.location; return next })
     setState(tr.to)
     for (const r of rea.resources) if (r.cacheIn) await clearResourcePrefix(r.id)
     setRefreshKey(k => k + 1)
     // Estado destino TERMINAL (sin salidas) → auto-reset al inicial (listo para otra TRX).
     if (!workflow.transitions.some(x => x.from === tr.to)) setState(workflow.initialState)
 
-    // `event` = efecto EXTRA post-success (ej. "Enviar Email"), fire-and-forget: el backend
-    // lo maneja, el front no espera ni revierte por su resultado.
-    if (tr.event && tr.event in registry.actions) {
-      void Promise.resolve(registry.actions[tr.event](args)).catch(() => {})
+    // `event` = efecto(s) post-success (ej. ADJUST_INVENTORY, SEND_EMAIL). El backend los corre
+    // como parte del workflow (el front lee el response para avisar fallos). Acá solo se disparan
+    // los que EXISTAN como registry.actions (override de front), fire-and-forget. Uno o varios.
+    const events = Array.isArray(tr.event) ? tr.event : tr.event ? [tr.event] : []
+    for (const ev of events) {
+      if (ev in registry.actions) void Promise.resolve(registry.actions[ev](args)).catch(() => {})
     }
   }
 

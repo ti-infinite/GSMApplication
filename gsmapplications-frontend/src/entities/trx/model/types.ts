@@ -59,11 +59,22 @@ export interface Resource {
   sourceType:  'API' | 'INDEXED_DB' | 'MEMORY' | 'STATIC'
   endpoint?:   string    // ruta del backend → el fetcher genérico la usa (N rutas, N endpoints)
   cacheIn?:    'INDEXED_DB'
+  enrichBy?:   string    // fusiona las filas de ESTE resource sobre las del main por esta llave (join, ej. idVariety). No es la tabla; enriquece.
+  main?:       boolean   // marca EXPLÍCITA de la tabla principal (independiente del orden en el array). Fallback: resources[0].
   parameters:  ResourceParameter[]
+}
+
+/** Un evento del REA — efecto durante/post-trx (ej. SEND_EMAIL). Misma forma base que
+ *  un Resource (id + parameters), pero conceptualmente NO carga datos que se pinten. */
+export interface EventConfig {
+  id:          string
+  sourceType?: 'API' | 'INDEXED_DB' | 'MEMORY' | 'STATIC'
+  cacheIn?:    'INDEXED_DB'
+  parameters?: ResourceParameter[]
 }
 
 export interface ReaConfig {
   resources: Resource[]
-  events:    string[]
+  events:    EventConfig[]
   agents:    unknown[]
 }

@@ -1,4 +1,5 @@
-﻿using GSMOperations.Business.Executors.Resources;
+﻿using GSMOperations.Business.Executors.Events;
+using GSMOperations.Business.Executors.Resources;
 using GSMOperations.Business.Interfaces;
 using GSMOperations.Business.Services;
 using GSMOPerations.Business.Services;
@@ -22,7 +23,13 @@ namespace GSMOperations.Business
             services.AddScoped<ISkuDefinitionsService, SkuDefinitionsService>();
             services.AddScoped<IManageTransactionService, ManageTransactionService>();
             services.AddScoped<IResourceExecutorService, ResourceExecutorService>();
+            services.AddScoped<IEventExecutorService, EventExecutorService>();
             services.AddScoped<IResourceExecutor, LoadConsumoSobrante>();
+            services.AddScoped<IEventExecutor, SendEmailNotification>();
+            services.AddScoped<IResourceExecutor, LoadTrxDocumentSource>();
+            services.AddScoped<IResourceExecutor, LoadSobrante>();
+            services.AddScoped<IEventExecutor, AdjustInventory>();
+            services.AddScoped<IVarietyCostBySupplierService, VarietyCostBySupplierService>();
 
             return services;
         }

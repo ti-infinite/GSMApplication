@@ -5,5 +5,5 @@ namespace GSMApplication.Abstractions;
 
 public interface IMenuService
 {
-    Task<ApiResponse<GetMenuDto>> GetMenuAsync(int idProfile, CancellationToken cancellationToken = default);
+    Task<ApiResponse<GetMenuDTO>> GetMenuAsync(int idProfile, CancellationToken cancellationToken = default);
 }

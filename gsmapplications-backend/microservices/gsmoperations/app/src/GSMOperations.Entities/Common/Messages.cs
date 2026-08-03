@@ -5,6 +5,7 @@ namespace GSMOperations.Entities.Common
     {
         public static class Operations
         {
+            public const string ResourceExecutedSuccessfully = "Resource executed successfully.";
             public const string TrxDefinitionsLoaded = "Transaction definitions loaded succesfully.";
             public const string TransactionLoaded = "Transactions loaded successfully.";
             public const string TransactionAppend = "The values were appended to the TRX successfully";
@@ -24,8 +25,14 @@ namespace GSMOperations.Entities.Common
             public const string Healthy = "Application is healthy.";
             public const string EmptyFields = "The url endpoint and the operation fields are required.";
             public const string HttpMethodUnknown = "Http method not implemented.";
+            public const string VarietiesLoaded = "Varieties loaded succesfully";
         }
 
+    public static class Events
+        {
+            public const string EventNotificationSuccess = "Notification queued successfully.";
+            public const string EventAdjustSuccess = "Inventory adjusted successfully.";
+        }
         public static class Tenant
         {
             public const string TenantHeaderMissing = "Tenant header is missing.";

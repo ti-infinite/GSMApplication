@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useLayoutEffect } from 'react'
-import { resolveCompany, persistCompany } from '@/shared/lib/tenant'
+import { resolveCompany, persistCompany, persistCurrency } from '@/shared/lib/tenant'
 import { cacheThemeVars } from '@/shared/lib/theme'
 import type { Branding } from '@/shared/lib/tenants'
 
@@ -51,6 +51,7 @@ export function TenantProvider({ initialCompanyId, initialBranding, children }: 
       setThemeVars(result.lightVars)
       document.documentElement.setAttribute('data-tenant', slug)
       persistCompany(trimmed)
+      persistCurrency(result.currency)
     }
   }
 

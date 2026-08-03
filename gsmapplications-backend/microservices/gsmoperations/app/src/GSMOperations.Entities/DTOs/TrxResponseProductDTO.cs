@@ -12,5 +12,7 @@ public sealed class TrxResponseProductDTO
 
     public decimal? Qty { get; set; }
 
+    public List<TrxProductAttributesDTO> TrxProductAttributes { get; set; } = new();
+
 
 }

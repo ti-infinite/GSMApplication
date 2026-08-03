@@ -5,6 +5,16 @@ export function persistCompany(companyId: string) {
   Cookies.set('gsm_company', companyId, { sameSite: 'lax', path: '/', expires: 1 })
 }
 
+const CURRENCY_KEY = 'gsm_currency'
+
+export function persistCurrency(currency?: string) {
+  try { if (currency) localStorage.setItem(CURRENCY_KEY, currency) } catch { /* */ }
+}
+
+export function getTenantCurrency(): string {
+  try { return localStorage.getItem(CURRENCY_KEY) ?? '' } catch { return '' }
+}
+
 export type ResolveResult =
   | { valid: false }
   | {
@@ -14,6 +24,7 @@ export type ResolveResult =
       defaultLocale: string
       logo?: string
       tagline: Record<string, string>
+      currency?: string
       lightVars: Record<string, string>
     }
 
@@ -35,6 +46,7 @@ export async function resolveCompany(companyId: string): Promise<ResolveResult> 
       defaultLocale: theme.meta.defaultLocale,
       logo: theme.meta.logo,
       tagline: theme.meta.tagline,
+      currency: theme.meta.currency,
       lightVars: theme.light,
     }
   } catch {

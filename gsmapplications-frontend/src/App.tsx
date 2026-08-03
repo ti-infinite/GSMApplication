@@ -40,7 +40,7 @@ export default function App() {
           />
         </Routes>
       </BrowserRouter>
-      <Toaster richColors position="top-center" />
+      <Toaster richColors position="top-center" expand />
       </QueryProvider>
     </ErrorBoundary>
   )

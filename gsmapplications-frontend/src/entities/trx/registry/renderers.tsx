@@ -1,7 +1,125 @@
-import type { ReactNode } from 'react'
+import { useState, useEffect, type ReactNode } from 'react'
+import { toast } from 'sonner'
 import { Button } from '@/shared/ui/button'
-import { Plus, Trash2, CheckCircle2, XCircle, Copy } from 'lucide-react'
-import type { CellRenderCtx } from '../model/runtime'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/ui/tooltip'
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/shared/ui/dropdown-menu'
+import { Plus, Trash2, CheckCircle2, XCircle, Copy, ChevronDown, Check } from 'lucide-react'
+import type { CellRenderCtx, TrxField } from '../model/runtime'
+import { unitOptionsFor, toBaseUnit, fromBaseUnit } from '../model/units'
+import { formatMoney } from '../model/money'
+
+// ¿La qty deja el stock negativo? (`field.max` = columna del disponible, ej. "remaining"). Marca el input
+// en rojo → señala JUSTO el dato incorrecto. Mismo criterio que el addButton (remaining + qty < 0).
+function overMax(field: TrxField, row: Record<string, unknown>): boolean {
+  if (!field?.max) return false
+  const max = Number(row[field.max])
+  const val = Number(row[field.selectorValue ?? ''])
+  return Number.isFinite(max) && Number.isFinite(val) && max + val < 0
+}
+const errBorder = (over: boolean, focusWithin = false) =>
+  over
+    ? `border-destructive ${focusWithin ? 'focus-within:ring-destructive' : 'focus:ring-destructive'}`
+    : `border-border ${focusWithin ? 'focus-within:ring-ring' : 'focus:ring-ring'}`
+
+// Input numérico + selector de unidad. El valor de la fila se guarda SIEMPRE en la base
+// (kg/L) → el payload sale en la unidad estándar sin que el usuario vea la conversión.
+// La unidad elegida es estado LOCAL (preferencia de captura, no se persiste). Al cambiarla,
+// la cifra tecleada se reinterpreta en la nueva unidad (mismo número, distinta unidad).
+function InputUnitSelect({ value, row, field, setValue }: CellRenderCtx): ReactNode {
+  const measurementUnit = String(row[field.sub ?? 'measurementUnit'] ?? '')
+  const opts = unitOptionsFor(measurementUnit)
+  const round3 = (n: number) => Math.round(n * 1000) / 1000                 // máx 3 decimales (1 g = 0.001 kg)
+  // el select usa claves en minúscula (kg/l); normalizo la unidad de la fila (KG/L) para que matchee.
+  const [unit, setUnit] = useState(measurementUnit.trim().toLowerCase())
+  const [text, setText] = useState(
+    value == null || value === '' || Number.isNaN(Number(value))
+      ? '' : String(round3(fromBaseUnit(Number(value), measurementUnit))),
+  )
+  // Convierte a base y setea; captura el throw de toBaseUnit (unidad desconocida) → toast.
+  const commit = (n: number, u: string) => {
+    try { setValue(round3(toBaseUnit(n, u))) }
+    catch (e) { toast.error(e instanceof Error ? e.message : 'Unidad inválida') }
+  }
+  const onText = (raw: string) => {
+    let clean = raw.replace(/[^0-9.]/g, '')
+    const dot = clean.indexOf('.')                                          // 1 solo punto, máx 3 decimales
+    if (dot !== -1) clean = clean.slice(0, dot + 1) + clean.slice(dot + 1).replace(/\./g, '').slice(0, 3)
+    setText(clean)
+    if (clean === '') setValue(''); else commit(Number(clean), unit)
+  }
+  const onUnit = (u: string) => {
+    setUnit(u)
+    if (text !== '') commit(Number(text), u)
+  }
+  const over = overMax(field, row)   // qty deja el stock negativo → borde rojo
+  // Un solo control: input + dropdown de unidad EMBEBIDO (un borde, [ 90 │ kg ▾ ]).
+  return (
+    <div className={`inline-flex w-fit items-center rounded-md border bg-background focus-within:ring-2 ${errBorder(over, true)}`}>
+      <input
+        type="text" inputMode="decimal" value={text}
+        onChange={e => onText(e.target.value)} placeholder="0"
+        className="w-16 min-w-0 rounded-l-md bg-transparent px-2 py-1 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
+      />
+      {opts.length > 1 ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              className="flex items-center gap-0.5 self-stretch rounded-r-md border-l border-border px-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+            >
+              {opts.find(o => o.value === unit)?.label ?? unit}
+              <ChevronDown className="h-3 w-3" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="min-w-16">
+            {opts.map(o => (
+              <DropdownMenuItem key={o.value} onSelect={() => onUnit(o.value)} className="gap-2">
+                <Check className={`h-3.5 w-3.5 ${o.value === unit ? 'text-primary opacity-100' : 'opacity-0'}`} />
+                {o.label}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : (
+        measurementUnit && <span className="self-stretch border-l border-border px-2 py-1 text-sm text-muted-foreground">{measurementUnit}</span>
+      )}
+    </div>
+  )
+}
+
+// Input de MONEDA: guarda el número PLANO en la fila (lo que viaja al payload); el símbolo
+// y separadores son solo display (moneda del tenant vía formatMoney). Muestra formateado
+// cuando NO está enfocado y el número crudo al editar. Con `field.sign` permite negativos.
+function MoneyInput({ value, field, setValue }: CellRenderCtx): ReactNode {
+  const allowNeg = field.sign === true
+  const [focused, setFocused] = useState(false)
+  const [text, setText] = useState(value == null || value === '' ? '' : String(value))
+
+  useEffect(() => {
+    if (!focused) setText(value == null || value === '' ? '' : String(value))
+  }, [value, focused])
+
+  const onChange = (raw: string) => {
+    let clean = raw.replace(allowNeg ? /[^0-9.-]/g : /[^0-9.]/g, '')
+    if (allowNeg) { const neg = clean.startsWith('-'); clean = (neg ? '-' : '') + clean.replace(/-/g, '') }
+    const dot = clean.indexOf('.'); if (dot !== -1) clean = clean.slice(0, dot + 1) + clean.slice(dot + 1).replace(/\./g, '')
+    setText(clean)
+    setValue(clean === '' || clean === '-' ? '' : Number(clean))
+  }
+
+  const display = focused
+    ? text
+    : (value == null || value === '' || Number.isNaN(Number(value)) ? '' : formatMoney(Number(value)))
+
+  return (
+    <input
+      type="text" inputMode="decimal" value={display}
+      onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
+      onChange={e => onChange(e.target.value)} placeholder={formatMoney(0)}
+      className="w-28 min-w-0 rounded-md border border-border bg-background px-2 py-1 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+    />
+  )
+}
 
 /**
  * Renderers GENÉRICOS — cómo se dibuja un valor. Reusables por cualquier TRX;
@@ -49,16 +167,49 @@ export const DEFAULT_RENDERERS: Record<string, (ctx: CellRenderCtx) => ReactNode
     return <span className={`font-medium ${cls}`}>{value == null || value === '' ? '—' : String(value)}</span>
   },
 
+  // Texto de SOLO lectura (explícito). Igual al default cuando no hay renderer,
+  // pero declarable con `type: "text"` para dejar claro que la celda no se edita.
+  text: ({ value }) => (value == null || value === '' ? '—' : String(value)),
+
   // Input numérico editable (edición inline).
-  input: ({ value, setValue }) => (
+  input: ({ value, row, field, setValue }) => (
     <input
       type="number" min="0" inputMode="numeric"
       value={value == null || value === '' ? '' : String(value)}
       onChange={e => setValue(e.target.value.replace(/[^0-9.]/g, ''))}
       placeholder="0"
-      className="w-24 min-w-0 rounded-md border border-border bg-background px-2 py-1 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+      className={`w-24 min-w-0 rounded-md border bg-background px-2 py-1 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 ${errBorder(overMax(field, row))}`}
     />
   ),
+
+  // Input numérico editable + su unidad al lado (opt-in: `type:"input"` + `unit:true`/`unitType:"unit"`).
+  // La unidad sale de `field.sub` (default 'measurementUnit'). Con `sign:true` permite +/- (ajuste con
+  // unidad) — usa `type="text"` porque el number input descarta el "-".
+  inputUnit: ({ value, row, field, setValue }) => {
+    const unit = field.sub ? String(row[field.sub] ?? '') : ''
+    const signed = field.sign === true
+    return (
+      <div className="flex items-center gap-1.5">
+        <input
+          type={signed ? 'text' : 'number'} inputMode="decimal" min={signed ? undefined : '0'}
+          value={value == null || value === '' ? '' : String(value)}
+          onChange={e => { let v = e.target.value.replace(signed ? /[^0-9.-]/g : /[^0-9.]/g, ''); if (signed && v.lastIndexOf('-') > 0) v = v.replace(/-/g, ''); setValue(v) }}
+          placeholder={signed ? '±0' : '0'}
+          className={`w-20 min-w-0 rounded-md border bg-background px-2 py-1 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 ${errBorder(overMax(field, row))}`}
+        />
+        {unit && <span className="text-sm text-muted-foreground">{unit}</span>}
+      </div>
+    )
+  },
+
+  // Input + selector de unidad (guarda en base kg/L). Opt-in: `type:"input"` + `unitType:"unitSelect"`.
+  inputUnitSelect: ctx => <InputUnitSelect {...ctx} />,
+
+  // Moneda solo lectura ($ del tenant). Opt-in: `type:"money"`. Guarda/lee el número plano.
+  money: ({ value }) => (value == null || value === '' || Number.isNaN(Number(value)) ? '—' : formatMoney(Number(value))),
+
+  // Input de moneda editable. Opt-in: `type:"input"` + `money:true` (+ `sign:true` para negativos).
+  moneyInput: ctx => <MoneyInput {...ctx} />,
 
   // Input de TEXTO editable (edición inline) — ej. nombre SAP del diccionario.
   textInput: ({ value, setValue }) => (
@@ -71,8 +222,30 @@ export const DEFAULT_RENDERERS: Record<string, (ctx: CellRenderCtx) => ReactNode
     />
   ),
 
+  // Checkbox editable (booleano) — ej. marcar "orgánico", "urgente".
+  checkbox: ({ value, setValue }) => (
+    <input
+      type="checkbox"
+      checked={value === true || value === 'true' || value === 1 || value === '1'}
+      onChange={e => setValue(e.target.checked)}
+      className="h-4 w-4 rounded border-border text-primary focus:ring-2 focus:ring-ring"
+    />
+  ),
+
+  // Select editable con opciones INLINE (field.values) — combo quemado en el JSON.
+  select: ({ value, setValue, field }) => (
+    <select
+      value={value == null ? '' : String(value)}
+      onChange={e => setValue(e.target.value)}
+      className="min-w-0 rounded-md border border-border bg-background px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+    >
+      <option value="">—</option>
+      {(field.values ?? []).map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+    </select>
+  ),
+
   // Input numérico + botón [＋] al lado → agrega la fila (con su cantidad) a la collection.
-  inputAdd: ({ value, row, setValue, collection }) => (
+  inputAdd: ({ value, row, setValue, collection, keyField }) => (
     <div className="flex items-center gap-1.5">
       <input
         type="number" min="0" inputMode="decimal"
@@ -81,7 +254,7 @@ export const DEFAULT_RENDERERS: Record<string, (ctx: CellRenderCtx) => ReactNode
         placeholder="0"
         className="w-20 min-w-0 rounded-md border border-border bg-background px-2 py-1 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
       />
-      <Button size="icon" onClick={() => collection.add(row)} disabled={collection.has(String(row.id))} className="h-8 w-8 shrink-0" aria-label="Agregar">
+      <Button size="icon" onClick={() => collection.add(row)} disabled={collection.has(String(row[keyField]))} className="h-8 w-8 shrink-0" aria-label="Agregar">
         <Plus className="h-4 w-4" />
       </Button>
     </div>
@@ -89,18 +262,18 @@ export const DEFAULT_RENDERERS: Record<string, (ctx: CellRenderCtx) => ReactNode
 
   // Input de texto que permite valores NEGATIVOS (ej. ajuste +/− de inventario).
   // `type="text"` a propósito: los number inputs descartan el "-" al tipearlo.
-  signedInput: ({ value, setValue }) => (
+  signedInput: ({ value, row, field, setValue }) => (
     <input
       type="text" inputMode="decimal"
       value={value == null || value === '' ? '' : String(value)}
       onChange={e => { let v = e.target.value.replace(/[^0-9.-]/g, ''); if (v.lastIndexOf('-') > 0) v = v.replace(/-/g, ''); setValue(v) }}
       placeholder="±0"
-      className="w-24 min-w-0 rounded-md border border-border bg-background px-2 py-1 text-right text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+      className={`w-24 min-w-0 rounded-md border bg-background px-2 py-1 text-right text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 ${errBorder(overMax(field, row))}`}
     />
   ),
 
   // Como signedInput pero con botón [＋] para agregar la fila a la collection.
-  signedInputAdd: ({ value, row, setValue, collection }) => (
+  signedInputAdd: ({ value, row, setValue, collection, keyField }) => (
     <div className="flex items-center gap-1.5">
       <input
         type="text" inputMode="decimal"
@@ -109,24 +282,68 @@ export const DEFAULT_RENDERERS: Record<string, (ctx: CellRenderCtx) => ReactNode
         placeholder="±0"
         className="w-24 min-w-0 rounded-md border border-border bg-background px-2 py-1 text-right text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
       />
-      <Button size="icon" onClick={() => collection.add(row)} disabled={value == null || value === '' || Number(value) === 0 || collection.has(String(row.id))} className="h-8 w-8 shrink-0" aria-label="Registrar">
+      <Button size="icon" onClick={() => collection.add(row)} disabled={value == null || value === '' || Number(value) === 0 || collection.has(String(row[keyField]))} className="h-8 w-8 shrink-0" aria-label="Registrar">
         <Plus className="h-4 w-4" />
       </Button>
     </div>
   ),
 
-  // Row-action: agrega la fila a la collection (carrito).
-  addButton: ({ row, collection }) => (
-    <Button size="icon" onClick={() => collection.add(row)} disabled={collection.has(String(row.id))} aria-label="Agregar">
-      <Plus className="h-4 w-4" />
-    </Button>
-  ),
+  // Row-action: agrega la fila a la collection (carrito). Deshabilitado si la cantidad
+  // (`qty`, el campo estándar) está vacía o en 0. Permite NEGATIVOS (ajustes -/+); quién
+  // controla si se pueden tipear negativos es el input (`sign: true` sí, si no, no).
+  addButton: ({ row, field, collection, keyField, removeProductRow, t }) => {
+    const qty = Number(row.qty)
+    const emptyQty = row.qty == null || row.qty === '' || Number.isNaN(qty) || qty === 0
+    // Tope declarativo: si el campo trae `max` (ej. "remaining"), la qty (CON signo) aplicada a ese
+    // stock no puede dejarlo negativo → `remaining + qty ≥ 0`. Sirve para gasto (siempre resta) y
+    // ajuste (solo el lado negativo topa; sumar es libre). Deshabilita agregar + avisa.
+    const max  = field.max ? Number(row[field.max]) : null
+    const over = !emptyQty && max != null && Number.isFinite(max) && max + qty < 0
+    // Sin crecer la fila: el + se pone ROJO (destructive) + Tooltip (nuestro, con el theme del tenant)
+    // con el motivo (hover), en vez de texto abajo. El span envuelve el botón deshabilitado para
+    // que capture el hover (un `disabled` no dispara eventos por sí solo).
+    const overMsg = over ? (t?.('overMax', { max }) ?? `Supera el disponible (${max})`) : undefined
+    const addBtn = (
+      <Button
+        size="icon"
+        variant={over ? 'destructive' : 'default'}
+        onClick={() => collection.add(row)}
+        disabled={emptyQty || over || collection.has(String(row[keyField]))}
+        aria-label={overMsg ?? 'Agregar'}
+      >
+        <Plus className="h-4 w-4" />
+      </Button>
+    )
+    return (
+      <div className="flex items-center gap-1.5">
+        {over ? (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild><span className="cursor-not-allowed">{addBtn}</span></TooltipTrigger>
+              <TooltipContent>{overMsg}</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        ) : addBtn}
+        {/* Fila agregada a mano (cargar insumo) → botón para quitarla si se equivocó. */}
+        {!!row._added && removeProductRow && (
+          <Button
+            variant="ghost" size="icon"
+            onClick={() => removeProductRow(String(row[keyField] ?? ''))}
+            className="h-8 w-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+            aria-label="Quitar" title="Quitar insumo agregado"
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        )}
+      </div>
+    )
+  },
 
   // Row-action: quita la fila de la collection.
-  removeButton: ({ row, collection }) => (
+  removeButton: ({ row, collection, keyField }) => (
     <Button
       variant="ghost" size="icon"
-      onClick={() => collection.remove(String(row.id))}
+      onClick={() => collection.remove(String(row[keyField]))}
       className="h-7 w-7 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
       aria-label="Quitar"
     >
@@ -135,9 +352,9 @@ export const DEFAULT_RENDERERS: Record<string, (ctx: CellRenderCtx) => ReactNode
   ),
 
   // Aceptar / Rechazar un ítem: setea `estado` en la fila (verificado | rechazado).
-  verifyReject: ({ value, row, collection }) => {
+  verifyReject: ({ value, row, collection, keyField }) => {
     const estado = String(value ?? row.estado ?? 'pendiente')
-    const id = String(row.id ?? '')
+    const id = String(row[keyField] ?? '')
     return (
       <div className="flex items-center gap-2">
         <Button variant={estado === 'verificado' ? 'default' : 'outline'} size="sm"
@@ -154,10 +371,10 @@ export const DEFAULT_RENDERERS: Record<string, (ctx: CellRenderCtx) => ReactNode
 
   // Duplica la fila con un id NUEVO (dividir presentación / partir una línea).
   // La copia queda marcada `added` → se puede quitar; la original no.
-  splitButton: ({ row, collection }) => (
+  splitButton: ({ row, collection, keyField }) => (
     <Button
       variant="ghost" size="icon"
-      onClick={() => collection.add({ ...row, id: `${String(row.id ?? '')}#${Date.now().toString(36)}`, added: true })}
+      onClick={() => collection.add({ ...row, [keyField]: `${String(row[keyField] ?? '')}#${Date.now().toString(36)}`, added: true })}
       className="h-7 w-7 text-muted-foreground hover:bg-primary/10 hover:text-primary"
       aria-label="Dividir" title="Dividir línea"
     >
@@ -166,12 +383,12 @@ export const DEFAULT_RENDERERS: Record<string, (ctx: CellRenderCtx) => ReactNode
   ),
 
   // Quita la fila SOLO si fue agregada/dividida (`added`). Las originales no se borran.
-  removeAdded: ({ row, collection }) => {
+  removeAdded: ({ row, collection, keyField }) => {
     if (!row.added) return null
     return (
       <Button
         variant="ghost" size="icon"
-        onClick={() => collection.remove(String(row.id))}
+        onClick={() => collection.remove(String(row[keyField]))}
         className="h-7 w-7 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
         aria-label="Quitar" title="Quitar"
       >
@@ -181,9 +398,9 @@ export const DEFAULT_RENDERERS: Record<string, (ctx: CellRenderCtx) => ReactNode
   },
 
   // Comentario de rechazo (fila expandible): solo aparece si estado='rechazado'.
-  rejectComment: ({ row, collection }) => {
+  rejectComment: ({ row, collection, keyField }) => {
     if (String(row.estado ?? '') !== 'rechazado') return null
-    const id = String(row.id ?? '')
+    const id = String(row[keyField] ?? '')
     return (
       <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3">
         <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-destructive">Comentarios de rechazo</label>

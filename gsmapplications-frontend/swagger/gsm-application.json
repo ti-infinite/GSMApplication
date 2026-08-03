@@ -18,17 +18,17 @@
             "content": {
               "text/plain": {
                 "schema": {
-                  "$ref": "#/components/schemas/GetMenuDtoApiResponse"
+                  "$ref": "#/components/schemas/GetMenuDTOApiResponse"
                 }
               },
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GetMenuDtoApiResponse"
+                  "$ref": "#/components/schemas/GetMenuDTOApiResponse"
                 }
               },
               "text/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GetMenuDtoApiResponse"
+                  "$ref": "#/components/schemas/GetMenuDTOApiResponse"
                 }
               }
             }
@@ -38,17 +38,17 @@
             "content": {
               "text/plain": {
                 "schema": {
-                  "$ref": "#/components/schemas/GetMenuDtoApiResponse"
+                  "$ref": "#/components/schemas/GetMenuDTOApiResponse"
                 }
               },
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GetMenuDtoApiResponse"
+                  "$ref": "#/components/schemas/GetMenuDTOApiResponse"
                 }
               },
               "text/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GetMenuDtoApiResponse"
+                  "$ref": "#/components/schemas/GetMenuDTOApiResponse"
                 }
               }
             }
@@ -131,6 +131,53 @@
               "text/json": {
                 "schema": {
                   "$ref": "#/components/schemas/MultimediaResourceDtoApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/Application/filtered-locations": {
+      "get": {
+        "tags": [
+          "Application"
+        ],
+        "operationId": "GetFilteredLocations",
+        "parameters": [
+          {
+            "name": "IdLocation",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "CodeLocation",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/LocationDTOListApiResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LocationDTOListApiResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LocationDTOListApiResponse"
                 }
               }
             }
@@ -642,7 +689,7 @@
         ],
         "type": "string"
       },
-      "GetMenuDto": {
+      "GetMenuDTO": {
         "type": "object",
         "properties": {
           "idProfile": {
@@ -657,7 +704,7 @@
         },
         "additionalProperties": false
       },
-      "GetMenuDtoApiResponse": {
+      "GetMenuDTOApiResponse": {
         "type": "object",
         "properties": {
           "success": {
@@ -668,7 +715,7 @@
             "nullable": true
           },
           "data": {
-            "$ref": "#/components/schemas/GetMenuDto"
+            "$ref": "#/components/schemas/GetMenuDTO"
           },
           "errorType": {
             "$ref": "#/components/schemas/ErrorType"
@@ -699,6 +746,10 @@
             "nullable": true
           },
           "codeLocation": {
+            "type": "string",
+            "nullable": true
+          },
+          "descr": {
             "type": "string",
             "nullable": true
           },

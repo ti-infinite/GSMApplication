@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next'
 import { isSessionActive } from '@/shared/lib/auth'
 import type { MenuOption } from '@/shared/lib/menu'
 import { useGetMenu } from '@/shared/api/application/endpoints'
-import type { GetMenuDtoApiResponse } from '@/shared/api/application/model'
+import type { GetMenuDTOApiResponse } from '@/shared/api/application/model'
 
 type RawItem = MenuOption & {
   Name?:       string
@@ -59,7 +59,7 @@ export function useMenu(): UseMenuResult {
       queryKey:  ['menu'],
       staleTime: 5 * 60 * 1000,
       enabled:   isSessionActive(),
-      select:    (response) => parseMenu((response.data as GetMenuDtoApiResponse).data?.menu ?? ''),
+      select:    (response) => parseMenu((response.data as GetMenuDTOApiResponse).data?.menu ?? ''),
     },
   })
 
@@ -73,7 +73,9 @@ export function useMenu(): UseMenuResult {
   const translated = rawItems.map(translateItem)
  
 
-  const allItems = translated.flatMap(i => [i, ...(i.Children ?? [])])
+  const flatten = (items: MenuOption[]): MenuOption[] =>
+    items.flatMap(i => [i, ...flatten(i.Children ?? [])])
+  const allItems = flatten(translated)
 
   return {
     menuItems:  translated,

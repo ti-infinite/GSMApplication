@@ -1,13 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using Microsoft.EntityFrameworkCore;
 
 namespace GSMApplication.DataAccess.Entities;
 
 [Table("Users", Schema = "db_ms")]
-[Index("Username", Name = "UQ__Users__536C85E4F46828F2", IsUnique = true)]
 public partial class User
 {
     [Key]

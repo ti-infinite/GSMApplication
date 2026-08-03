@@ -15,7 +15,7 @@ public sealed class MenuService : IMenuService
         _spExecutor = spExecutor;
     }
 
-    public async Task<ApiResponse<GetMenuDto>> GetMenuAsync(int idProfile, CancellationToken cancellationToken = default)
+    public async Task<ApiResponse<GetMenuDTO>> GetMenuAsync(int idProfile, CancellationToken cancellationToken = default)
     {
         var sp = new StoredProcedureModel
         (
@@ -30,12 +30,12 @@ public sealed class MenuService : IMenuService
 
         if (string.IsNullOrWhiteSpace(json))
         {
-            return ApiResponse<GetMenuDto>.FailResult(Messages.Application.MenuEmpty, ErrorType.NotFound);
+            return ApiResponse<GetMenuDTO>.FailResult(Messages.Application.MenuEmpty, ErrorType.NotFound);
         }
 
 
-        return ApiResponse<GetMenuDto>.SuccessResult(
-            new GetMenuDto
+        return ApiResponse<GetMenuDTO>.SuccessResult(
+            new GetMenuDTO
             {
                 IdProfile = idProfile,
                 Menu = json

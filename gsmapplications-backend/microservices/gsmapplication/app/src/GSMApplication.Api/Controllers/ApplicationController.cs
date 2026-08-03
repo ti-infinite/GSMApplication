@@ -26,8 +26,8 @@ public sealed class ApplicationController : ControllerBase
     }
 
     [HttpGet("menu")]
-    [ProducesResponseType(typeof(ApiResponse<GetMenuDto>), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ApiResponse<GetMenuDto>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<GetMenuDTO>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<GetMenuDTO>), StatusCodes.Status401Unauthorized)]
 
     public async Task<IActionResult> GetMenu(CancellationToken cancellationToken)
     {
@@ -58,7 +58,7 @@ public sealed class ApplicationController : ControllerBase
 
     [HttpGet("filtered-locations")]
     [ProducesResponseType(typeof(ApiResponse<List<LocationDTO>>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetFilteredLocations([FromBody] SearchLocation? searchCriteria, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetFilteredLocations([FromQuery] SearchLocation? searchCriteria, CancellationToken cancellationToken)
     {
         var response = await _locationService.GetLocations(searchCriteria, cancellationToken);
         return Ok(response);

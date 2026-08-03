@@ -1,17 +1,23 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type Key } from 'react'
+import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 import { MapPin } from 'lucide-react'
 import { Button } from '@/shared/ui/button'
 import { getStoredUser } from '@/shared/lib/auth'
+import { clearResourcePrefix, getResource, saveResource } from '@/shared/lib/idb'
 import { getValueByPath } from '@/shared/lib/pathResolver'
 import type { TableColumn } from '@/shared/ui/data-table'
 import { useTrxData } from '../model/useTrxData'
 import { DEFAULT_SELECTORS } from '../model/selectors'
-import { httpFetcher } from '../model/engine'
+import { DEFAULT_VALUE_SOURCES } from '../model/valueSources'
+import { httpFetcher, resolveResource, resolveParams } from '../model/engine'
 import type { Fetcher } from '../model/engine'
+import type { Resource } from '../model/types'
 import type {
   JsonConfig, FrontConfig, FilterConfig, TrxField, TrxRegistry, CollectionApi, WfTransition, ComponentNode, RuntimeCtx,
 } from '../model/runtime'
 import { DEFAULT_COMPONENTS } from './defaultComponents'
+import { expandFront } from '../model/template'
 
 type Row = Record<string, unknown>
 
@@ -37,61 +43,148 @@ function initialContext(filters: FilterConfig[]): Record<string, string> {
 // cualquier componente: tabla, card, etc.).
 // Resuelve el valor de un field según su selectorType (dirigido por el JSON).
 // COMPUTED → registry.computeds · el resto → selectors (registry override > DEFAULT_SELECTORS).
-function resolveValue(f: TrxField, row: Row, registry: TrxRegistry): unknown {
+function resolveValue(f: TrxField, row: Row, registry: TrxRegistry, context: Record<string, string>): unknown {
   const type = f.selectorType ?? 'JSON_PATH'
-  if (type === 'COMPUTED') return f.selectorValue in registry.computeds ? registry.computeds[f.selectorValue](row) : undefined
+  const sel  = f.selectorValue ?? ''
+  // sourceType elige el BASE (fila · context · cookie · …); el path navega desde ahí.
+  const st   = f.sourceType ?? 'INDEXED_DB'
+  const src  = registry.valueSources?.[st] ?? DEFAULT_VALUE_SOURCES[st] ?? DEFAULT_VALUE_SOURCES.INDEXED_DB
+  const base = src({ row, context }) as Row
+  if (type === 'COMPUTED') return sel in registry.computeds ? registry.computeds[sel](base) : undefined
   const resolver = registry.selectors?.[type] ?? DEFAULT_SELECTORS[type] ?? DEFAULT_SELECTORS.JSON_PATH
-  return resolver(row, f.selectorValue)
+  return resolver(base, sel)
 }
 
 function renderField(
   f: TrxField, row: Row, registry: TrxRegistry,
   context: Record<string, string>, setValue: (v: unknown) => void, collection: CollectionApi,
+  keyField: string, removeProductRow?: (id: string) => void,
+  t?: (key: string, opts?: Record<string, unknown>) => string,
 ) {
-  const value = resolveValue(f, row, registry)
+  const raw = resolveValue(f, row, registry, context)
+  // `negate`: el usuario ve/edita en POSITIVO, pero el valor se GUARDA negado (ej. gasto 90 → -90).
+  // createTrx lo lleva tal cual (genérico). Display = abs · al setear = -abs. Sirve para cualquier input.
+  const value = f.negate && raw != null && raw !== '' && !Number.isNaN(Number(raw)) ? Math.abs(Number(raw)) : raw
+  const set = f.negate
+    ? (v: unknown) => setValue(v === '' || v == null ? v : -Math.abs(Number(v)))
+    : setValue
   if (f.renderer && f.renderer in registry.renderers) {
-    return registry.renderers[f.renderer]({ value, row, field: f, context, setValue, collection })
+    return registry.renderers[f.renderer]({ value, row, field: f, context, setValue: set, collection, keyField, removeProductRow, t })
   }
   return value == null || value === '' ? '—' : String(value)
 }
 
 // Si el JSON no trae `components`, se arma una lista plana desde items/collection.
-function defaultTree(front: FrontConfig): ComponentNode[] {
+// Traduce el shorthand del template (value/unit/input) al TrxField interno.
+function normField(f: TrxField): TrxField {
+  const out: TrxField = { ...f, selectorValue: f.selectorValue ?? f.value }
+  if (out.renderer) return out
+  if (f.button) { out.renderer = f.button; return out }   // botón de celda: `button` → renderer
+  const unitSub = typeof f.unit === 'string' ? f.unit : 'measurementUnit'   // campo con la unidad (default measurementUnit)
+  const isInput = f.type === 'input' || f.input
+  const wantsSelect = f.unitType === 'unitSelect'            // input + dropdown de unidad
+  const wantsUnit   = f.unitType === 'unit' || (f.unit != null && f.unit !== false)   // unidad fija
+  if (isInput && f.money) out.renderer = 'moneyInput'   // input de moneda (absorbe `sign` para negativos)
+  else if (isInput && wantsSelect) { out.renderer = 'inputUnitSelect'; out.sub = out.sub ?? unitSub }   // input + selector de unidad (guarda en base)
+  else if (isInput && wantsUnit) { out.renderer = 'inputUnit'; out.sub = out.sub ?? unitSub }      // input editable + unidad fija
+  else if (isInput && f.sign) out.renderer = 'signedInput'   // input que permite +/- (ajustes)
+  else if (f.type)  out.renderer = f.type            // control de celda: input · checkbox · select · text · …
+  else if (f.input) out.renderer = 'input'
+  else if (wantsUnit) { out.renderer = 'withUnit'; out.sub = out.sub ?? unitSub }   // solo lectura + unidad
+  return out
+}
+
+// TEMPLATE: arma el árbol de components desde los SLOTS (location/filters/main/collection).
+// Reusa el render existente. Si el config trae `components`, ese path gana (backward-compat).
+function defaultTree(front: FrontConfig, heading?: string): ComponentNode[] {
   const nodes: ComponentNode[] = []
-  if (front.filters?.length) nodes.push({ type: 'filters', filters: front.filters })
-  if (front.collection) {
+
+  // Filtros: el template ya dejó la ubicación FIJA como filters[0] + los variables.
+  const filters = front.filters ?? []
+  if (filters.length) nodes.push({ type: 'filters', filters })
+
+  // Título de sección estático (page) entre los filtros y la tabla de productos.
+  if (heading) nodes.push({ type: 'heading', title: heading })
+
+  // Tabla principal (slot `main` o legacy `fields`), con field shorthand normalizado.
+  const mainTable: ComponentNode = {
+    type: 'table', source: front.main?.source ?? 'main',
+    title:       front.main?.title ?? 'products',
+    rowFilter:   front.main?.rowFilter ?? true,
+    placeholder: front.main?.placeholder ?? 'search',
+    filterBy:    front.main?.filterBy,
+    search:      front.main?.search,
+    addSupply:   front.main?.addSupply,
+    // Multi-select + columnas comparativas (ej. proveedores/precio). El template NO los
+    // propaga (son específicos de una TRX); acá se leen del slot products/main que los declara.
+    select:        front.main?.select        ?? front.products?.select,
+    dynamicFields: front.main?.dynamicFields ?? front.products?.dynamicFields,
+    fields:      (front.main?.fields ?? front.fields ?? []).map(normField),
+  }
+
+  const coll = front.collection
+  if (coll?.display === 'drawer') {
+    // Carrito en DRAWER: tabla principal full-width + drawer con la collection.
+    nodes.push({ ...mainTable, span: 10 })
+    nodes.push({ type: 'drawer', trigger: coll.trigger ?? 'finalize', title: coll.title, footerActions: true, children: [
+      { type: 'table', source: 'collection', title: coll.title, rowKey: coll.rowKey, target: coll.target, fields: coll.fields.map(normField) },
+    ] })
+  } else if (coll) {
+    // Carrito INLINE (default): grid 70/30.
     nodes.push({ type: 'grid', cols: 10, children: [
-      { type: 'table', span: 7, source: 'main', title: 'Stock', fields: front.fields ?? [] },
-      { type: 'stack', span: 3, children: [
-        { type: 'table', source: 'collection', title: front.collection.title, fields: front.collection.fields, rowKey: front.collection.rowKey, target: front.collection.target },
-        { type: 'actions', buttons: [] },
-      ] },
+      { ...mainTable, span: 7 },
+      { type: 'table', span: 3, source: 'collection', title: coll.title, rowKey: coll.rowKey, target: coll.target, fields: coll.fields.map(normField) },
     ] })
   } else {
-    nodes.push({ type: 'table', source: 'main', title: 'Stock', fields: front.fields ?? [] })
-    nodes.push({ type: 'actions', buttons: [] })
+    nodes.push(mainTable)
   }
   return nodes
 }
 
 const NO_FETCHER: Fetcher = async () => ({ success: 'false', message: 'sin fetcher', data: [], traceId: null })
 
+// Gate genérico: ¿todos los params que el resource saca del CONTEXT (location, trxDocument…)
+// tienen valor? Reusado por la tabla principal (no fetchea sin finca) y por los combos-desde-
+// resource (no cargan opciones hasta tener sus params). Un solo lugar para la regla del gate.
+function paramsReady(resource: Resource, ctx: Record<string, string>): boolean {
+  return resource.parameters
+    .filter(p => (p.sourceType ?? 'CONTEXT') === 'CONTEXT')
+    .every(p => String(ctx[p.values?.[0] ?? p.value ?? p.keyValue ?? p.key] ?? '') !== '')
+}
+
 /**
  * Renderiza un módulo entero desde su JsonConfig: JsonFront (SDUI: components →
  * registry.components, layout DENTRO del componente) + JsonREA (data por resource,
  * cache IndexedDB) + JsonWorkflow (FSM → estado + botones). La UI reusa shared/ui.
  */
-export function TrxRuntime({ config, registry }: { config: JsonConfig; registry: TrxRegistry }) {
-  const { JsonFront: front, JsonREA: rea, JsonWorkflow: workflow } = config
-  const mainResource = rea.resources[0] ?? null
+// title/subtitle son FIJOS por módulo → los pasa el page (no van en el JSON). A futuro
+// salen de i18n/ruta. Fallback al JSON legacy (front.title) y al prefix.
+export function TrxRuntime({ config, registry, title, subtitle, heading, trxLabel }: { config: JsonConfig; registry: TrxRegistry; title?: string; subtitle?: string; heading?: string; trxLabel?: string }) {
+  // i18n: traduce labels por su texto (keyPrefix 'trx'). Si no hay traducción, devuelve el
+  // propio texto (los labels del JSON van en inglés → sirve de fallback y de key).
+  const { t } = useTranslation(undefined, { keyPrefix: 'trx' })
+  const { JsonREA: rea, JsonWorkflow: workflow } = config
+  // El template expande el JsonFront mínimo (filter/products/cart) a la forma interna
+  // (location gate + filters + derive + main/collection). Todo lo demás lee de acá.
+  const front = useMemo(() => expandFront(config.JsonFront), [config.JsonFront])
+  // Tabla principal: resource marcado `main:true` (explícito, sin depender del orden) o resources[0] (fallback).
+  const mainResource = rea.resources.find(r => r.main) ?? rea.resources[0] ?? null
   const filters = useMemo(() => getFilters(front), [front])
+
+  // Elige el fetcher de un resource: custom por id (registry) → httpFetcher (API/endpoint) → none.
+  // Único para la tabla principal y los combos-desde-resource (mismo resolver de datos).
+  const fetcherFor = (r: Resource): Fetcher =>
+    r.id in registry.fetchers ? registry.fetchers[r.id] : (r.sourceType === 'API' || r.endpoint ? httpFetcher : NO_FETCHER)
 
   const [context,        setContext]        = useState<Record<string, string>>(() => initialContext(filters))
   const [fetchedOptions, setFetchedOptions] = useState<Record<string, unknown[]>>({})
   const [selections,     setSelections]     = useState<Record<string, Row[]>>({})
   const [edits,      setEdits]      = useState<Record<string, Record<string, unknown>>>({})
   const [collection, setCollection] = useState<Row[]>([])
+  const [extraRows,  setExtraRows]  = useState<Row[]>([])   // filas agregadas a mano (ej. "cargar insumo" del catálogo)
+  const [enrichRows, setEnrichRows] = useState<Record<string, Row[]>>({})   // datos de recursos de enriquecimiento (enrichBy), por resource id
   const [state,      setState]      = useState<string>(workflow.initialState)
+  const [refreshKey, setRefreshKey] = useState(0)   // bump → re-resuelve resources (refresh de módulo)
 
   // Filtros bloqueados: la cookie ya fijó el valor (usuario con finca asignada).
   const locked = useMemo(() => {
@@ -110,12 +203,21 @@ export function TrxRuntime({ config, registry }: { config: JsonConfig; registry:
       const next: Record<string, unknown[]> = {}
       for (const f of filters) {
         if (f.dependsOn || !f.source || !(f.source in registry.fetchers)) continue
+        // Opciones semi-estáticas (fincas/categorías) → cache IndexedDB por source. Evita
+        // re-pedirlas en cada entrada al módulo; se comparten entre TRX que usan el mismo source.
+        const cacheK = `filterOpts::${f.source}`
         try {
-          const env = await registry.fetchers[f.source](f.source, {})
-          next[f.key] = Array.isArray(env.data) ? env.data : []
+          const cached = await getResource<unknown[]>(cacheK)
+          if (cached != null) { next[f.key] = Array.isArray(cached) ? cached : []; continue }
+          const env  = await registry.fetchers[f.source](f.source, {})
+          const data = Array.isArray(env.data) ? env.data : []
+          next[f.key] = data
+          await saveResource(cacheK, data)
         } catch { next[f.key] = [] }
       }
-      if (!cancelled) setFetchedOptions(next)
+      // MERGE (no replace): preserva las opciones de los combos-desde-resource, que los
+      // llena el otro efecto (params del context) y no deben pisarse acá.
+      if (!cancelled) setFetchedOptions(prev => ({ ...prev, ...next }))
     })()
     return () => { cancelled = true }
   }, [filters, registry])
@@ -126,14 +228,19 @@ export function TrxRuntime({ config, registry }: { config: JsonConfig; registry:
     const combo: Record<string, { value: string; label: string }[]> = {}
     const selected: Record<string, unknown> = {}
     for (const f of filters) {
-      const data: unknown[] = f.dependsOn && f.optionsFrom
-        ? ((getValueByPath(selected[f.dependsOn], f.optionsFrom) as unknown[]) ?? [])
-        : (fetchedOptions[f.key] ?? [])
-      combo[f.key] = data.map(o => ({
-        value: String((o as Record<string, unknown>)?.[f.optionValue] ?? ''),
-        label: String((o as Record<string, unknown>)?.[f.optionLabel] ?? ''),
-      }))
-      selected[f.key] = data.find(o => String((o as Record<string, unknown>)?.[f.optionValue] ?? '') === (context[f.key] ?? ''))
+      const data: unknown[] = f.values                                   // combo ESTÁTICO (inline)
+        ? f.values
+        : f.dependsOn && f.optionsFrom                                   // CASCADA (opción del padre)
+          ? ((getValueByPath(selected[f.dependsOn], f.optionsFrom) as unknown[]) ?? [])
+          : (fetchedOptions[f.key] ?? [])                               // fetch por source
+      // Opción PRIMITIVA (string/number, ej. LOADMISSINGTRX → List<string>): value=label=el valor.
+      // Opción OBJETO: se leen optionValue/optionLabel.
+      const valOf = (o: unknown) =>
+        o != null && typeof o === 'object' ? String((o as Record<string, unknown>)[f.optionValue] ?? '') : String(o ?? '')
+      const labOf = (o: unknown) =>
+        o != null && typeof o === 'object' ? String((o as Record<string, unknown>)[f.optionLabel] ?? '') : String(o ?? '')
+      combo[f.key] = data.map(o => ({ value: valOf(o), label: labOf(o) }))
+      selected[f.key] = data.find(o => valOf(o) === (context[f.key] ?? ''))
     }
     return { comboOptions: combo, selectedOptions: selected }
   }, [filters, fetchedOptions, context])
@@ -149,6 +256,69 @@ export function TrxRuntime({ config, registry }: { config: JsonConfig; registry:
     return c
   }, [context, selectedOptions, front, registry])
 
+  // Combos-desde-resource: opciones desde un resource (JsonREA) con params del context + gate.
+  // Ej. Requerimiento ← LOADMISSINGTRX(location, origen, destino). Se re-resuelve SOLO cuando
+  // cambian los params del combo (no todo el context). Al elegir, su value entra al context →
+  // dispara el resource principal (líneas). SWR: el 4º arg de resolveResource revalida en bg.
+  const resourceFilters = useMemo(() => filters.filter(f => f.resource), [filters])
+  const resFiltersKey = useMemo(
+    () => resourceFilters.map(f => {
+      const r = rea.resources.find(x => x.id === f.resource)
+      return r ? `${f.key}:${paramsReady(r, enrichedContext) ? JSON.stringify(resolveParams(r, enrichedContext)) : 'GATED'}` : f.key
+    }).join('|'),
+    [resourceFilters, rea.resources, enrichedContext],
+  )
+  useEffect(() => {
+    if (!resourceFilters.length) return
+    let cancelled = false
+    void (async () => {
+      for (const f of resourceFilters) {
+        const resource = rea.resources.find(r => r.id === f.resource)
+        if (!resource) continue
+        const set = (data: unknown) => { if (!cancelled) setFetchedOptions(prev => ({ ...prev, [f.key]: Array.isArray(data) ? (data as unknown[]) : [] })) }
+        // Gate: sin los params completos (ej. falta location) → sin opciones (limpia lo previo).
+        if (!paramsReady(resource, enrichedContext)) { set([]); continue }
+        try { set(await resolveResource(resource, enrichedContext, fetcherFor(resource), set)) }
+        catch { set([]) }
+      }
+    })()
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resFiltersKey, refreshKey])
+
+  // Recursos de ENRIQUECIMIENTO (enrichBy): fusionan sus filas sobre las del main por una llave.
+  // Ej. precio por proveedor (loadproductsbygrower) ← se dispara al elegir proveedor y cruza por idVariety.
+  // Se cargan igual que los combos-desde-resource (gate + params del context); su data se merge-a en effectiveRows.
+  const enrichResources = useMemo(() => rea.resources.filter(r => r.enrichBy), [rea.resources])
+  const enrichKey = useMemo(
+    () => enrichResources.map(r => `${r.id}:${paramsReady(r, enrichedContext) ? JSON.stringify(resolveParams(r, enrichedContext)) : 'GATED'}`).join('|'),
+    [enrichResources, enrichedContext],
+  )
+  useEffect(() => {
+    if (!enrichResources.length) return
+    let cancelled = false
+    void (async () => {
+      for (const r of enrichResources) {
+        const set = (data: unknown) => { if (!cancelled) setEnrichRows(prev => ({ ...prev, [r.id]: Array.isArray(data) ? (data as Row[]) : [] })) }
+        if (!paramsReady(r, enrichedContext)) { set([]); continue }
+        try { set(await resolveResource(r, enrichedContext, fetcherFor(r), set) as Row[]) }
+        catch { set([]) }
+      }
+    })()
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enrichKey, refreshKey])
+
+  // Mapa de enriquecimiento: `${enrichBy}::${valor}` → campos a fusionar en la fila del main.
+  const enrichMap = useMemo(() => {
+    const map: Record<string, Row> = {}
+    for (const r of enrichResources) {
+      const k = r.enrichBy!
+      for (const row of enrichRows[r.id] ?? []) { const mk = `${k}::${String(row[k] ?? '')}`; map[mk] = { ...map[mk], ...row } }
+    }
+    return map
+  }, [enrichResources, enrichRows])
+
   const setSelection = (key: string, options: Row[]) => setSelections(s => ({ ...s, [key]: options }))
 
   // Setea un filtro y RESETEA sus dependientes (cascada).
@@ -158,10 +328,18 @@ export function TrxRuntime({ config, registry }: { config: JsonConfig; registry:
     return next
   })
 
-  const custom      = mainResource && mainResource.id in registry.fetchers ? registry.fetchers[mainResource.id] : undefined
-  const canFetch    = !!mainResource && (!!custom || !!mainResource.endpoint)
-  const mainFetcher = custom ?? (mainResource?.endpoint ? httpFetcher : NO_FETCHER)
-  const { rows, loading } = useTrxData<Row>(canFetch ? mainResource : null, enrichedContext, mainFetcher)
+  const hasFetcher  = !!mainResource && (mainResource.id in registry.fetchers || mainResource.sourceType === 'API' || !!mainResource.endpoint)
+  // GATE: no fetchea hasta que los params que el recurso saca del CONTEXT (location…) tengan
+  // valor. Sin finca no se pide nada (evita la llamada vacía/con error al entrar sin ubicación).
+  const ready = useMemo(() => !!mainResource && paramsReady(mainResource, enrichedContext), [mainResource, enrichedContext])
+  const canFetch    = !!mainResource && ready && hasFetcher
+  const mainFetcher = mainResource ? fetcherFor(mainResource) : NO_FETCHER
+  const { rows, loading, error } = useTrxData<Row>(canFetch ? mainResource : null, enrichedContext, mainFetcher, refreshKey)
+  const retry = () => setRefreshKey(k => k + 1)
+
+  // Fallo de data (LOADCS): además del inline "Reintentar" en la tabla, un toast (la trx en sí
+  // no se tocó; es solo la carga de stock). No reintenta solo — el usuario decide.
+  useEffect(() => { if (error) toast.error(t('loadError')) }, [error])   // eslint-disable-line react-hooks/exhaustive-deps
 
   // Pre-poblar la collection desde un resource (cargar-y-editar: PO/Recepción/…).
   // Re-hidrata sólo cuando cambia el CONTENIDO de las filas (no en cada refetch por
@@ -178,10 +356,32 @@ export function TrxRuntime({ config, registry }: { config: JsonConfig; registry:
   const keyField      = front.rowKey ?? 'id'
   const collectionKey = front.collection?.rowKey ?? keyField
 
+  // La tabla principal = filas del resource (LOADCS) + filas agregadas a mano (catálogo),
+  // con la edición inline aplicada por encima (edits).
   const effectiveRows = useMemo(
-    () => rows.map(r => { const id = String(r[keyField] ?? ''); return edits[id] ? { ...r, ...edits[id] } : r }),
-    [rows, edits, keyField],
+    () => [...rows, ...extraRows].map(r => {
+      // enriquecimiento: fusiona los campos de los resources `enrichBy` por su llave (ej. precio por idVariety)
+      let m = r
+      for (const er of enrichResources) { const e = enrichMap[`${er.enrichBy}::${String(r[er.enrichBy!] ?? '')}`]; if (e) m = { ...m, ...e } }
+      const id = String(m[keyField] ?? '')
+      return edits[id] ? { ...m, ...edits[id] } : m
+    }),
+    [rows, extraRows, enrichResources, enrichMap, edits, keyField],
   )
+
+  // Agrega una fila EXTRA a la tabla (ej. "cargar insumo"). Dedupe contra el resource y las ya
+  // agregadas. `_added` → la marca para que el filtro por prefijo NO la oculte (se agregó a propósito).
+  const addProductRow = (row: Row) => setExtraRows(prev => {
+    const id = String(row[keyField] ?? '')
+    if (prev.some(r => String(r[keyField] ?? '') === id) || rows.some(r => String(r[keyField] ?? '') === id)) return prev
+    return [...prev, { ...row, _added: true }]
+  })
+
+  // Quita una fila AGREGADA a mano (por si el usuario se equivocó) + limpia su edición.
+  const removeProductRow = (id: string) => {
+    setExtraRows(prev => prev.filter(r => String(r[keyField] ?? '') !== id))
+    setEdits(prev => { const next = { ...prev }; delete next[id]; return next })
+  }
 
   const collectionApi: CollectionApi = {
     items:  collection,
@@ -200,19 +400,19 @@ export function TrxRuntime({ config, registry }: { config: JsonConfig; registry:
   // la tabla y la card. Si la fila viene de la collection, la edición la parchea a la
   // collection; si viene de un resource, va a `edits` (overlay sobre las filas).
   const renderFieldInRow = (f: TrxField, row: Row, kField: string, fromCollection = false): React.ReactNode => {
-    const key = f.selectorValue
+    const key = f.selectorValue ?? ''
     const id  = String(row[kField] ?? '')
     const setValue = fromCollection
       ? (v: unknown) => collectionApi.update(id, { [key]: v })
       : (v: unknown) => setEdits(prev => ({ ...prev, [id]: { ...prev[id], [key]: v } }))
-    return renderField(f, row, registry, context, setValue, collectionApi)
+    return renderField(f, row, registry, enrichedContext, setValue, collectionApi, kField, removeProductRow, t)
   }
 
   // Helper de TABLA: convierte fields → columnas de DataTable.
   const makeColumns = (fields: TrxField[], kField: string, fromCollection = false): TableColumn<Row>[] =>
     fields.map(f => ({
-      key:      f.selectorValue || f.label,
-      header:   f.label,
+      key:      f.selectorValue || f.label || f.renderer || '',
+      header:   f.label ? t(f.label) : '',
       sortable: !f.renderer,
       render:   (row: Row) => renderFieldInRow(f, row, kField, fromCollection),
     }))
@@ -221,16 +421,58 @@ export function TrxRuntime({ config, registry }: { config: JsonConfig; registry:
   const transitions = workflow.transitions.filter(t => t.from === state)
   const transitionFor = (on: string) => transitions.find(t => t.on === on)
   const canFire = (t: WfTransition) => {
-    if (!t.guard) return true
-    const g = registry.guards?.[t.guard]
-    return g ? g({ rows: effectiveRows, collection, context, state }) : true
-  }
-  const fire = (t: WfTransition) => {
-    if (!canFire(t)) return
-    if (t.event && t.event in registry.actions) {
-      registry.actions[t.event]({ rows: effectiveRows, collection, context, state, config, clearCollection: () => setCollection([]) })
+    if (t.guard) {
+      const g = registry.guards?.[t.guard]
+      return g ? g({ rows: effectiveRows, collection, context, state }) : true
     }
-    setState(t.to)
+    // Sin guard declarado: DEFAULT del motor → si el módulo tiene carrito exige ≥1 item Y que
+    // NINGUNA fila viole su `max` (tope: `campo[max] + valor < 0`, ej. remaining+qty<0). Enforcement
+    // ÚNICO del tope — cubre products y summary sin importar dónde se editó; `max` se declara 1 vez.
+    if (front.collection) {
+      if (collection.length === 0) return false
+      const maxFields = [...(front.main?.fields ?? []), ...(front.collection.fields ?? [])]
+        .filter(f => f.max && f.selectorValue)
+      const over = collection.some(row => maxFields.some(f => {
+        const m = Number(row[f.max as string]); const v = Number(row[f.selectorValue as string])
+        return Number.isFinite(m) && Number.isFinite(v) && m + v < 0
+      }))
+      return !over
+    }
+    return true
+  }
+  // `tr` (no `t`) para no tapar el `t` de i18n → el createTrx lo usa para el toast traducido.
+  const fire = async (tr: WfTransition) => {
+    if (!canFire(tr)) return
+    const args = { rows: effectiveRows, collection, context, state, config, clearCollection: () => setCollection([]), transition: tr, trxLabel, t }
+
+    // create-trx es INTRÍNSECO y debe tener ÉXITO para resetear/transicionar. Si falla,
+    // salimos SIN tocar nada → el pedido (carrito + cantidades) queda intacto para reintentar.
+    try {
+      if ('createTrx' in registry.actions) await registry.actions.createTrx(args)
+    } catch {
+      return
+    }
+
+    // ── SOLO en éxito ── reset del módulo: vacía carrito + cantidades tecleadas, transiciona
+    // y refresca la data (cache invalidada). El árbol se remonta por refreshKey (resetea inputs).
+    setCollection([])
+    setEdits({})
+    setExtraRows([])   // limpia las filas agregadas a mano (catálogo) tras crear
+    // Resetea los filtros variables (requerimiento/proveedor/categoría…) preservando la finca → empezar limpio.
+    setContext(c => { const next = initialContext(filters); if (c.location) next.location = c.location; return next })
+    setState(tr.to)
+    for (const r of rea.resources) if (r.cacheIn) await clearResourcePrefix(r.id)
+    setRefreshKey(k => k + 1)
+    // Estado destino TERMINAL (sin salidas) → auto-reset al inicial (listo para otra TRX).
+    if (!workflow.transitions.some(x => x.from === tr.to)) setState(workflow.initialState)
+
+    // `event` = efecto(s) post-success (ej. ADJUST_INVENTORY, SEND_EMAIL). El backend los corre
+    // como parte del workflow (el front lee el response para avisar fallos). Acá solo se disparan
+    // los que EXISTAN como registry.actions (override de front), fire-and-forget. Uno o varios.
+    const events = Array.isArray(tr.event) ? tr.event : tr.event ? [tr.event] : []
+    for (const ev of events) {
+      if (ev in registry.actions) void Promise.resolve(registry.actions[ev](args)).catch(() => {})
+    }
   }
 
   // ── SDUI: cada componente se dibuja por `type` (registry override > default) ──
@@ -240,21 +482,24 @@ export function TrxRuntime({ config, registry }: { config: JsonConfig; registry:
   }
 
   const ctx: RuntimeCtx = {
-    front, rows: effectiveRows, loading, collection: collectionApi,
-    context, setContext, setFilter, options: comboOptions, selections, setSelection, locked,
+    t,
+    front, rows: effectiveRows, loading, ready, error, retry, collection: collectionApi, addProductRow,
+    // enrichedContext (no el crudo): incluye los DERIVADOS (skuPrefix…) que el filterBy
+    // de la tabla necesita para filtrar por prefijo. setContext/setFilter siguen tocando el crudo.
+    context: enrichedContext, setContext, setFilter, options: comboOptions, filterData: fetchedOptions, selections, setSelection, locked,
     state, transitions, transitionFor, fire, canFire,
     makeColumns, renderField: (f, row) => renderFieldInRow(f, row, keyField),
     keyField, registry, renderNode,
   }
 
-  const components = front.components ?? defaultTree(front)
+  const components = front.components ?? defaultTree(front, heading)
 
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">{front.title ?? config.prefix}</h1>
-          {front.subtitle && <p className="mt-1 text-sm text-muted-foreground">{front.subtitle}</p>}
+          <h1 className="text-2xl font-bold text-foreground">{t(title ?? front.title ?? config.prefix)}</h1>
+          {(subtitle ?? front.subtitle) && <p className="mt-1 text-sm text-muted-foreground">{t(subtitle ?? front.subtitle ?? '')}</p>}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {(() => {
@@ -265,21 +510,29 @@ export function TrxRuntime({ config, registry }: { config: JsonConfig; registry:
               </span>
             )
             if (front.headerButtons?.length) return front.headerButtons.map(b => {
-              const t = transitionFor(b.on)
-              return t ? (
-                <Button key={b.on} variant={b.variant ?? 'default'} size="sm" onClick={() => fire(t)} disabled={!canFire(t)}>{b.label}</Button>
+              const tr = transitionFor(b.on)
+              return tr ? (
+                <Button key={b.on} variant={b.variant ?? 'default'} size="sm" onClick={() => fire(tr)} disabled={!canFire(tr)}>{t(b.label)}</Button>
               ) : null
             })
-            return (
-              <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
-                estado: <span className="text-foreground">{state}</span>
-              </span>
-            )
+            return null   // sin badge de estado por defecto
           })()}
         </div>
       </div>
 
-      {components.map((node, i) => renderNode(node, i))}
+      {/* refreshKey en la key → tras confirmar, remonta el árbol (resetea inputs con estado
+          local, ej. cantidad+unidad). El context/filtros viven en este componente → persisten. */}
+      {components.map((node, i) => renderNode(node, `${refreshKey}-${i}`))}
+
+      {front.collection?.display !== 'drawer' && transitions.some(tr => tr.label) && (
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {transitions.filter(tr => tr.label).map(tr => (
+            <Button key={tr.on} variant={tr.variant ?? 'default'} onClick={() => fire(tr)} disabled={!canFire(tr)}>
+              {t(tr.label ?? '')}
+            </Button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

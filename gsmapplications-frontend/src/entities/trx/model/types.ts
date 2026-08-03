@@ -44,11 +44,13 @@ export interface TrxAttribute {
 export type ParamSource = 'COOKIE' | 'CONTEXT' | 'ROW' | 'INPUT' | 'STATIC'
 
 export interface ResourceParameter {
-  key:         string
+  key:         string      // nombre del parámetro que se envía en el request
   sourceType:  ParamSource
   cookieName?: string
-  keyValue?:   string
-  valueType?:  string
+  value?:      string      // path en la fuente de donde se lee (el motor usa value ?? key)
+  values?:     string[]    // convención actual: path(s) en un array; el motor usa el 1º
+  keyValue?:   string      // legacy: alias de `value` (módulos aún no migrados)
+  valueType?:  string      // decorativo/contrato (no se consume)
 }
 
 export interface Resource {
@@ -57,11 +59,22 @@ export interface Resource {
   sourceType:  'API' | 'INDEXED_DB' | 'MEMORY' | 'STATIC'
   endpoint?:   string    // ruta del backend → el fetcher genérico la usa (N rutas, N endpoints)
   cacheIn?:    'INDEXED_DB'
+  enrichBy?:   string    // fusiona las filas de ESTE resource sobre las del main por esta llave (join, ej. idVariety). No es la tabla; enriquece.
+  main?:       boolean   // marca EXPLÍCITA de la tabla principal (independiente del orden en el array). Fallback: resources[0].
   parameters:  ResourceParameter[]
+}
+
+/** Un evento del REA — efecto durante/post-trx (ej. SEND_EMAIL). Misma forma base que
+ *  un Resource (id + parameters), pero conceptualmente NO carga datos que se pinten. */
+export interface EventConfig {
+  id:          string
+  sourceType?: 'API' | 'INDEXED_DB' | 'MEMORY' | 'STATIC'
+  cacheIn?:    'INDEXED_DB'
+  parameters?: ResourceParameter[]
 }
 
 export interface ReaConfig {
   resources: Resource[]
-  events:    string[]
+  events:    EventConfig[]
   agents:    unknown[]
 }

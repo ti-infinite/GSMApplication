@@ -96,7 +96,7 @@
     "invoice": "Invoice",
     "expense": "Expense",
     "verification": "Verification",
-    "adjust": "Adjustment"
+    "adjust": "Adjustment",
     "artificial - inteligence":"AI",
     "order" : "Order",
     "chat" : "Chat", 
@@ -116,7 +116,9 @@
     "loading": "Loading...",
     "openPdf": "Open PDF",
     "openResource": "Open resource",
-    "openInNewTab": "Open in new tab"
+    "openInNewTab": "Open in new tab",
+    "download": "Download",
+    "remove": "Remove"
   },
   "newtab": {
     "description": "This content opens in a new tab. Return to the app at any time.",
@@ -456,6 +458,7 @@
     "eventFailed": "{{event}} couldn't run",
     "pickLocation": "Pick a cost center to see the data",
     "loadError": "Couldn't load the data"
+  },
   "ia": {
     "chat": {
       "title": "Order Intelligence",
@@ -463,6 +466,12 @@
       "badge": "Live DB Access",
       "inputPlaceholder": "Ask about products, sales history, recent orders…",
       "querying": "Querying databases…",
+      "attachments": {
+        "attach": "Attach file",
+        "uploading": "Uploading…",
+        "uploadFailed": "Upload failed",
+        "generating": "Working on it — generating your document can take up to a minute…"
+      },
       "tryAsking": "Try asking:",
       "suggestions": {
         "recentOrders": "What were the most recent orders received?",
@@ -628,6 +637,12 @@
         "subtitle": "Connected to NHUBEX · 353K purchase records",
         "badge": "AI Powered",
         "querying": "Querying NHUBEX...",
+        "attachments": {
+          "attach": "Attach file",
+          "uploading": "Uploading…",
+          "uploadFailed": "Upload failed",
+          "generating": "Working on it — generating your document can take up to a minute…"
+        },
         "tryAsking": "Try asking",
         "inputPlaceholder": "Ask about suppliers, POs, spend, traceability...",
         "error": "Couldn't reach the agent: {{err}}\n\nMake sure the EC2 agent is running and your IP is whitelisted.",

@@ -96,7 +96,7 @@
     "invoice": "Factura",
     "expense": "Gasto",
     "verification": "Verificación",
-    "adjust": "Ajuste"
+    "adjust": "Ajuste",
     "artificial - inteligence":"IA",
     "order" : "Ordenes",
     "chat" : "Chat", 
@@ -116,7 +116,9 @@
     "loading": "Cargando...",
     "openPdf": "Abrir PDF",
     "openResource": "Abrir recurso",
-    "openInNewTab": "Abrir en nueva pestaña"
+    "openInNewTab": "Abrir en nueva pestaña",
+    "download": "Descargar",
+    "remove": "Eliminar"
   },
   "newtab": {
     "description": "Este contenido se abrirá en una nueva pestaña. Puedes volver a la app en cualquier momento.",
@@ -455,6 +457,7 @@
     "eventFailed": "{{event}} no se pudo ejecutar",
     "pickLocation": "Elegí un centro de costo para ver la información",
     "loadError": "No se pudo cargar la información"
+  },
   "ia": {
     "chat": {
       "title": "Inteligencia de Órdenes",
@@ -462,6 +465,12 @@
       "badge": "Acceso BD en Vivo",
       "inputPlaceholder": "Pregunta sobre productos, historial de ventas, órdenes recientes…",
       "querying": "Consultando bases de datos…",
+      "attachments": {
+        "attach": "Adjuntar archivo",
+        "uploading": "Subiendo…",
+        "uploadFailed": "Error al subir",
+        "generating": "Trabajando en ello — generar tu documento puede tardar hasta un minuto…"
+      },
       "tryAsking": "Intenta preguntar:",
       "suggestions": {
         "recentOrders": "¿Cuáles fueron las órdenes más recientes recibidas?",
@@ -627,6 +636,12 @@
         "subtitle": "Conectado a NHUBEX · 353K registros de compras",
         "badge": "IA Potenciada",
         "querying": "Consultando NHUBEX...",
+        "attachments": {
+          "attach": "Adjuntar archivo",
+          "uploading": "Subiendo…",
+          "uploadFailed": "Error al subir",
+          "generating": "Trabajando en ello — generar tu documento puede tardar hasta un minuto…"
+        },
         "tryAsking": "Intenta preguntar",
         "inputPlaceholder": "Pregunta sobre proveedores, POs, gastos, trazabilidad...",
         "error": "No se pudo contactar al agente: {{err}}\n\nAsegúrate de que el agente EC2 esté activo y tu IP esté en la lista blanca.",

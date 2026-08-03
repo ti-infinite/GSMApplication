@@ -1,17 +1,46 @@
 import { useState, useRef, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ihFetch } from '@/shared/lib/ihAgent'
-import { Send, Bot, User, Loader2, Sparkles } from 'lucide-react'
+import { Send, Bot, User, Loader2, Sparkles, Paperclip, X, FileText, Image as ImageIcon, File, AlertCircle } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import type { Components } from 'react-markdown'
 import ChartBlock, { type VisualizationData } from '@/shared/components/ChartBlock'
+import DocumentBlock, { type DocumentData } from '@/shared/components/DocumentBlock'
+
+const UPLOADS_ENDPOINT = '/purchases/uploads'
+const CHAT_ENDPOINT = '/purchases/chat'
+const ACCEPT = '.pdf,.xlsx,.xlsm,.csv,.pptx,.docx,.txt,.md,.json,.jpg,.jpeg,.png,.gif,.webp'
+const MAX_FILES = 5
+const SLOW_HINT_MS = 20000
+
+interface UploadedFile {
+  localId: string
+  filename: string
+  status: 'uploading' | 'done' | 'error'
+  uploadId?: string
+  mode?: 'document' | 'image' | 'text'
+  size?: number
+  note?: string
+  error?: string
+}
 
 interface Message {
   role: 'user' | 'assistant'
   content: string
   timestamp: Date
   visualization?: VisualizationData | null
+  documents?: DocumentData[] | null
+  attachments?: UploadedFile[]
+}
+
+let uploadSeq = 0
+const nextLocalId = () => `u${++uploadSeq}-${Date.now()}`
+
+function AttachmentIcon({ mode, className }: { mode?: string; className?: string }) {
+  if (mode === 'image') return <ImageIcon className={className} />
+  if (mode === 'document') return <FileText className={className} />
+  return <File className={className} />
 }
 
 const markdownComponents: Components = {
@@ -58,12 +87,59 @@ export default function ChatPage() {
   }])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
+  const [slowHint, setSlowHint] = useState(false)
+  const [uploads, setUploads] = useState<UploadedFile[]>([])
+  const [dragging, setDragging] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const uploadingCount = uploads.filter(u => u.status === 'uploading').length
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+  }, [messages, uploads])
+
+  const uploadFile = async (file: File) => {
+    const localId = nextLocalId()
+    setUploads(prev => [...prev, { localId, filename: file.name, status: 'uploading' }])
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const res = await ihFetch(UPLOADS_ENDPOINT, { method: 'POST', body: fd })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        // A 400 carries a user-facing `detail` written by the backend — show it verbatim.
+        const detail = typeof data.detail === 'string' ? data.detail : t('ia.purchases.chat.attachments.uploadFailed')
+        setUploads(prev => prev.map(u => u.localId === localId ? { ...u, status: 'error', error: detail } : u))
+        return
+      }
+      setUploads(prev => prev.map(u => u.localId === localId
+        ? { ...u, status: 'done', uploadId: data.upload_id, mode: data.mode, size: data.size, note: data.note || undefined }
+        : u))
+    } catch {
+      setUploads(prev => prev.map(u => u.localId === localId
+        ? { ...u, status: 'error', error: t('ia.purchases.chat.attachments.uploadFailed') }
+        : u))
+    }
+  }
+
+  const addFiles = (files: FileList | File[]) => {
+    const list = Array.from(files)
+    const room = MAX_FILES - uploads.length
+    // Upload in parallel — one file per request.
+    list.slice(0, Math.max(0, room)).forEach(uploadFile)
+  }
+
+  const removeUpload = (localId: string) => {
+    setUploads(prev => prev.filter(u => u.localId !== localId))
+  }
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault(); setDragging(false)
+    if (loading) return
+    if (e.dataTransfer.files?.length) addFiles(e.dataTransfer.files)
+  }
 
   useEffect(() => {
     setMessages(prev => {
@@ -75,17 +151,30 @@ export default function ChatPage() {
   }, [i18n.language, t])
 
   const sendMessage = async (text: string) => {
-    if (!text.trim() || loading) return
-    const userMsg: Message = { role: 'user', content: text.trim(), timestamp: new Date() }
+    if (!text.trim() || loading || uploadingCount > 0) return
+
+    const attached = uploads.filter(u => u.status === 'done' && u.uploadId)
+    const uploadIds = attached.map(u => u.uploadId as string)
+
+    const userMsg: Message = {
+      role: 'user',
+      content: text.trim(),
+      timestamp: new Date(),
+      attachments: attached.length ? attached : undefined,
+    }
     setMessages(prev => [...prev, userMsg])
     setInput('')
+    setUploads([])
     setLoading(true)
+    const slowTimer = setTimeout(() => setSlowHint(true), SLOW_HINT_MS)
 
     try {
-      const res = await ihFetch('/purchases/chat', {
+      const res = await ihFetch(CHAT_ENDPOINT, {
         method: 'POST',
         body: JSON.stringify({
           messages: [...messages, userMsg].map(m => ({ role: m.role, content: m.content })),
+          // Send upload_ids only on the turn the files are attached.
+          ...(uploadIds.length ? { upload_ids: uploadIds } : {}),
         }),
       })
       if (!res.ok) throw new Error(`Agent error: ${res.status}`)
@@ -95,6 +184,7 @@ export default function ChatPage() {
         content: data.response || 'No response received.',
         timestamp: new Date(),
         visualization: data.visualization ?? null,
+        documents: data.documents ?? null,
       }])
     } catch (err) {
       setMessages(prev => [...prev, {
@@ -103,6 +193,8 @@ export default function ChatPage() {
         timestamp: new Date(),
       }])
     } finally {
+      clearTimeout(slowTimer)
+      setSlowHint(false)
       setLoading(false)
       setTimeout(() => inputRef.current?.focus(), 50)
     }
@@ -163,6 +255,21 @@ export default function ChatPage() {
                   <ChartBlock visualization={msg.visualization} />
                 </div>
               )}
+              {msg.attachments?.length ? (
+                <div className="mt-1 flex flex-col gap-1 items-end">
+                  {msg.attachments.map(a => (
+                    <div key={a.localId} className="flex items-center gap-1.5 bg-white border border-gray-200 rounded-xl px-2.5 py-1.5 shadow-sm max-w-[240px]">
+                      <AttachmentIcon mode={a.mode} className="w-3.5 h-3.5 text-[#434a98] shrink-0" />
+                      <span className="text-xs text-gray-600 truncate">{a.filename}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+              {msg.documents?.length ? (
+                <div className="w-full mt-1 space-y-2">
+                  {msg.documents.map(d => <DocumentBlock key={d.key} document={d} />)}
+                </div>
+              ) : null}
               <span className="text-[10px] text-gray-400 px-1 mt-1">{fmt(msg.timestamp)}</span>
             </div>
           </div>
@@ -175,7 +282,9 @@ export default function ChatPage() {
             </div>
             <div className="bg-white border border-gray-100 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm flex items-center gap-2">
               <Loader2 className="w-4 h-4 text-[#434a98] animate-spin" />
-              <span className="text-xs text-gray-400">{t('ia.purchases.chat.querying')}</span>
+              <span className="text-xs text-gray-400">
+                {slowHint ? t('ia.purchases.chat.attachments.generating') : t('ia.purchases.chat.querying')}
+              </span>
             </div>
           </div>
         )}
@@ -198,8 +307,65 @@ export default function ChatPage() {
       )}
 
       {/* Input */}
-      <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-gray-100 bg-white shrink-0">
+      <div
+        onDragOver={e => { e.preventDefault(); if (!loading) setDragging(true) }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={handleDrop}
+        className="relative px-4 sm:px-6 py-3 sm:py-4 border-t border-gray-100 bg-white shrink-0"
+      >
+        {dragging && (
+          <div className="absolute inset-0 z-10 bg-[#434a98]/5 border-2 border-dashed border-[#434a98] rounded-xl m-2 flex items-center justify-center pointer-events-none">
+            <span className="text-sm font-medium text-[#434a98] flex items-center gap-2">
+              <Paperclip className="w-4 h-4" /> {t('ia.purchases.chat.attachments.attach')}
+            </span>
+          </div>
+        )}
+
+        {/* Attachment chips */}
+        {uploads.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-2.5">
+            {uploads.map(u => (
+              <div key={u.uploadId || u.localId}
+                className={`flex items-center gap-1.5 rounded-xl pl-2.5 pr-1.5 py-1.5 border text-xs max-w-[220px]
+                  ${u.status === 'error' ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200'}`}>
+                {u.status === 'uploading'
+                  ? <Loader2 className="w-3.5 h-3.5 text-[#434a98] animate-spin shrink-0" />
+                  : u.status === 'error'
+                    ? <AlertCircle className="w-3.5 h-3.5 text-red-400 shrink-0" />
+                    : <AttachmentIcon mode={u.mode} className="w-3.5 h-3.5 text-[#434a98] shrink-0" />}
+                <div className="min-w-0 flex flex-col">
+                  <span className={`truncate ${u.status === 'error' ? 'text-red-600' : 'text-gray-600'}`}>{u.filename}</span>
+                  {u.status === 'uploading' && <span className="text-[10px] text-gray-400">{t('ia.purchases.chat.attachments.uploading')}</span>}
+                  {u.status === 'error' && u.error && <span className="text-[10px] text-red-500 whitespace-normal">{u.error}</span>}
+                  {u.status === 'done' && u.note && <span className="text-[10px] text-amber-600 whitespace-normal">{u.note}</span>}
+                </div>
+                <button type="button" onClick={() => removeUpload(u.localId)} title={t('common.remove')}
+                  className="p-1 rounded-md hover:bg-gray-200/70 shrink-0">
+                  <X className="w-3 h-3 text-gray-400 hover:text-gray-600" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
         <form onSubmit={e => { e.preventDefault(); sendMessage(input) }} className="flex gap-3">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept={ACCEPT}
+            multiple
+            className="hidden"
+            onChange={e => { if (e.target.files) addFiles(e.target.files); e.target.value = '' }}
+          />
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={loading || uploads.length >= MAX_FILES}
+            title={t('ia.purchases.chat.attachments.attach')}
+            className="w-11 h-11 border border-gray-200 text-gray-500 rounded-xl flex items-center justify-center hover:bg-gray-50 hover:text-[#434a98] transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+          >
+            <Paperclip className="w-4 h-4" />
+          </button>
           <input
             ref={inputRef}
             value={input}
@@ -208,7 +374,7 @@ export default function ChatPage() {
             disabled={loading}
             className="flex-1 px-4 py-3 border border-gray-200 rounded-xl text-sm bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#434a98]/20 focus:border-[#434a98] transition-all disabled:opacity-50"
           />
-          <button type="submit" disabled={!input.trim() || loading}
+          <button type="submit" disabled={!input.trim() || loading || uploadingCount > 0}
             className="w-11 h-11 bg-[#434a98] text-white rounded-xl flex items-center justify-center hover:bg-[#3b4189] transition-colors disabled:opacity-40 disabled:cursor-not-allowed shadow-sm">
             <Send className="w-4 h-4" />
           </button>

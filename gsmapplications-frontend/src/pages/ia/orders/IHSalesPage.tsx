@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Search, Leaf, RefreshCw, TrendingUp, ChevronDown, ChevronUp, X, ChevronLeft, ChevronRight } from 'lucide-react'
 import { ihFetch } from '@/shared/lib/ihAgent'
 
@@ -9,31 +10,26 @@ interface IHSalesRow {
   Rebate: number; Amount: number; InvoiceRow: number
 }
 
-const COLUMNS: { key: keyof IHSalesRow; label: string; numeric?: boolean }[] = [
-  { key: 'DateShip',     label: 'Ship Date' },
-  { key: 'Code',         label: 'Code' },
-  { key: 'Description',  label: 'Description' },
-  { key: 'Name',         label: 'Customer' },
-  { key: 'Customer',     label: 'Cust #' },
-  { key: 'Invoice',      label: 'Invoice' },
-  { key: 'PO',           label: 'PO' },
-  { key: 'Division',     label: 'Division' },
-  { key: 'Grade',        label: 'Grade' },
-  { key: 'Location',     label: 'Location' },
-  { key: 'Qty',          label: 'Qty',        numeric: true },
-  { key: 'Price',        label: 'Price',       numeric: true },
-  { key: 'Rebate',       label: 'Rebate',      numeric: true },
-  { key: 'Amount',       label: 'Amount ($)',  numeric: true },
-  { key: 'DeliveryDate', label: 'Delivery' },
-  { key: 'InvoiceRow',   label: 'Row',         numeric: true },
-  { key: 'NumKey',       label: 'NumKey',      numeric: true },
-]
-
 const PAGE_SIZES = [1000, 2000, 5000] as const
 type PageSize = (typeof PAGE_SIZES)[number]
 type SortDir = 'asc' | 'desc' | null
 
 export default function IHSalesPage() {
+  const { t } = useTranslation()
+
+  const COLUMNS: { key: keyof IHSalesRow; label: string; numeric?: boolean; wrap?: boolean }[] = [
+    { key: 'DateShip',     label: t('ia.ihSales.col.shipDate') },
+    { key: 'Description',  label: t('ia.ihSales.col.description'), wrap: true },
+    { key: 'Name',         label: t('ia.ihSales.col.customer'),    wrap: true },
+    { key: 'Invoice',      label: t('ia.ihSales.col.invoice') },
+    { key: 'PO',           label: t('ia.ihSales.col.po') },
+    { key: 'Location',     label: t('ia.ihSales.col.location') },
+    { key: 'Qty',          label: t('ia.ihSales.col.qty'),         numeric: true },
+    { key: 'Price',        label: t('ia.ihSales.col.price'),       numeric: true },
+    { key: 'Amount',       label: t('ia.ihSales.col.amount'),      numeric: true },
+    { key: 'DeliveryDate', label: t('ia.ihSales.col.delivery') },
+  ]
+
   const [rows, setRows] = useState<IHSalesRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -139,9 +135,9 @@ export default function IHSalesPage() {
             <Leaf className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h1 className="text-xl sm:text-2xl font-semibold text-gray-800">IH Sales</h1>
+            <h1 className="text-xl sm:text-2xl font-semibold text-gray-800">{t('ia.ihSales.title')}</h1>
             <p className="text-xs text-gray-400 font-light">
-              db_srv.IHSales · {loading ? 'Loading...' : `${rows.length.toLocaleString()} rows · page ${page + 1}`}
+              db_srv.IHSales · {loading ? '…' : t('ia.ihSales.subtitle', { rowCount: rows.length.toLocaleString(), page: page + 1 })}
             </p>
           </div>
         </div>
@@ -149,16 +145,16 @@ export default function IHSalesPage() {
           {hasActiveFilters && (
             <button onClick={clearFilters}
               className="flex items-center gap-1.5 px-3 py-2 border border-red-200 bg-red-50 text-red-500 rounded-xl text-sm hover:bg-red-100 transition-colors">
-              <X className="w-3.5 h-3.5" /> Clear
+              <X className="w-3.5 h-3.5" /> {t('ia.ihSales.clear')}
             </button>
           )}
           <select value={pageSize} onChange={e => changePageSize(Number(e.target.value) as PageSize)}
             className="px-3 py-2 border border-gray-200 rounded-xl text-sm text-gray-600 bg-white focus:outline-none">
-            {PAGE_SIZES.map(n => <option key={n} value={n}>{n.toLocaleString()} / page</option>)}
+            {PAGE_SIZES.map(n => <option key={n} value={n}>{t('ia.ihSales.perPage', { n: n.toLocaleString() })}</option>)}
           </select>
           <button onClick={() => setShowColFilters(p => !p)}
             className={`flex items-center gap-2 px-3 py-2 border rounded-xl text-sm transition-colors ${showColFilters ? 'bg-[#434a98] text-white border-[#434a98]' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
-            Filters {showColFilters ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            {t('ia.ihSales.filters')} {showColFilters ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
           </button>
           <button onClick={() => fetchRows(page)}
             className="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition-colors">
@@ -170,10 +166,10 @@ export default function IHSalesPage() {
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 shrink-0">
         {[
-          { label: 'Rows',      value: loading ? '—' : rows.length.toLocaleString(), icon: Leaf,       color: 'bg-[#E8A80C]' },
-          { label: 'Customers', value: loading ? '—' : uniqueCustomers,              icon: TrendingUp,  color: 'bg-[#434a98]' },
-          { label: 'Products',  value: loading ? '—' : uniqueProducts,               icon: Search,      color: 'bg-[#20BAD3]' },
-          { label: 'Amount',    value: loading ? '—' : `$${totalAmount.toLocaleString('en-US', { maximumFractionDigits: 0 })}`, icon: TrendingUp, color: 'bg-[#E96F1F]' },
+          { label: t('ia.ihSales.stats.rows'),      value: loading ? '—' : rows.length.toLocaleString(), icon: Leaf,       color: 'bg-[#E8A80C]' },
+          { label: t('ia.ihSales.stats.customers'), value: loading ? '—' : uniqueCustomers,              icon: TrendingUp,  color: 'bg-[#434a98]' },
+          { label: t('ia.ihSales.stats.products'),  value: loading ? '—' : uniqueProducts,               icon: Search,      color: 'bg-[#20BAD3]' },
+          { label: t('ia.ihSales.stats.amount'),    value: loading ? '—' : `$${totalAmount.toLocaleString('en-US', { maximumFractionDigits: 0 })}`, icon: TrendingUp, color: 'bg-[#E96F1F]' },
         ].map(({ label, value, icon: Icon, color }) => (
           <div key={label} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center gap-3">
             <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${color}`}><Icon className="w-4 h-4 text-white" /></div>
@@ -192,7 +188,7 @@ export default function IHSalesPage() {
           value={globalQ}
           onChange={e => setGlobalQ(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && applyFilters(0)}
-          placeholder="Search code, description, customer, invoice, PO… (press Enter to search)"
+          placeholder={t('ia.ihSales.searchPlaceholder')}
           className="w-full pl-9 pr-32 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#434a98]/20 focus:border-[#434a98]"
         />
         {hasPendingChanges && (
@@ -200,7 +196,7 @@ export default function IHSalesPage() {
             onClick={() => applyFilters(0)}
             className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-[#434a98] text-white text-xs rounded-lg hover:bg-[#3b4189] transition-colors"
           >
-            Apply ↵
+            {t('ia.ihSales.apply')}
           </button>
         )}
       </div>
@@ -209,8 +205,8 @@ export default function IHSalesPage() {
       {showColFilters && (
         <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm shrink-0">
           <div className="flex items-center justify-between mb-3">
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Filter by column</p>
-            <p className="text-[10px] text-gray-400">Press Enter or click Apply in any field to search</p>
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">{t('ia.ihSales.filterByColumn')}</p>
+            <p className="text-[10px] text-gray-400">{t('ia.ihSales.filterHint')}</p>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
             {(['Description', 'Name', 'Customer', 'Grade', 'Division', 'Location', 'DateShip'] as (keyof IHSalesRow)[]).map(key => {
@@ -234,7 +230,7 @@ export default function IHSalesPage() {
               onClick={() => applyFilters(0)}
               className="px-4 py-1.5 bg-[#434a98] text-white text-xs rounded-lg hover:bg-[#3b4189] transition-colors"
             >
-              Apply Filters
+              {t('ia.ihSales.applyFilters')}
             </button>
           </div>
         </div>
@@ -245,7 +241,7 @@ export default function IHSalesPage() {
       {/* Table */}
       <div className="flex-1 bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden min-h-0 flex flex-col">
         <div className="overflow-auto flex-1">
-          <table className="text-sm w-max min-w-full">
+          <table className="text-sm w-full">
             <thead className="sticky top-0 z-10">
               <tr className="bg-gray-50 border-b border-gray-100">
                 {COLUMNS.map(({ key, label }) => (
@@ -267,13 +263,13 @@ export default function IHSalesPage() {
                   {COLUMNS.map((_, j) => <td key={j} className="px-3 py-2.5"><div className="h-4 bg-gray-100 rounded animate-pulse w-20" /></td>)}
                 </tr>
               )) : sorted.length === 0 ? (
-                <tr><td colSpan={COLUMNS.length} className="px-4 py-16 text-center text-gray-300 text-sm">No results</td></tr>
+                <tr><td colSpan={COLUMNS.length} className="px-4 py-16 text-center text-gray-300 text-sm">{t('ia.ihSales.noResults')}</td></tr>
               ) : sorted.map((row, i) => (
                 <tr key={i} className="border-b border-gray-50 hover:bg-gray-50/60 transition-colors">
-                  {COLUMNS.map(({ key, numeric }) => {
+                  {COLUMNS.map(({ key, numeric, wrap }) => {
                     const val = row[key]
                     return (
-                      <td key={key} className={`px-3 py-2 text-gray-700 whitespace-nowrap ${numeric ? 'text-right tabular-nums' : ''}`}>
+                      <td key={key} className={`px-3 py-2 text-gray-700 align-top ${wrap ? 'max-w-[200px] break-words' : 'whitespace-nowrap'} ${numeric ? 'text-right tabular-nums' : ''}`}>
                         {key === 'Code' ? (
                           <span className="font-mono text-xs bg-[#434a98]/10 text-[#434a98] px-2 py-0.5 rounded-md">{String(val ?? '')}</span>
                         ) : key === 'Grade' ? (
@@ -297,16 +293,16 @@ export default function IHSalesPage() {
             <div className="flex items-center gap-2">
               <button onClick={() => fetchRows(Math.max(0, page - 1))} disabled={page === 0}
                 className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-gray-200 text-xs text-gray-600 hover:bg-white disabled:opacity-40 transition-colors">
-                <ChevronLeft className="w-3.5 h-3.5" /> Prev
+                <ChevronLeft className="w-3.5 h-3.5" /> {t('ia.ihSales.prev')}
               </button>
-              <span className="text-xs text-gray-400 tabular-nums px-1">Page {page + 1} · {rows.length.toLocaleString()} rows</span>
+              <span className="text-xs text-gray-400 tabular-nums px-1">{t('ia.ihSales.pageInfo', { page: page + 1, rowCount: rows.length.toLocaleString() })}</span>
               <button onClick={() => fetchRows(page + 1)} disabled={!hasMore}
                 className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-gray-200 text-xs text-gray-600 hover:bg-white disabled:opacity-40 transition-colors">
-                Next <ChevronRight className="w-3.5 h-3.5" />
+                {t('ia.ihSales.next')} <ChevronRight className="w-3.5 h-3.5" />
               </button>
             </div>
             <p className="text-xs text-gray-400 tabular-nums hidden sm:block">
-              {uniqueCustomers} customers · {uniqueProducts} products · {totalQty.toLocaleString()} units · ${totalAmount.toLocaleString('en-US', { maximumFractionDigits: 0 })}
+              {t('ia.ihSales.footer', { customers: uniqueCustomers, products: uniqueProducts, qty: totalQty.toLocaleString(), amount: totalAmount.toLocaleString('en-US', { maximumFractionDigits: 0 }) })}
             </p>
           </div>
         )}

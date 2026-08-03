@@ -97,6 +97,17 @@
     "expense": "Gasto",
     "verification": "Verificación",
     "adjust": "Ajuste"
+    "artificial - inteligence":"IA",
+    "order" : "Ordenes",
+    "chat" : "Chat", 
+    "documents" : "Documentos",
+    "ih-sales": "IH Sales",
+    "metrics" : "Metricas",
+    "orders" : "Ordenes",
+    "upload" : "Upload",
+    "purchase" : "Compras",
+    "purchases" : "Compras",
+    "purchase-chat" : "Chat"
   },
   "common": {
     "swipeHint": "Desliza para explorar",
@@ -444,5 +455,189 @@
     "eventFailed": "{{event}} no se pudo ejecutar",
     "pickLocation": "Elegí un centro de costo para ver la información",
     "loadError": "No se pudo cargar la información"
+  "ia": {
+    "chat": {
+      "title": "Inteligencia de Órdenes",
+      "subtitle": "Claude Sonnet · Productos · Ventas · Órdenes",
+      "badge": "Acceso BD en Vivo",
+      "inputPlaceholder": "Pregunta sobre productos, historial de ventas, órdenes recientes…",
+      "querying": "Consultando bases de datos…",
+      "tryAsking": "Intenta preguntar:",
+      "suggestions": {
+        "recentOrders": "¿Cuáles fueron las órdenes más recientes recibidas?",
+        "salesHistory": "Muéstrame las ventas de Capitol City Produce en 2026",
+        "unmatchedSkus": "¿Qué órdenes tuvieron SKUs sin coincidencia?",
+        "searchBasil": "Busca productos de Albahaca en el catálogo"
+      },
+      "resolution": {
+        "question": "¿Esto resolvió el problema?",
+        "hint": "Marca la alerta como resuelta para quitarla del panel de validación.",
+        "yes": "Sí, resuelto",
+        "no": "Aún no"
+      },
+      "error": "No se pudo contactar al agente: {{err}}\n\nAsegúrate de que el agente EC2 esté activo y tu IP esté en la lista blanca.",
+      "welcome": "¡Hola! 👋 Soy **Inteligencia de Órdenes** — tu asistente CSR para Infinite Herbs & Specialties.\n\nTengo acceso en vivo a:\n- 📦 **Catálogo de productos** (MasterProducts + Varieties)\n- 💰 **Historial de ventas** (1.86M filas en IHSales)\n- 📋 **Órdenes recientes** procesadas por el pipeline\n\n¿Qué te gustaría saber?"
+    },
+    "documents": {
+      "title": "Documentos",
+      "subtitle": "Todos los CSVs, PDFs y correos almacenados en S3",
+      "total": "total",
+      "searchPlaceholder": "Buscar documentos...",
+      "noDocuments": "No se encontraron documentos",
+      "filterAll": "Todos",
+      "download": "Descargar",
+      "openNewTab": "Abrir en nueva pestaña"
+    },
+    "ihSales": {
+      "title": "Ventas IH",
+      "subtitle": "{{rowCount}} filas · página {{page}}",
+      "stats": {
+        "rows": "Filas",
+        "customers": "Clientes",
+        "products": "Productos",
+        "amount": "Monto"
+      },
+      "filters": "Filtros",
+      "filterByColumn": "Filtrar por columna",
+      "filterHint": "Presiona Enter o haz clic en Aplicar para buscar",
+      "applyFilters": "Aplicar Filtros",
+      "apply": "Aplicar ↵",
+      "clear": "Limpiar",
+      "searchPlaceholder": "Buscar código, descripción, cliente, factura, PO… (presiona Enter para buscar)",
+      "noResults": "Sin resultados",
+      "prev": "Ant",
+      "next": "Sig",
+      "pageInfo": "Página {{page}} · {{count}} filas",
+      "footer": "{{customers}} clientes · {{products}} productos · {{qty}} unidades · ${{amount}}",
+      "perPage": "{{n}} / página",
+      "col": {
+        "shipDate": "Fecha Envío",
+        "description": "Descripción",
+        "customer": "Cliente",
+        "invoice": "Factura",
+        "po": "PO",
+        "location": "Ubicación",
+        "qty": "Cant",
+        "price": "Precio",
+        "amount": "Monto ($)",
+        "delivery": "Entrega"
+      }
+    },
+    "metrics": {
+      "title": "Métricas",
+      "subtitle": "Rendimiento del agente y análisis de órdenes",
+      "loading": "Cargando...",
+      "noData": "Sin datos aún",
+      "kpi": {
+        "matchRate": "Tasa de Coincidencia",
+        "totalOrders": "Total de Órdenes",
+        "uniqueClients": "Clientes Únicos",
+        "avgLines": "Prom. Líneas/Orden",
+        "matchSub": "{{matched}} / {{total}} líneas",
+        "ordersSub": "archivos procesados",
+        "clientsSub": "compradores distintos",
+        "avgSub": "por PO"
+      },
+      "charts": {
+        "weeklyVolume": "Volumen Semanal de Órdenes",
+        "matchRate": "Tasa de Coincidencia en el Tiempo",
+        "topClients": "Principales Clientes por Líneas",
+        "topVarieties": "Principales Variedades de Productos"
+      },
+      "series": {
+        "orders": "Órdenes",
+        "fullyMatched": "Completamente Coincidentes",
+        "matchPct": "% Coincidencia"
+      }
+    },
+    "orders": {
+      "title": "Órdenes",
+      "subtitle": "Resumen y datos del procesamiento de órdenes",
+      "agentActive": "Agente Activo",
+      "stats": {
+        "totalOrders": "Total de Órdenes",
+        "totalOrdersSub": "procesadas por el agente",
+        "matchRate": "Tasa de Coincidencia",
+        "matchRateSub": "{{matched}}/{{total}} líneas",
+        "activeClients": "Clientes Activos",
+        "activeClientsSub": "compradores únicos",
+        "orderLines": "Líneas de Orden",
+        "orderLinesSub": "total de líneas"
+      },
+      "chart": "Órdenes Procesadas por Día",
+      "latestOrders": "Últimas Órdenes",
+      "loading": "Cargando...",
+      "noOrders": "Sin órdenes aún",
+      "poLines": "PO {{po}} · {{lines}} líneas",
+      "alert": {
+        "banner_one": "{{count}} orden necesita validación CSR",
+        "banner_other": "{{count}} órdenes necesitan validación CSR",
+        "hint": "El agente no pudo hacer coincidir el cliente o SKU — se requiere revisión manual",
+        "line": "Línea {{index}}:"
+      },
+      "editRow": "Editar fila",
+      "askAgent": "Preguntar al Agente",
+      "markResolved": "Marcar como resuelto",
+      "allOrders": "Todas las Órdenes",
+      "searchPlaceholder": "Buscar...",
+      "allClients": "Todos los clientes",
+      "allDCs": "Todos los CDs",
+      "clear": "Limpiar",
+      "downloadCsv": "Descargar CSV",
+      "col": {
+        "dcName": "Nombre CD",
+        "client": "Cliente",
+        "poNumber": "PO #",
+        "shipDate": "Fecha Envío",
+        "sku": "SKU",
+        "variety": "Variedad",
+        "qty": "CANT",
+        "unit": "Unidad",
+        "actions": "Acciones"
+      },
+      "skuNotFound": "No encontrado",
+      "poMissing": "Faltante",
+      "clientUnknown": "Desconocido",
+      "save": "Guardar",
+      "saved": "Guardado",
+      "noRowsMatch": "Ninguna fila coincide con tus filtros",
+      "askAgentPrompt": "Necesito ayuda para resolver una alerta de validación para el PO {{po}} de \"{{client}}\".\n\nArchivo: {{file}}\n\nProblemas:\n{{issues}}\n\nPor favor consulta el catálogo de productos y el historial de ventas para encontrar las coincidencias correctas, luego guíame para aplicar las correcciones."
+    },
+    "upload": {
+      "title": "Cargar Orden",
+      "subtitle": "Arrastra un PDF de PO del cliente para iniciar el pipeline del agente",
+      "dropzone": "Arrastra y suelta PDFs de PO aquí",
+      "dropping": "Suelta para cargar",
+      "browse": "o haz clic para explorar · Solo archivos PDF",
+      "steps": {
+        "upload": "Cargar PDF",
+        "extract": "Agente extrae",
+        "match": "Coincidencia NHUBEX",
+        "save": "CSV guardado en S3"
+      },
+      "queue": "Cola de Carga",
+      "clearAll": "Limpiar todo",
+      "uploading": "Cargando e iniciando agente...",
+      "successDefault": "Cargado e iniciado el procesamiento",
+      "pdfOnly": "Solo se aceptan archivos PDF"
+    },
+    "purchases": {
+      "chat": {
+        "title": "Inteligencia de Compras",
+        "subtitle": "Conectado a NHUBEX · 353K registros de compras",
+        "badge": "IA Potenciada",
+        "querying": "Consultando NHUBEX...",
+        "tryAsking": "Intenta preguntar",
+        "inputPlaceholder": "Pregunta sobre proveedores, POs, gastos, trazabilidad...",
+        "error": "No se pudo contactar al agente: {{err}}\n\nAsegúrate de que el agente EC2 esté activo y tu IP esté en la lista blanca.",
+        "welcome": "¡Hola! Soy **Inteligencia de Compras**, tu asistente de compras para Infinite Herbs.\n\nTengo acceso en vivo a **353,000+ registros de compras** de NHUBEX. Pregúntame sobre proveedores, POs, análisis de gasto, trazabilidad o calendarios de entrega — y también puedo generar gráficos.",
+        "suggestions": {
+          "topSuppliers": "Top 5 proveedores por gasto este año",
+          "monthlyTrend": "Muéstrame la tendencia mensual de gasto en 2026",
+          "mexicoProducts": "¿Qué productos compramos de México?",
+          "spendByLocation": "Desglosar el gasto por ubicación"
+        }
+      }
+    }
   }
 }

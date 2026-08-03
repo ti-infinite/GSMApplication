@@ -32,6 +32,7 @@ const modules: Record<string, React.LazyExoticComponent<React.ComponentType>> = 
   'artificial-intelligence/order/ih-sales':  lazy(() => import('@/pages/ia/orders/IHSalesPage')),
   'artificial-intelligence/order/metrics':   lazy(() => import('@/pages/ia/orders/MetricsPage')),
   'artificial-intelligence/order/upload':    lazy(() => import('@/pages/ia/orders/UploadPage')),
+  'artificial-intelligence/purchase/chat':   lazy(() => import('@/features/ia/purchases/ChatPage')),
 }
 
 function slugToTitle(slug: string): string {

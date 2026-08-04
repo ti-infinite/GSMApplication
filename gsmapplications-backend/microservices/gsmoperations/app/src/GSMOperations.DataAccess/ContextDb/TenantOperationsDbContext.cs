@@ -27,6 +27,7 @@ namespace GSMOperations.DataAccess.ContextDb
         public virtual DbSet<InventoryTraceability> InventoryTraceabilities => Set<InventoryTraceability>();
         public virtual DbSet<Notification> Notifications => Set<Notification>();
         public virtual DbSet<VarietyCostBySupplier> VarietyCostBySuppliers  => Set<VarietyCostBySupplier>();
+        public virtual DbSet<TrxSeries> TrxSeries => Set<TrxSeries>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -168,6 +169,11 @@ namespace GSMOperations.DataAccess.ContextDb
                 entity.HasKey(e => e.IdCostBySupplier).HasName("PK__VarietyC__5776FE2E0118EEED");
 
                 entity.Property(e => e.IsActive).HasDefaultValue(true);
+            });
+
+            modelBuilder.Entity<TrxSeries>(entity =>
+            {
+                entity.HasKey(e => e.IdTrxSerie).HasName("PK_IdTrxSerie");
             });
 
             base.OnModelCreating(modelBuilder);

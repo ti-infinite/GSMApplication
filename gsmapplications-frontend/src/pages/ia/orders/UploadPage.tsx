@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Upload, FileText, CheckCircle2, AlertCircle, X, Loader2 } from 'lucide-react'
 import { ihFetch } from '@/shared/lib/ihAgent'
 
@@ -8,12 +9,13 @@ interface UploadResult {
 }
 
 export default function UploadPage() {
+  const { t } = useTranslation()
   const [dragging, setDragging] = useState(false)
   const [results, setResults] = useState<UploadResult[]>([])
 
   const processFile = useCallback(async (file: File) => {
     if (!file.name.toLowerCase().endsWith('.pdf')) {
-      setResults(prev => [...prev, { file: file.name, status: 'error', message: 'Only PDF files are accepted' }])
+      setResults(prev => [...prev, { file: file.name, status: 'error', message: t('ia.upload.pdfOnly') }])
       return
     }
     const id = file.name
@@ -25,12 +27,12 @@ export default function UploadPage() {
       const data = await res.json()
       if (data.error) throw new Error(data.error)
       setResults(prev => prev.map(r => r.file === id
-        ? { ...r, status: 'success', message: data.warning || 'Uploaded & processing started', agentResult: data.agentResult }
+        ? { ...r, status: 'success', message: data.warning || t('ia.upload.successDefault'), agentResult: data.agentResult }
         : r))
     } catch (err) {
       setResults(prev => prev.map(r => r.file === id ? { ...r, status: 'error', message: String(err) } : r))
     }
-  }, [])
+  }, [t])
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault(); setDragging(false)
@@ -40,8 +42,8 @@ export default function UploadPage() {
   return (
     <div className="flex flex-col gap-6 min-h-[calc(100dvh-8rem)] sm:min-h-0">
       <div>
-        <h1 className="text-2xl font-semibold text-gray-800">Upload Order</h1>
-        <p className="text-sm text-gray-400 font-light mt-0.5">Drop a customer PO PDF to trigger the agent pipeline</p>
+        <h1 className="text-2xl font-semibold text-gray-800">{t('ia.upload.title')}</h1>
+        <p className="text-sm text-gray-400 font-light mt-0.5">{t('ia.upload.subtitle')}</p>
       </div>
 
       <div onDragOver={e => { e.preventDefault(); setDragging(true) }} onDragLeave={() => setDragging(false)} onDrop={handleDrop}
@@ -53,11 +55,16 @@ export default function UploadPage() {
           <Upload className={`w-8 h-8 ${dragging ? 'text-white' : 'text-gray-400'}`} />
         </div>
         <div className="text-center">
-          <p className="text-base font-medium text-gray-700">{dragging ? 'Drop to upload' : 'Drag & drop PO PDFs here'}</p>
-          <p className="text-sm text-gray-400 mt-1">or click to browse · PDF files only</p>
+          <p className="text-base font-medium text-gray-700">{dragging ? t('ia.upload.dropping') : t('ia.upload.dropzone')}</p>
+          <p className="text-sm text-gray-400 mt-1">{t('ia.upload.browse')}</p>
         </div>
         <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-6 mt-2">
-          {[{ step: '1', label: 'Upload PDF' }, { step: '2', label: 'Agent extracts' }, { step: '3', label: 'NHUBEX match' }, { step: '4', label: 'CSV saved to S3' }].map(({ step, label }) => (
+          {[
+            { step: '1', label: t('ia.upload.steps.upload') },
+            { step: '2', label: t('ia.upload.steps.extract') },
+            { step: '3', label: t('ia.upload.steps.match') },
+            { step: '4', label: t('ia.upload.steps.save') },
+          ].map(({ step, label }) => (
             <div key={step} className="flex items-center gap-2">
               <div className="w-6 h-6 rounded-full bg-[#434a98]/10 flex items-center justify-center">
                 <span className="text-xs font-medium text-[#434a98]">{step}</span>
@@ -71,8 +78,8 @@ export default function UploadPage() {
       {results.length > 0 && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-medium text-gray-700">Upload Queue</h2>
-            <button onClick={() => setResults([])} className="text-xs text-gray-400 hover:text-gray-600">Clear all</button>
+            <h2 className="text-sm font-medium text-gray-700">{t('ia.upload.queue')}</h2>
+            <button onClick={() => setResults([])} className="text-xs text-gray-400 hover:text-gray-600">{t('ia.upload.clearAll')}</button>
           </div>
           {results.map((r, i) => (
             <div key={i} className={`flex items-center gap-4 p-4 rounded-xl border transition-colors ${r.status === 'success' ? 'bg-green-50 border-green-100' : r.status === 'error' ? 'bg-red-50 border-red-100' : 'bg-blue-50 border-blue-100'}`}>
@@ -82,7 +89,7 @@ export default function UploadPage() {
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-gray-800 truncate">{r.file}</p>
                 <p className={`text-xs mt-0.5 ${r.status === 'success' ? 'text-green-600' : r.status === 'error' ? 'text-red-500' : 'text-blue-600'}`}>
-                  {r.status === 'uploading' ? 'Uploading & triggering agent...' : r.message}
+                  {r.status === 'uploading' ? t('ia.upload.uploading') : r.message}
                 </p>
               </div>
               {r.status === 'uploading' && <Loader2 className="w-4 h-4 text-blue-500 animate-spin shrink-0" />}

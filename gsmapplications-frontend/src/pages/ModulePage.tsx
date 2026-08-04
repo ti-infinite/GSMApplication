@@ -14,7 +14,7 @@ const modules: Record<string, React.LazyExoticComponent<React.ComponentType>> = 
   'operations/products': lazy(() => import('@/pages/products/ProductsPage')),
   // Operaciones — config-driven (motor TRX) en la ruta OFICIAL · las viejas en -trx.
   'operations/requirements':       lazy(() => import('@/pages/requirements/RequirementsPage')),
-  'operations/purchase-order':     lazy(() => import('@/pages/purchase-orders/PurchaseOrderTrxPage')),
+  'operations/purchase-order':     lazy(() => import('@/pages/purchase-orders/PurchaseOrderPage')),
   'operations/purchase-order-trx': lazy(() => import('@/pages/purchase-orders/PurchaseOrdersPage')),
   'operations/reception':          lazy(() => import('@/pages/reception/ReceptionPage')),
   'operations/reception-trx':      lazy(() => import('@/pages/reception/ReceptionTrxPage')),
@@ -32,6 +32,7 @@ const modules: Record<string, React.LazyExoticComponent<React.ComponentType>> = 
   'artificial-intelligence/order/ih-sales':  lazy(() => import('@/pages/ia/orders/IHSalesPage')),
   'artificial-intelligence/order/metrics':   lazy(() => import('@/pages/ia/orders/MetricsPage')),
   'artificial-intelligence/order/upload':    lazy(() => import('@/pages/ia/orders/UploadPage')),
+  'artificial-intelligence/purchase/chat':   lazy(() => import('@/pages/ia/purchase/ChatPage')),
 }
 
 function slugToTitle(slug: string): string {

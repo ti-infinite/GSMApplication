@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { FileText, Mail, Download, Search, ExternalLink, Calendar, Package, Loader2 } from 'lucide-react'
 import { ihFetch } from '@/shared/lib/ihAgent'
 import TablePagination from '@/shared/components/TablePagination'
@@ -31,6 +32,7 @@ async function openDoc(bucket: string, key: string) {
 }
 
 export default function DocumentsPage() {
+  const { t } = useTranslation()
   const [docs, setDocs] = useState<S3Doc[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('')
@@ -93,24 +95,24 @@ export default function DocumentsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl sm:text-2xl font-semibold text-gray-800">Documents</h1>
+        <h1 className="text-xl sm:text-2xl font-semibold text-gray-800">{t('ia.documents.title')}</h1>
         <p className="text-sm text-gray-400 font-light mt-0.5">
-          All CSVs, PDFs, and emails stored in S3
-          {!loading && <span className="ml-2 text-gray-300">· {docs.length} total</span>}
+          {t('ia.documents.subtitle')}
+          {!loading && <span className="ml-2 text-gray-300">· {docs.length} {t('ia.documents.total')}</span>}
         </p>
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative w-full sm:flex-1 sm:min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input value={filter} onChange={e => setFilter(e.target.value)} placeholder="Search documents..."
+          <input value={filter} onChange={e => setFilter(e.target.value)} placeholder={t('ia.documents.searchPlaceholder')}
             className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#434a98]/20 focus:border-[#434a98]" />
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          {(['all', 'csv', 'pdf', 'email'] as const).map(t => (
-            <button key={t} onClick={() => setTypeFilter(t)}
-              className={`px-4 py-2 rounded-xl text-sm font-light transition-colors ${typeFilter === t ? 'bg-[#434a98] text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
-              {t === 'all' ? `All (${docs.length})` : `${t.toUpperCase()} (${docs.filter(d => d.type === t).length})`}
+          {(['all', 'csv', 'pdf', 'email'] as const).map(typ => (
+            <button key={typ} onClick={() => setTypeFilter(typ)}
+              className={`px-4 py-2 rounded-xl text-sm font-light transition-colors ${typeFilter === typ ? 'bg-[#434a98] text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+              {typ === 'all' ? `${t('ia.documents.filterAll')} (${docs.length})` : `${typ.toUpperCase()} (${docs.filter(d => d.type === typ).length})`}
             </button>
           ))}
           {filtered.length > 0 && (
@@ -141,7 +143,7 @@ export default function DocumentsPage() {
         ) : filtered.length === 0 ? (
           <div className="bg-white rounded-2xl border border-gray-100 p-16 text-center">
             <FileText className="w-10 h-10 text-gray-200 mx-auto mb-3" />
-            <p className="text-gray-300 text-sm">No documents found</p>
+            <p className="text-gray-300 text-sm">{t('ia.documents.noDocuments')}</p>
           </div>
         ) : pagedDocs.map((doc) => (
           <div key={doc.key} className="bg-white rounded-xl border border-gray-100 p-4 flex items-center gap-4 hover:shadow-sm transition-shadow">
@@ -163,7 +165,7 @@ export default function DocumentsPage() {
               <button
                 onClick={() => handleDownload(doc)}
                 disabled={busy[doc.key + '_dl'] !== undefined && busy[doc.key + '_dl'] !== null}
-                title="Download"
+                title={t('ia.documents.download')}
                 className="p-2 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50"
               >
                 {busy[doc.key + '_dl'] === 'download'
@@ -173,7 +175,7 @@ export default function DocumentsPage() {
               <button
                 onClick={() => handleOpen(doc)}
                 disabled={busy[doc.key + '_op'] !== undefined && busy[doc.key + '_op'] !== null}
-                title="Open in new tab"
+                title={t('ia.documents.openNewTab')}
                 className="p-2 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50"
               >
                 {busy[doc.key + '_op'] === 'open'

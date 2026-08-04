@@ -63,20 +63,19 @@ export function useMenu(): UseMenuResult {
     },
   })
 
-  const translated = rawItems.map(item => ({
+  const translateItem = (item: MenuOption): MenuOption => ({
     ...item,
     Description: item.IdObject
       ? t(`menu.${item.IdObject}`, { defaultValue: item.Description })
       : item.Description,
-    Children: item.Children?.map(child => ({
-      ...child,
-      Description: child.IdObject
-        ? t(`menu.${child.IdObject}`, { defaultValue: child.Description })
-        : child.Description,
-    })),
-  }))
+    Children: item.Children?.map(translateItem),
+  })
+  const translated = rawItems.map(translateItem)
+ 
 
-  const allItems = translated.flatMap(i => [i, ...(i.Children ?? [])])
+  const flatten = (items: MenuOption[]): MenuOption[] =>
+    items.flatMap(i => [i, ...flatten(i.Children ?? [])])
+  const allItems = flatten(translated)
 
   return {
     menuItems:  translated,

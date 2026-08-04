@@ -1,16 +1,15 @@
 import { useState, useRef, useEffect } from 'react'
-import { useSearchParams, useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { ihFetch } from '@/shared/lib/ihAgent'
-import { Send, Bot, User, Loader2, Sparkles, CheckCircle2, XCircle, Paperclip, X, FileText, Image as ImageIcon, File, AlertCircle } from 'lucide-react'
+import { Send, Bot, User, Loader2, Sparkles, Paperclip, X, FileText, Image as ImageIcon, File, AlertCircle } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import type { Components } from 'react-markdown'
 import ChartBlock, { type VisualizationData } from '@/shared/components/ChartBlock'
 import DocumentBlock, { type DocumentData } from '@/shared/components/DocumentBlock'
 
-const UPLOADS_ENDPOINT = '/api/uploads'
-const CHAT_ENDPOINT = '/api/chat'
+const UPLOADS_ENDPOINT = '/purchases/uploads'
+const CHAT_ENDPOINT = '/purchases/chat'
 const ACCEPT = '.pdf,.xlsx,.xlsm,.csv,.pptx,.docx,.txt,.md,.json,.jpg,.jpeg,.png,.gif,.webp'
 const MAX_FILES = 5
 const SLOW_HINT_MS = 20000
@@ -73,21 +72,17 @@ const markdownComponents: Components = {
 
 export default function ChatPage() {
   const { t, i18n } = useTranslation()
-  const [searchParams, setSearchParams] = useSearchParams()
-  const navigate = useNavigate()
-  const location = useLocation()
-  const dashBase = location.pathname.replace(/\/dashboard\/.*$/, '/dashboard')
 
   const suggestions = [
-    t('ia.chat.suggestions.recentOrders'),
-    t('ia.chat.suggestions.salesHistory'),
-    t('ia.chat.suggestions.unmatchedSkus'),
-    t('ia.chat.suggestions.searchBasil'),
+    t('ia.purchases.chat.suggestions.topSuppliers'),
+    t('ia.purchases.chat.suggestions.monthlyTrend'),
+    t('ia.purchases.chat.suggestions.mexicoProducts'),
+    t('ia.purchases.chat.suggestions.spendByLocation'),
   ]
 
   const [messages, setMessages] = useState<Message[]>([{
     role: 'assistant',
-    content: t('ia.chat.welcome'),
+    content: t('ia.purchases.chat.welcome'),
     timestamp: new Date(),
   }])
   const [input, setInput] = useState('')
@@ -95,15 +90,15 @@ export default function ChatPage() {
   const [slowHint, setSlowHint] = useState(false)
   const [uploads, setUploads] = useState<UploadedFile[]>([])
   const [dragging, setDragging] = useState(false)
-  const [alertKey, setAlertKey] = useState<string | null>(null)
-  const [showResolution, setShowResolution] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const uploadingCount = uploads.filter(u => u.status === 'uploading').length
 
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages, uploads])
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages, uploads])
 
   const uploadFile = async (file: File) => {
     const localId = nextLocalId()
@@ -115,7 +110,7 @@ export default function ChatPage() {
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
         // A 400 carries a user-facing `detail` written by the backend — show it verbatim.
-        const detail = typeof data.detail === 'string' ? data.detail : t('ia.chat.attachments.uploadFailed')
+        const detail = typeof data.detail === 'string' ? data.detail : t('ia.purchases.chat.attachments.uploadFailed')
         setUploads(prev => prev.map(u => u.localId === localId ? { ...u, status: 'error', error: detail } : u))
         return
       }
@@ -124,7 +119,7 @@ export default function ChatPage() {
         : u))
     } catch {
       setUploads(prev => prev.map(u => u.localId === localId
-        ? { ...u, status: 'error', error: t('ia.chat.attachments.uploadFailed') }
+        ? { ...u, status: 'error', error: t('ia.purchases.chat.attachments.uploadFailed') }
         : u))
     }
   }
@@ -149,29 +144,11 @@ export default function ChatPage() {
   useEffect(() => {
     setMessages(prev => {
       if (prev.length === 1 && prev[0].role === 'assistant') {
-        return [{ ...prev[0], content: t('ia.chat.welcome') }]
+        return [{ ...prev[0], content: t('ia.purchases.chat.welcome') }]
       }
       return prev
     })
   }, [i18n.language, t])
-
-  useEffect(() => {
-    const q = searchParams.get('q')
-    const key = searchParams.get('alertKey')
-    if (key) setAlertKey(key)
-    if (q) {
-      setSearchParams({}, { replace: true })
-      sendMessage(q)
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  function resolveAlert() {
-    if (!alertKey) return
-    const existing = JSON.parse(sessionStorage.getItem('ih-resolved-alerts') || '[]')
-    sessionStorage.setItem('ih-resolved-alerts', JSON.stringify([...new Set([...existing, alertKey])]))
-    navigate(`${dashBase}/artificial-intelligence/order/orders`)
-  }
 
   const sendMessage = async (text: string) => {
     if (!text.trim() || loading || uploadingCount > 0) return
@@ -209,13 +186,10 @@ export default function ChatPage() {
         visualization: data.visualization ?? null,
         documents: data.documents ?? null,
       }])
-      if (alertKey && data.changes_applied) {
-        setShowResolution(true)
-      }
     } catch (err) {
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: `⚠️ **Connection error**\n\n${t('ia.chat.error', { err: String(err) })}`,
+        content: `⚠️ **Connection error**\n\n${t('ia.purchases.chat.error', { err: String(err) })}`,
         timestamp: new Date(),
       }])
     } finally {
@@ -237,18 +211,18 @@ export default function ChatPage() {
             <Bot className="w-5 h-5 text-white" />
           </div>
           <div className="min-w-0 flex-1">
-            <h1 className="text-base font-semibold text-gray-800">{t('ia.chat.title')}</h1>
+            <h1 className="text-base font-semibold text-gray-800">{t('ia.purchases.chat.title')}</h1>
             <div className="flex items-center gap-1.5 mt-0.5">
               <span className="relative flex h-1.5 w-1.5 shrink-0">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
                 <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-green-400" />
               </span>
-              <span className="text-xs text-gray-400 truncate">{t('ia.chat.subtitle')}</span>
+              <span className="text-xs text-gray-400 truncate">{t('ia.purchases.chat.subtitle')}</span>
             </div>
           </div>
           <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-[#434a98]/5 rounded-xl shrink-0">
             <Sparkles className="w-3.5 h-3.5 text-[#434a98]" />
-            <span className="text-xs text-[#434a98] font-medium">{t('ia.chat.badge')}</span>
+            <span className="text-xs text-[#434a98] font-medium">{t('ia.purchases.chat.badge')}</span>
           </div>
         </div>
       </div>
@@ -309,7 +283,7 @@ export default function ChatPage() {
             <div className="bg-white border border-gray-100 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm flex items-center gap-2">
               <Loader2 className="w-4 h-4 text-[#434a98] animate-spin" />
               <span className="text-xs text-gray-400">
-                {slowHint ? t('ia.chat.attachments.generating') : t('ia.chat.querying')}
+                {slowHint ? t('ia.purchases.chat.attachments.generating') : t('ia.purchases.chat.querying')}
               </span>
             </div>
           </div>
@@ -317,34 +291,10 @@ export default function ChatPage() {
         <div ref={bottomRef} />
       </div>
 
-      {/* Alert resolution prompt */}
-      {showResolution && !loading && (
-        <div className="mx-4 sm:mx-6 mb-3 shrink-0 bg-amber-50 border border-amber-200 rounded-2xl px-4 sm:px-5 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div>
-            <p className="text-sm font-semibold text-amber-800">{t('ia.chat.resolution.question')}</p>
-            <p className="text-xs text-amber-600 font-light mt-0.5">{t('ia.chat.resolution.hint')}</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={resolveAlert}
-              className="flex items-center gap-1.5 px-4 py-2 bg-green-600 text-white rounded-xl text-xs font-medium hover:bg-green-700 transition-colors shadow-sm"
-            >
-              <CheckCircle2 className="w-3.5 h-3.5" /> {t('ia.chat.resolution.yes')}
-            </button>
-            <button
-              onClick={() => setShowResolution(false)}
-              className="flex items-center gap-1.5 px-4 py-2 bg-white border border-gray-200 text-gray-600 rounded-xl text-xs font-medium hover:bg-gray-50 transition-colors shadow-sm"
-            >
-              <XCircle className="w-3.5 h-3.5" /> {t('ia.chat.resolution.no')}
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Suggestions */}
       {messages.length === 1 && (
         <div className="px-4 sm:px-6 pb-3 shrink-0">
-          <p className="text-xs text-gray-400 mb-2 font-medium">{t('ia.chat.tryAsking')}</p>
+          <p className="text-xs text-gray-400 mb-2 font-medium">{t('ia.purchases.chat.tryAsking')}</p>
           <div className="flex flex-wrap gap-2">
             {suggestions.map((s: string) => (
               <button key={s} onClick={() => sendMessage(s)}
@@ -366,7 +316,7 @@ export default function ChatPage() {
         {dragging && (
           <div className="absolute inset-0 z-10 bg-[#434a98]/5 border-2 border-dashed border-[#434a98] rounded-xl m-2 flex items-center justify-center pointer-events-none">
             <span className="text-sm font-medium text-[#434a98] flex items-center gap-2">
-              <Paperclip className="w-4 h-4" /> {t('ia.chat.attachments.attach')}
+              <Paperclip className="w-4 h-4" /> {t('ia.purchases.chat.attachments.attach')}
             </span>
           </div>
         )}
@@ -385,7 +335,7 @@ export default function ChatPage() {
                     : <AttachmentIcon mode={u.mode} className="w-3.5 h-3.5 text-[#434a98] shrink-0" />}
                 <div className="min-w-0 flex flex-col">
                   <span className={`truncate ${u.status === 'error' ? 'text-red-600' : 'text-gray-600'}`}>{u.filename}</span>
-                  {u.status === 'uploading' && <span className="text-[10px] text-gray-400">{t('ia.chat.attachments.uploading')}</span>}
+                  {u.status === 'uploading' && <span className="text-[10px] text-gray-400">{t('ia.purchases.chat.attachments.uploading')}</span>}
                   {u.status === 'error' && u.error && <span className="text-[10px] text-red-500 whitespace-normal">{u.error}</span>}
                   {u.status === 'done' && u.note && <span className="text-[10px] text-amber-600 whitespace-normal">{u.note}</span>}
                 </div>
@@ -411,7 +361,7 @@ export default function ChatPage() {
             type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={loading || uploads.length >= MAX_FILES}
-            title={t('ia.chat.attachments.attach')}
+            title={t('ia.purchases.chat.attachments.attach')}
             className="w-11 h-11 border border-gray-200 text-gray-500 rounded-xl flex items-center justify-center hover:bg-gray-50 hover:text-[#434a98] transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
           >
             <Paperclip className="w-4 h-4" />
@@ -420,7 +370,7 @@ export default function ChatPage() {
             ref={inputRef}
             value={input}
             onChange={e => setInput(e.target.value)}
-            placeholder={t('ia.chat.inputPlaceholder')}
+            placeholder={t('ia.purchases.chat.inputPlaceholder')}
             disabled={loading}
             className="flex-1 px-4 py-3 border border-gray-200 rounded-xl text-sm bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#434a98]/20 focus:border-[#434a98] transition-all disabled:opacity-50"
           />

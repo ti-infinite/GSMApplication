@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ihFetch } from '@/shared/lib/ihAgent'
 import {
   BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
@@ -12,6 +13,7 @@ interface OrderFile { key: string; lastModified: string; size: number; rows: Ord
 const COLORS = ['#434a98', '#20BAD3', '#E8A80C', '#E96F1F', '#C7ABD8', '#938B97']
 
 export default function MetricsPage() {
+  const { t } = useTranslation()
   const [orders, setOrders] = useState<OrderFile[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -53,21 +55,21 @@ export default function MetricsPage() {
   const pieData = Object.entries(varietyCounts).sort(([, a], [, b]) => b - a).slice(0, 6).map(([name, value]) => ({ name, value }))
 
   const kpis = [
-    { label: 'Match Rate',      value: loading ? '—' : `${matchRate.toFixed(1)}%`, sub: `${matchedRows.length} / ${allRows.length} lines`,                           icon: Target,   color: 'bg-[#20BAD3]' },
-    { label: 'Total Orders',    value: loading ? '—' : orders.length,               sub: 'files processed',                                                           icon: Package,  color: 'bg-[#434a98]' },
-    { label: 'Unique Clients',  value: loading ? '—' : new Set(allRows.map(r => r.Client_Name)).size, sub: 'distinct buyers',                                         icon: Users,    color: 'bg-[#E96F1F]' },
-    { label: 'Avg Lines/Order', value: loading ? '—' : orders.length > 0 ? (allRows.length / orders.length).toFixed(1) : '0', sub: 'per PO',                         icon: TrendingUp, color: 'bg-[#E8A80C]' },
+    { label: t('ia.metrics.kpi.matchRate'),     value: loading ? '—' : `${matchRate.toFixed(1)}%`, sub: t('ia.metrics.kpi.matchSub', { matched: matchedRows.length, total: allRows.length }), icon: Target,     color: 'bg-[#20BAD3]' },
+    { label: t('ia.metrics.kpi.totalOrders'),   value: loading ? '—' : orders.length,               sub: t('ia.metrics.kpi.ordersSub'),                                                          icon: Package,    color: 'bg-[#434a98]' },
+    { label: t('ia.metrics.kpi.uniqueClients'), value: loading ? '—' : new Set(allRows.map(r => r.Client_Name)).size, sub: t('ia.metrics.kpi.clientsSub'),                                      icon: Users,      color: 'bg-[#E96F1F]' },
+    { label: t('ia.metrics.kpi.avgLines'),      value: loading ? '—' : orders.length > 0 ? (allRows.length / orders.length).toFixed(1) : '0', sub: t('ia.metrics.kpi.avgSub'),                 icon: TrendingUp, color: 'bg-[#E8A80C]' },
   ]
 
   const empty = (label: string) => (
-    <div className="h-48 flex items-center justify-center text-gray-200 text-sm">{loading ? 'Loading...' : label}</div>
+    <div className="h-48 flex items-center justify-center text-gray-200 text-sm">{loading ? t('ia.metrics.loading') : label}</div>
   )
 
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-xl sm:text-2xl font-semibold text-gray-800">Metrics</h1>
-        <p className="text-sm text-gray-400 font-light mt-0.5">Agent performance & order analytics</p>
+        <h1 className="text-xl sm:text-2xl font-semibold text-gray-800">{t('ia.metrics.title')}</h1>
+        <p className="text-sm text-gray-400 font-light mt-0.5">{t('ia.metrics.subtitle')}</p>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
@@ -85,7 +87,7 @@ export default function MetricsPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-gray-100">
-          <h2 className="text-sm font-medium text-gray-700 mb-4">Weekly Order Volume</h2>
+          <h2 className="text-sm font-medium text-gray-700 mb-4">{t('ia.metrics.charts.weeklyVolume')}</h2>
           {weeklyChart.length > 0 ? (
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={weeklyChart}>
@@ -98,11 +100,11 @@ export default function MetricsPage() {
                 <Bar dataKey="Fully Matched" fill="#20BAD3" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
-          ) : empty('No data yet')}
+          ) : empty(t('ia.metrics.noData'))}
         </div>
 
         <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-gray-100">
-          <h2 className="text-sm font-medium text-gray-700 mb-4">Match Rate Over Time</h2>
+          <h2 className="text-sm font-medium text-gray-700 mb-4">{t('ia.metrics.charts.matchRate')}</h2>
           {matchTimeline.length > 0 ? (
             <ResponsiveContainer width="100%" height={220}>
               <LineChart data={matchTimeline}>
@@ -113,13 +115,13 @@ export default function MetricsPage() {
                 <Line type="monotone" dataKey="Match %" stroke="#20BAD3" strokeWidth={2} dot={{ fill: '#20BAD3', r: 4 }} />
               </LineChart>
             </ResponsiveContainer>
-          ) : empty('No data yet')}
+          ) : empty(t('ia.metrics.noData'))}
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-gray-100">
-          <h2 className="text-sm font-medium text-gray-700 mb-4">Top Clients by Line Items</h2>
+          <h2 className="text-sm font-medium text-gray-700 mb-4">{t('ia.metrics.charts.topClients')}</h2>
           {topClients.length > 0 ? (
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={topClients} layout="vertical">
@@ -130,11 +132,11 @@ export default function MetricsPage() {
                 <Bar dataKey="lines" fill="#E8A80C" radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
-          ) : empty('No data yet')}
+          ) : empty(t('ia.metrics.noData'))}
         </div>
 
         <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-gray-100">
-          <h2 className="text-sm font-medium text-gray-700 mb-4">Top Product Varieties</h2>
+          <h2 className="text-sm font-medium text-gray-700 mb-4">{t('ia.metrics.charts.topVarieties')}</h2>
           {pieData.length > 0 ? (
             <div className="flex flex-col sm:flex-row sm:items-center gap-4">
               <div className="w-full sm:w-[45%] shrink-0">
@@ -157,7 +159,7 @@ export default function MetricsPage() {
                 ))}
               </div>
             </div>
-          ) : empty('No data yet')}
+          ) : empty(t('ia.metrics.noData'))}
         </div>
       </div>
     </div>

@@ -208,6 +208,7 @@ function CatalogPicker({ cfg, ctx }: { cfg: SearchConfig; ctx: RuntimeCtx }) {
 function AddProductPicker({ ctx, source }: { ctx: RuntimeCtx; source: string }) {
   const [open, setOpen]       = useState(false)
   const [catalog, setCatalog] = useState<Record<string, unknown>[]>([])
+  const [ownCats, setOwnCats] = useState<Record<string, unknown>[]>([])   // categorías propias (fallback si el módulo no tiene filtro category)
   const [query, setQuery]     = useState('')
   const [sel, setSel]         = useState<{ category?: string; subcategory?: string }>({})
   const [pos, setPos]         = useState<{ top: number; left: number; width: number } | null>(null)
@@ -224,8 +225,20 @@ function AddProductPicker({ ctx, source }: { ctx: RuntimeCtx; source: string }) 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, source])
 
-  // Cascada REUSANDO las categorías ya traídas por los filtros de arriba (ctx.filterData) — sin re-fetch.
-  const cats     = (ctx.filterData.category ?? []) as Record<string, unknown>[]
+  // Categorías: si el módulo YA las trae por un filtro (ctx.filterData.category), se reusan; si no
+  // (ej. OC, sin filtro category), el picker las trae él mismo con el fetcher CATEGORIES → auto-suficiente.
+  useEffect(() => {
+    if (!open || (ctx.filterData.category?.length ?? 0) > 0 || ownCats.length) return
+    const f = ctx.registry.fetchers.CATEGORIES
+    if (!f) return
+    let cancel = false
+    void f('CATEGORIES', {}).then(e => { if (!cancel) setOwnCats(Array.isArray(e.data) ? e.data as Record<string, unknown>[] : []) })
+    return () => { cancel = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
+
+  // Cascada: reusa las categorías del filtro (sin re-fetch) o las que trajo el picker (fallback).
+  const cats     = ((ctx.filterData.category?.length ? ctx.filterData.category : ownCats) ?? []) as Record<string, unknown>[]
   const catObj   = cats.find(c => String(c.IdCategory ?? '') === (sel.category ?? ''))
   const subs     = (catObj?.Children as Record<string, unknown>[] | undefined) ?? []
   const subObj   = subs.find(s => String(s.IdCategory ?? '') === (sel.subcategory ?? ''))
@@ -357,7 +370,8 @@ function FiltersBar({ filters, applyLabel, ctx }: { filters: FilterConfig[]; app
               value={valueOf(f.key)}
               onChange={v => onPick(f, v)}
               placeholder={ctx.t(f.placeholder ?? f.label)}
-              disabled={ctx.locked.has(f.key)}
+              // Combo-desde-resource sin opciones aún → sus params (location…) no están → deshabilitado.
+              disabled={ctx.locked.has(f.key) || (!!f.resource && (ctx.options[f.key] ?? []).length === 0)}
             />
           )}
         </div>

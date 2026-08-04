@@ -733,6 +733,55 @@
           }
         }
       }
+    },
+    "/api/v1/Resources/filtered-varieties": {
+      "post": {
+        "tags": [
+          "Resources"
+        ],
+        "operationId": "GetFilteredVarieties",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchVarietyCost"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchVarietyCost"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchVarietyCost"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/VarietyCostBySupplierDTOListApiResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VarietyCostBySupplierDTOListApiResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VarietyCostBySupplierDTOListApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1253,6 +1302,22 @@
         },
         "additionalProperties": false
       },
+      "SearchVarietyCost": {
+        "type": "object",
+        "properties": {
+          "idVariety": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "idSupplier": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "StringApiResponse": {
         "type": "object",
         "properties": {
@@ -1680,6 +1745,13 @@
             "type": "number",
             "format": "double",
             "nullable": true
+          },
+          "trxProductAttributes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrxProductAttributesDTO"
+            },
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -1758,6 +1830,60 @@
             "items": {
               "$ref": "#/components/schemas/TrxDetailsDTO"
             },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "VarietyCostBySupplierDTO": {
+        "type": "object",
+        "properties": {
+          "idVariety": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "idSupplier": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "productionCost": {
+            "type": "number",
+            "format": "double"
+          },
+          "extraCost": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "VarietyCostBySupplierDTOListApiResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string",
+            "nullable": true
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VarietyCostBySupplierDTO"
+            },
+            "nullable": true
+          },
+          "errorType": {
+            "$ref": "#/components/schemas/ErrorType"
+          },
+          "traceId": {
+            "type": "string",
+            "nullable": true
+          },
+          "details": {
+            "type": "string",
             "nullable": true
           }
         },

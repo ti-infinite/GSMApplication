@@ -16,7 +16,9 @@ export { useTrxConfig } from './model/useTrxConfig'
 export { resolveResource, resolveItemValue, httpFetcher } from './model/engine'
 export { DEFAULT_SELECTORS } from './model/selectors'
 export { buildRegistry, DEFAULT_RENDERERS, DEFAULT_GUARDS } from './registry'
+export { pivotAttributes } from './model/attributes'
 export type { Context, Fetcher } from './model/engine'
+export type { TrxAttrPair } from './model/attributes'
 
 // Runtime declarativo: renderiza un módulo entero desde su ModuleConfig.
 export { TrxRuntime } from './ui/TrxRuntime'

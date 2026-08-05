@@ -255,6 +255,10 @@ public sealed class ManageTransactionService : IManageTransactionService
         {
             query = query.Where(x => x.Location == searchTrx.Location);
         }
+        if (searchTrx.TrxDateFrom.HasValue && searchTrx.TrxDateTo.HasValue)
+        {
+            query = query.Where(x => x.TrxDate >= searchTrx.TrxDateFrom.Value && x.TrxDate <= searchTrx.TrxDateTo.Value);
+        }
 
         var result = await query
             .Select(x => new TrxResponseDTO

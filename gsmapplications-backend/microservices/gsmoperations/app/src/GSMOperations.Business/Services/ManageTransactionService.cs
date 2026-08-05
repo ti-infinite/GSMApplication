@@ -257,7 +257,7 @@ public sealed class ManageTransactionService : IManageTransactionService
         }
         if (searchTrx.TrxDateFrom.HasValue && searchTrx.TrxDateTo.HasValue)
         {
-            query = query.Where(x => x.TrxDate >= searchTrx.TrxDateFrom.Value && x.TrxDate <= searchTrx.TrxDateTo.Value);
+            query = query.Where(x => DateOnly.FromDateTime(x.TrxDate) >= searchTrx.TrxDateFrom.Value && DateOnly.FromDateTime(x.TrxDate) <= searchTrx.TrxDateTo.Value);
         }
 
         var result = await query

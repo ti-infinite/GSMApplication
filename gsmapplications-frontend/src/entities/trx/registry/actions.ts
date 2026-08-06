@@ -89,14 +89,27 @@ export const DEFAULT_ACTIONS: Record<string, (ctx: ActionCtx) => void | Promise<
         // 1º el VERDE de éxito (la trx se creó). Si un efecto del workflow (ej. SEND_EMAIL) falló,
         // el WARNING entra con un delay chico → se ve el verde primero y el otro se DESLIZA y apila
         // encima (la animación de stack la hace sonner). Cada uno con su propio auto-dismiss.
-        // EMAIL_NOTIFICATION: el backend ya no ejecuta el envío de forma síncrona/rastreable acá,
-        // así que su `success` en la respuesta no refleja si el correo salió o no — mostrar el
-        // warning para ESE evento es un falso negativo. Se excluye solo a él; otros eventos
-        // (ej. ADJUST_INVENTORY) sí se ejecutan y su fallo sigue siendo relevante avisarlo.
-        const failed = (result?.events ?? []).filter(ev => ev.success === false && ev.eventName !== 'EMAIL_NOTIFICATION')
+        const events = result?.events ?? []
         toast.success(created)
-        if (failed.length) {
-          const detail = failed.map(ev => t('eventFailed', { event: ev.eventName ?? '' })).join(' · ')
+
+        // EMAIL_NOTIFICATION aparte: el mensaje que manda el backend es técnico ("Attribute
+        // 'EmailSupplier' not found.", útil en consola, no para el usuario) — acá se arma uno
+        // legible con el email real (mismo que se mandó en trxAttributes, no hace falta pedirlo
+        // de nuevo). Genérico: cualquier módulo que declare "EmailSupplier"/"EmailSupplier" en
+        // trxAttributes se beneficia, no es exclusivo de OCM.
+        const emailEvent = events.find(ev => ev.eventName === 'EMAIL_NOTIFICATION')
+        const email = payload.trxAttributes?.find(a => a.attributeKey === 'EmailSupplier')?.attributeValue
+        if (emailEvent) {
+          if (emailEvent.success === false) console.warn('[TRX] EMAIL_NOTIFICATION falló:', emailEvent.message)
+          setTimeout(() => {
+            if (emailEvent.success === false) toast.warning(t('emailSendFailed'))
+            else if (email) toast.success(t('emailSent', { email }))
+          }, 1200)
+        }
+
+        const otherFailed = events.filter(ev => ev.success === false && ev.eventName !== 'EMAIL_NOTIFICATION')
+        if (otherFailed.length) {
+          const detail = otherFailed.map(ev => t('eventFailed', { event: ev.eventName ?? '' })).join(' · ')
           setTimeout(() => toast.warning(detail), 1200)
         }
 

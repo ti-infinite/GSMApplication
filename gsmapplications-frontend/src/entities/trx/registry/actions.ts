@@ -15,29 +15,56 @@ import type { ActionCtx } from '../model/runtime'
 const pascal = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s)
 
 export const DEFAULT_ACTIONS: Record<string, (ctx: ActionCtx) => void | Promise<void>> = {
-  createTrx: ({ collection, context, config, transition, trxLabel, t }) => {
+  createTrx: ({ rows, collection, context, config, transition, trxLabel, t, registry }) => {
     const user = getStoredUser() as { username?: string } | null
-    // Atributos por producto = columnas del products menos qty/varietyName → ANIDADOS en cada producto
-    // (el atributo PERTENECE al producto: composición limpia; el back descompone a sus tablas con EF).
+    // Atributos por producto = columnas del products menos las ESTRUCTURALES del motor
+    // (qty/varietyName van aparte del DTO; `rejected` es un flag SOLO-UI para habilitar
+    // edición, nunca de negocio) → ANIDADOS en cada producto (composición limpia; el back
+    // descompone a sus tablas con EF).
     const front    = config.JsonFront
     const prodCols = front.items?.products?.columns ?? front.products?.columns ?? front.main?.fields ?? []
-    const attrKeys = prodCols
-      .map(c => c.value ?? c.selectorValue)
-      .filter((k): k is string => !!k && k !== 'qty' && k !== 'varietyName')
+    const attrCols = prodCols.filter(c => {
+      const k = c.value ?? c.selectorValue
+      return !!k && k !== 'qty' && k !== 'varietyName' && k !== 'rejected'
+    })
+    // Una columna COMPUTED (ej. `priceQty`) nunca se guarda en la fila — solo existe al vuelo
+    // vía `registry.computeds` para pintarla. Leer `r[key]` directo siempre da vacío ahí; hay
+    // que llamar el computed con la fila, igual que hace el runtime para mostrarla en pantalla.
+    const attrValue = (c: (typeof attrCols)[number], r: Record<string, unknown>): string => {
+      const k = c.value ?? c.selectorValue ?? ''
+      if (c.selectorType === 'COMPUTED') {
+        const fn = registry.computeds[k]
+        return String((fn ? fn(r) : r[k]) ?? '')
+      }
+      return String(r[k] ?? '')
+    }
+
+    // `summary:false` (u omitido) → sin carrito: no hay nada que "agregar", `products` ES la
+    // transacción completa (ej. RPI/VFI: confirmás cada línea del documento origen tal cual
+    // llegó, no armás un subconjunto). Ahí se manda `rows` (la tabla principal, con sus
+    // ediciones ya aplicadas), no `collection` (que se queda vacía porque nadie la llena).
+    const hasCart = !!(front.items?.summary ?? front.summary ?? front.collection)
+    const source  = hasCart ? collection : rows
 
     // Variable (no literal contextual) → el campo trxProductsAttributes no choca con el DTO hasta
     // que regeneren orval con el TrxProductsDTO anidado.
-    const trxProducts = collection.map(r => ({
+    const trxProducts = source.map(r => ({
       idVariety:   Number(r.idVariety) || 0,
       varietyName: String(r.varietyName ?? ''),
       sku:         String(r.sku ?? ''),
       qty:         Number(r.qty) || 0,
-      trxProductAttributes: attrKeys.map(k => ({ attributeKey: pascal(k), attributeValue: String(r[k] ?? '') })),
+      trxProductAttributes: attrCols.map(c => ({ attributeKey: pascal(c.value ?? c.selectorValue ?? ''), attributeValue: attrValue(c, r) })),
     }))
 
     // trxAttributes (transacción): las keys que el config LISTA en `trxAttributes` → su valor del
-    // context (ej. combos herb/lote declarados como filtros). Vos decís cuáles; nada implícito.
-    const trxAttributes = (front.trxAttributes ?? []).map(k => ({ attributeKey: pascal(k), attributeValue: String(context[k] ?? '') }))
+    // context (ej. combos herb/lote declarados como filtros). Si no está en el context (no hay
+    // filtro que lo ponga ahí), cae a la primera fila — pasthrough de un atributo HEREDADO del
+    // documento origen (ej. IdSupplier: RPI lo hereda por fila desde el OCM, no lo selecciona
+    // nadie, así que nunca va a estar en `context`; viaja igual en cada línea).
+    const trxAttributes = (front.trxAttributes ?? []).map(k => ({
+      attributeKey: pascal(k),
+      attributeValue: String(context[k] ?? source[0]?.[k] ?? ''),
+    }))
 
     const payload: TrxCreateDTO = {
       trxPrefix: config.prefix,
@@ -62,7 +89,11 @@ export const DEFAULT_ACTIONS: Record<string, (ctx: ActionCtx) => void | Promise<
         // 1º el VERDE de éxito (la trx se creó). Si un efecto del workflow (ej. SEND_EMAIL) falló,
         // el WARNING entra con un delay chico → se ve el verde primero y el otro se DESLIZA y apila
         // encima (la animación de stack la hace sonner). Cada uno con su propio auto-dismiss.
-        const failed = (result?.events ?? []).filter(ev => ev.success === false)
+        // EMAIL_NOTIFICATION: el backend ya no ejecuta el envío de forma síncrona/rastreable acá,
+        // así que su `success` en la respuesta no refleja si el correo salió o no — mostrar el
+        // warning para ESE evento es un falso negativo. Se excluye solo a él; otros eventos
+        // (ej. ADJUST_INVENTORY) sí se ejecutan y su fallo sigue siendo relevante avisarlo.
+        const failed = (result?.events ?? []).filter(ev => ev.success === false && ev.eventName !== 'EMAIL_NOTIFICATION')
         toast.success(created)
         if (failed.length) {
           const detail = failed.map(ev => t('eventFailed', { event: ev.eventName ?? '' })).join(' · ')

@@ -1,4 +1,5 @@
 ﻿import { useState, useRef, useEffect, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { Check, ChevronDown, X } from 'lucide-react'
 
 export interface ComboboxOption {
@@ -45,6 +46,7 @@ export function Combobox({
   const containerRef = useRef<HTMLDivElement>(null)
   const inputRef     = useRef<HTMLInputElement>(null)
   const dropdownRef  = useRef<HTMLDivElement>(null)
+  const listRef      = useRef<HTMLDivElement>(null)
 
   const selected = options.find(o => o.value === value)
 
@@ -109,6 +111,14 @@ export function Combobox({
     return () => document.removeEventListener('mousedown', handler)
   }, [open])
 
+  // El listener de 'scroll' de arriba usa capture:true, así que TAMBIÉN se dispara con el
+  // scroll interno de esta misma lista y fuerza un re-render (setPos) a mitad de la apertura —
+  // eso podía dejar la lista arrancando con scrollTop > 0 (primera fila cortada). Se fuerza
+  // explícitamente a 0 en cada apertura.
+  useEffect(() => {
+    if (open) listRef.current?.scrollTo({ top: 0 })
+  }, [open])
+
   return (
     <>
       <div ref={containerRef}
@@ -140,8 +150,14 @@ export function Combobox({
         <ChevronDown className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-150 ${open ? 'rotate-180' : ''}`} />
       </div>
 
-      {open && pos && (
+      {open && pos && createPortal(
         <div ref={dropdownRef}
+          // Frena el mousedown ACÁ: si el combo vive dentro de un Dialog (Radix), su propio
+          // detector de "click afuera" corre a nivel de documento y este dropdown es un portal
+          // SEPARADO (no un hijo real del DialogContent) — sin esto, Radix lo trata como
+          // "afuera" e interfiere antes de que la opción reciba el click (seleccionaba lo que
+          // hubiera DETRÁS del dropdown, ej. una fila de la tabla).
+          onMouseDown={e => e.stopPropagation()}
           style={{
             position: 'fixed',
             top:    pos.top    !== undefined ? pos.top    : undefined,
@@ -152,7 +168,7 @@ export function Combobox({
           }}
           className="overflow-hidden rounded-xl border border-border bg-popover shadow-[0_8px_30px_rgb(0,0,0,0.12)] ring-1 ring-black/5"
         >
-          <div className="max-h-64 overflow-y-auto py-1">
+          <div ref={listRef} className="max-h-64 overflow-y-auto py-1">
             {filtered.length === 0 ? (
               <p className="px-4 py-4 text-center text-sm text-muted-foreground">{emptyMessage}</p>
             ) : (
@@ -167,8 +183,10 @@ export function Combobox({
                   <div className="min-w-0 flex-1">
                     {renderOption ? renderOption(opt) : (
                       <>
-                        <p className="truncate font-medium">{opt.label}</p>
-                        {opt.description && <p className="truncate text-xs text-muted-foreground">{opt.description}</p>}
+                        {/* El popover mide lo mismo que el combo (ancho fijo del filtro) — un
+                            label largo no lo agranda, se envuelve a 2 líneas en vez de truncar. */}
+                        <p className="font-medium">{opt.label}</p>
+                        {opt.description && <p className="text-xs text-muted-foreground">{opt.description}</p>}
                       </>
                     )}
                   </div>
@@ -180,7 +198,8 @@ export function Combobox({
               ))
             )}
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   )

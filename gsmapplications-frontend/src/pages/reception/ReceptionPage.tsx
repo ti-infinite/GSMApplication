@@ -1,163 +1,96 @@
-import { useEffect, useState } from 'react'
-import { TrxRuntime, buildRegistry } from '@/entities/trx'
-import type { JsonConfig, Fetcher } from '@/entities/trx'
-import { getConfig, saveConfig } from '@/shared/lib/idb'
-import { getPendingLines, saveReceptionTrx, recepcionValida, guardarBorrador, getOpenOrdenes } from '@/entities/order/receptions'
-import { Skeleton } from '@/shared/ui/skeleton'
-import { toast } from 'sonner'
-import { getMasterProducts, getCategories } from '@/shared/api/operations/endpoints'
-import type { MasterProductDTOListApiResponse, StringApiResponse } from '@/shared/api/operations/model'
+import { buildRegistry, TrxModule, pivotAttributes } from '@/entities/trx'
+import type { Fetcher } from '@/entities/trx'
+import { getFilteredLocations } from '@/shared/api/application/endpoints'
+import type { LocationDTOListApiResponse } from '@/shared/api/application/model'
+import { getTransaction, getCategories, getMasterProducts } from '@/shared/api/operations/endpoints'
+import type {
+  TrxResponseDTOListApiResponse, StringApiResponse, MasterProductDTOListApiResponse,
+} from '@/shared/api/operations/model'
 
-type Row = Record<string, unknown>
+const PREFIX = 'RPI'   // Recepción — deriva de OCM (LOADMISSINGTRX: source=RPI, relative=OCM)
 
-const FINCAS = [
-  { location: 'NRJ', name: 'Finca Naranjal' },
-  { location: 'GUA', name: 'Guali' },
-  { location: 'AGC', name: 'Agua Clara' },
-  { location: 'NCD', name: 'Nacederos' },
-]
+/* ───────────────────────────────────────────────────────────────────────────
+ * REGISTRY del módulo — lo ESPECÍFICO. El CONFIG (JsonFront/REA/Workflow) vive en el
+ * backend (por prefix). Documento-driven, igual que OCM: SEARCHMISSINGTRX trae las
+ * líneas del OCM elegido; `qty` arranca = `originalQty` (aceptado por defecto, bloqueado
+ * hasta que la fila se marque `rejected` — ver renderers `receivedQtyInput`/`rejectButton`).
+ * ─────────────────────────────────────────────────────────────────────────── */
 
-/* ─────────────────────────── CONFIG (JSON) ─────────────────────────── */
-const REC_CONFIG: JsonConfig = {
-  prefix: 'RECBODCS',   // recepción en bodega
-  JsonFront: {
-    title:    'Recepción en Bodega',
-    subtitle: 'Verifica los insumos recibidos y carga los que lleguen fuera de la orden.',
-    rowKey:   'id',
-    initCollection: 'main',
-    components: [
-      { type: 'filters', filters: [
-        // Bodega = user SIN location → finca sin lock, elige libremente.
-        { key: 'finca',   label: 'Finca',             source: 'FINCAS',  optionValue: 'location', optionLabel: 'name' },
-        { key: 'factura', label: 'Número de factura', source: 'ORDENES', optionValue: 'numero',   optionLabel: 'numero' },
-      ] },
-      { type: 'stack', children: [
-        { type: 'heading', title: 'Insumos del Requerimiento', badge: 'pendientes' },
-        { type: 'table', source: 'collection', rowKey: 'id', expand: 'rejectComment',
-          search: {
-            source: 'CATALOG', optionValue: 'id', optionLabel: 'varietyName',
-            label: 'Cargar insumo', placeholder: 'Buscar insumo…',
-            cascade: [
-              { key: 'category',    label: 'Categoría',    source: 'CATEGORIES', optionValue: 'IdCategory', optionLabel: 'Descr' },
-              { key: 'subcategory', label: 'Subcategoría', dependsOn: 'category', optionsFrom: 'Children', optionValue: 'IdCategory', optionLabel: 'Descr' },
-            ],
-            prefixFrom: 'AggregatedCode', prefixField: 'sku',
-          },
-          fields: [
-            { label: 'Variedad / Producto', selectorValue: 'varietyName' },
-            { label: 'Cant. Pedida',        selectorValue: 'enviada' },
-            { label: 'Cant. Recibida',      selectorValue: 'recibida', renderer: 'input' },
-            { label: 'Estado / Acciones',   selectorValue: 'estado', renderer: 'verifyReject' },
-          ],
-        },
-      ] },
-      { type: 'note', text: 'Al confirmar la recepción se actualizara el inventario de bodega y se notificara al centro de logística.' },
-      { type: 'actions', align: 'end', buttons: [
-        { on: 'CONFIRM', label: 'Confirmar recepción' },
-      ] },
-    ],
-  },
-  JsonREA: {
-    resources: [
-      { id: 'ORDEN_LINES', descr: 'Líneas de la orden', sourceType: 'API', cacheIn: 'INDEXED_DB',
-        parameters: [ { key: 'factura', sourceType: 'CONTEXT', keyValue: 'factura', valueType: 'string' } ] },
-    ],
-    events: [], agents: [],
-  },
-  JsonWorkflow: {
-    initialState: 'PENDIENTE',
-    states: ['PENDIENTE', 'BORRADOR', 'CONFIRMADA'],
-    transitions: [
-      { from: 'PENDIENTE', to: 'BORRADOR',   on: 'SAVE',    event: 'guardarBorrador' },
-      { from: 'BORRADOR',  to: 'BORRADOR',   on: 'SAVE',    event: 'guardarBorrador' },
-      { from: 'PENDIENTE', to: 'CONFIRMADA', on: 'CONFIRM', event: 'confirmRecepcion', guard: 'recepcionValida' },
-      { from: 'BORRADOR',  to: 'CONFIRMADA', on: 'CONFIRM', event: 'confirmRecepcion', guard: 'recepcionValida' },
-    ],
-  },
+const envelope = (data: unknown[]) => ({ success: 'true', message: '', data, traceId: null })
+
+// Ubicación (gate).
+const fincasFetcher: Fetcher = async () => {
+  const res  = await getFilteredLocations()
+  const locs = (res.data as LocationDTOListApiResponse | undefined)?.data ?? []
+  const data = locs.map(l => ({ location: l.codeLocation ?? '', name: l.descr ?? l.codeLocation ?? '' }))
+  return envelope(data)
 }
 
-/* ─────────────────────────── FETCHERS ─────────────────────────── */
-const fincasFetcher: Fetcher = async () => ({ success: 'true', message: '', data: FINCAS, traceId: null })
-
-// Órdenes ABIERTAS (no RECIBIDA) para el combo de N° de factura.
-const ordenesFetcher: Fetcher = async () => {
-  const list = await getOpenOrdenes()
-  return { success: 'true', message: '', data: list, traceId: null }
+// Líneas del OCM elegido: filtered-trx({ trxDocument }) → data[0].trxProducts.
+// originalQty = qty (lo ordenado en el OCM); qty arranca igual (aceptado por defecto).
+const searchMissingTrx: Fetcher = async (_process, params) => {
+  const res = await getTransaction({ trxDocument: params.trxDocument ?? '' })
+  const trx = (res.data as TrxResponseDTOListApiResponse | undefined)?.data?.[0]
+  // Header del OCM (trxAttributes, ej. IdSupplier) heredado en CADA fila — así viaja con el
+  // producto hasta que RPI confirma y lo vuelve a mandar (createTrx lo toma de la fila si
+  // "idSupplier" está declarado en el trxAttributes del JsonFront de RPI y no hay filtro que
+  // lo ponga en el context). No es un dato de línea real, es puro passthrough hacia Factura.
+  const headerAttrs = pivotAttributes(trx?.trxAttributes)
+  const data = (trx?.trxProducts ?? []).map(p => ({
+    idVariety:   p.idVariety ?? 0,
+    varietyName: p.varietyName ?? '',
+    sku:         p.sku ?? '',
+    // pivotAttributes PRIMERO: si el documento origen guarda algo bajo las mismas claves
+    // (originalQty/comment/measurementUnit), que gane lo de abajo, no lo heredado.
+    ...headerAttrs,
+    ...pivotAttributes(p.trxProductAttributes),
+    measurementUnit: p.measurementUnit ?? '',
+    originalQty:     p.qty ?? 0,
+    qty:             p.qty ?? 0,
+    rejected:        false,
+    comment:         '',
+  }))
+  return envelope(data)
 }
 
-// Líneas PENDIENTES por recibir de la factura (orden − ya recibido en recepciones previas).
-const ordenLinesFetcher: Fetcher = async (_id, params) => {
-  const data = await getPendingLines(params.factura ?? '')
-  return { success: 'true', message: '', data, traceId: null }
-}
-
-// Categorías REALES (JSON string → parse) para el picker.
+// Categorías (picker "cargar insumo"). JSON string → parse.
 const categoriesFetcher: Fetcher = async () => {
   const res = await getCategories()
   let cats: unknown[] = []
   try { cats = JSON.parse((res.data as StringApiResponse).data ?? '[]') } catch { cats = [] }
-  return { success: 'true', message: '', data: cats, traceId: null }
+  return envelope(cats)
 }
 
-// Catálogo para "cargar insumo" — shape de fila de recepción (fuera de la orden → pedida 0).
+// Catálogo (master products) → filas para "cargar insumo" (lo que llega fuera del OCM).
 const catalogFetcher: Fetcher = async () => {
   const res = await getMasterProducts()
   const all = (res.data as MasterProductDTOListApiResponse | undefined)?.data ?? []
   const data = all.flatMap(p => (p.mv ?? []).map(v => ({
-    id: `${p.sku ?? ''}-${v.idVariety ?? 0}`, varietyName: v.name ?? '',
-    enviada: 0, recibida: 0, estado: 'pendiente', comentario: '', sku: p.sku ?? '',
+    idVariety:       v.idVariety ?? 0,
+    varietyName:     v.name ?? '',
+    sku:             p.sku ?? '',
+    measurementUnit: p.measurementUnit ?? '',
+    originalQty:     0,
+    qty:             0,
+    rejected:        false,
+    comment:      '',
   })))
-  return { success: 'true', message: '', data, traceId: null }
+  return envelope(data)
 }
 
-/* ─────────────────────────── REGISTRY ─────────────────────────── */
 const registry = buildRegistry({
-  fetchers: {
-    ORDEN_LINES: ordenLinesFetcher, FINCAS: fincasFetcher, ORDENES: ordenesFetcher,
-    CATALOG: catalogFetcher, CATEGORIES: categoriesFetcher,
-  },
-  computeds: {
-    pendientes: row => {
-      const items = (row.$items as Row[]) ?? []
-      const n = items.filter(i => String(i.estado ?? 'pendiente') === 'pendiente').length
-      return n === 0 ? 'Todo verificado' : `${n} item${n === 1 ? '' : 's'} pendiente${n === 1 ? '' : 's'}`
-    },
-  },
-  guards: {
-    recepcionValida: ({ collection }) => recepcionValida(collection),
-  },
-  actions: {
-    guardarBorrador: ({ collection, context }) => {
-      guardarBorrador(String(context.factura ?? ''), collection)
-      toast('Borrador guardado — podés retomar la recepción luego.')
-    },
-    confirmRecepcion: ({ collection, context }) => {
-      void saveReceptionTrx(String(context.factura ?? ''), collection).then(({ recibidos, rechazados, ordenCerrada, consecutivo }) => {
-        toast.success(`Recepción ${consecutivo} confirmada — ${recibidos} a inventario${rechazados ? `, ${rechazados} rechazado(s)` : ''}. ${ordenCerrada ? 'Orden RECIBIDA (completa).' : 'Pendientes abiertos.'}`)
-      })
-    },
-  },
+  fetchers: { FINCAS: fincasFetcher, SEARCHMISSINGTRX: searchMissingTrx, CATALOG: catalogFetcher, CATEGORIES: categoriesFetcher },
 })
 
-const CONFIG_ID = REC_CONFIG.prefix
-
-export default function ReceptionTrxPage() {
-  const [config, setConfig] = useState<JsonConfig | null>(null)
-  useEffect(() => {
-    void (async () => {
-      await saveConfig(CONFIG_ID, REC_CONFIG, 'operations')
-      setConfig(await getConfig<JsonConfig>(CONFIG_ID))
-    })()
-  }, [])
-
-  if (!config) {
-    return (
-      <div className="flex flex-col gap-6">
-        <Skeleton className="h-8 w-64" />
-        <Skeleton className="h-24 w-full rounded-xl" />
-        <Skeleton className="h-96 w-full rounded-xl" />
-      </div>
-    )
-  }
-  return <TrxRuntime config={config} registry={registry} />
+export default function ReceptionPage() {
+  return (
+    <TrxModule
+      prefix={PREFIX}
+      registry={registry}
+      title="reception"
+      subtitle="receptionSubtitle"
+      heading="warehouseReception"
+      trxLabel="reception"
+    />
+  )
 }

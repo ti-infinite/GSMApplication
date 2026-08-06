@@ -4,11 +4,12 @@
 interface UnitDef { dim: 'mass' | 'volume'; label: string; toBase: number }
 
 const UNITS: Record<string, UnitDef> = {
-  g:  { dim: 'mass',   label: 'g',  toBase: 0.001 },
-  kg: { dim: 'mass',   label: 'kg', toBase: 1 },            // base masa
-  lb: { dim: 'mass',   label: 'lb', toBase: 0.45359237 },
-  ml: { dim: 'volume', label: 'ml', toBase: 0.001 },
-  l:  { dim: 'volume', label: 'L',  toBase: 1 },            // base volumen
+  g:   { dim: 'mass',   label: 'G',   toBase: 0.001 },
+  kg:  { dim: 'mass',   label: 'KG',  toBase: 1 },              // base masa
+  lb:  { dim: 'mass',   label: 'LB',  toBase: 0.45359237 },
+  ml:  { dim: 'volume', label: 'mL',  toBase: 0.001 },
+  lt:  { dim: 'volume', label: 'LT',  toBase: 1 },              // base volumen — el backend guarda "LT", no "L"
+  gal: { dim: 'volume', label: 'GAL', toBase: 3.785411784 },
 }
 
 const norm = (u: string) => u.trim().toLowerCase()

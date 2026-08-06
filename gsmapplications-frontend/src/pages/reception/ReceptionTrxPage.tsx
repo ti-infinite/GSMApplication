@@ -115,7 +115,7 @@ export default function ReceptionPage() {
               options={ordenes.map(o => ({ value: o.numero, label: o.numero, badge: o.proveedor }))}
               value={ocSel}
               onChange={setOcSel}
-              placeholder={ordenes.length === 0 ? 'Sin órdenes' : 'Elegí una orden'}
+              placeholder={ordenes.length === 0 ? 'Sin órdenes' : 'Elige una orden'}
               emptyMessage="No hay órdenes generadas"
             />
           </div>

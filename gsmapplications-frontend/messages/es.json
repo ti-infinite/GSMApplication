@@ -496,6 +496,8 @@
     "created_one": "{{label}} {{doc}} creado ({{count}} producto)",
     "created_other": "{{label}} {{doc}} creado ({{count}} productos)",
     "eventFailed": "{{event}} no se pudo ejecutar",
+    "emailSent": "Correo enviado a {{email}}",
+    "emailSendFailed": "No fue posible enviar el correo al proveedor.",
     "pickFilters": "Completa los filtros para ver la información",
     "noOptionsForFilter": "No hay {{filter}} disponibles para {{location}}.",
     "loadError": "No se pudo cargar la información"

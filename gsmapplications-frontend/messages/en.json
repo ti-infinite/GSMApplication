@@ -497,6 +497,8 @@
     "created_one": "{{label}} {{doc}} created ({{count}} product)",
     "created_other": "{{label}} {{doc}} created ({{count}} products)",
     "eventFailed": "{{event}} couldn't run",
+    "emailSent": "Email sent to {{email}}",
+    "emailSendFailed": "Couldn't send the email to the supplier.",
     "pickFilters": "Complete the filters to see the data",
     "noOptionsForFilter": "No {{filter}} available for {{location}}.",
     "loadError": "Couldn't load the data"

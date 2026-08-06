@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Plus, Check, ChevronDown } from 'lucide-react'
+import { Plus, Check, ChevronDown, X } from 'lucide-react'
 import { Button } from '@/shared/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/shared/ui/dialog'
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/shared/ui/dropdown-menu'
@@ -17,26 +17,45 @@ function DropdownSelect({ value, onChange, disabled, placeholder, options }: {
 }) {
   const selected = options.find(o => o.value === value)
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild disabled={disabled}>
+    // Borde/fondo en el CONTENEDOR (no en el botón-trigger) — así la X puede ir de HERMANA
+    // normal en el mismo flex row (gap, sin `absolute`) sin pisar el chevron; antes los dos
+    // quedaban superpuestos calculando el padding a mano.
+    <div
+      className={`flex min-w-0 flex-1 items-center gap-1 rounded-lg border bg-background px-3.5 py-2 text-sm focus-within:ring-2 focus-within:ring-ring ${disabled ? 'cursor-not-allowed opacity-50 border-border' : 'border-border'}`}
+    >
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild disabled={disabled}>
+          <button
+            type="button"
+            className="flex min-w-0 flex-1 items-center justify-between gap-2 text-left text-foreground focus:outline-none disabled:cursor-not-allowed"
+          >
+            <span className={`truncate ${selected ? 'text-foreground' : 'text-muted-foreground'}`}>{selected?.label ?? placeholder}</span>
+            <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="max-h-64 w-(--radix-dropdown-menu-trigger-width) overflow-y-auto">
+          {options.length === 0 && <div className="px-3 py-2 text-sm text-muted-foreground">{placeholder}</div>}
+          {options.map(o => (
+            <DropdownMenuItem key={o.value} onSelect={() => onChange(o.value)}>
+              {o.value === value && <Check className="h-3.5 w-3.5 text-primary" />}
+              {o.label}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {/* Hermana del trigger de Radix, no anidada — así el click no le llega al
+          DropdownMenuTrigger y reabre el menú en vez de solo limpiar. */}
+      {selected && !disabled && (
         <button
           type="button"
-          className="flex min-w-0 flex-1 items-center justify-between gap-2 rounded-lg border border-border bg-background px-3.5 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+          onClick={() => onChange('')}
+          aria-label="clear"
+          className="shrink-0 rounded p-0.5 text-muted-foreground hover:text-foreground"
         >
-          <span className={`truncate ${selected ? 'text-foreground' : 'text-muted-foreground'}`}>{selected?.label ?? placeholder}</span>
-          <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <X className="h-3.5 w-3.5" />
         </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="max-h-64 w-(--radix-dropdown-menu-trigger-width) overflow-y-auto">
-        {options.length === 0 && <div className="px-3 py-2 text-sm text-muted-foreground">{placeholder}</div>}
-        {options.map(o => (
-          <DropdownMenuItem key={o.value} onSelect={() => onChange(o.value)}>
-            {o.value === value && <Check className="h-3.5 w-3.5 text-primary" />}
-            {o.label}
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
+      )}
+    </div>
   )
 }
 
@@ -94,8 +113,12 @@ export function BulkLoadDialog({ ctx, open, onClose }: { ctx: RuntimeCtx; open: 
     return next
   })
 
+  // `picked` (tildado) persiste a propósito aunque cambies de categoría/subcategoría/búsqueda —
+  // por eso acá se recorre TODO `catalog`, no `filtered`: si se recorriera `filtered`, un
+  // producto tildado bajo una subcategoría anterior (ya no visible con el filtro actual)
+  // se perdía en silencio — solo se agregaba lo que seguía viéndose al momento del click.
   const confirm = () => {
-    for (const p of filtered) {
+    for (const p of catalog) {
       const id = String(p[kf] ?? '')
       if (picked.has(id)) ctx.addProductRow(p)
     }

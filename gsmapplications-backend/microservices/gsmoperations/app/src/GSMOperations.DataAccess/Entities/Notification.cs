@@ -25,7 +25,7 @@ public partial class Notification
     public string? NotificationError { get; set; }
 
     [Precision(0)]
-    public DateTime CreatedAt { get; set; }
+    public DateTime? CreatedAt { get; set; }
 
     [Precision(0)]
     public DateTime? ProcessingSince { get; set; }

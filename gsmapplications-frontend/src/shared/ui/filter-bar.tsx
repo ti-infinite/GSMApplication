@@ -24,8 +24,9 @@ export function FilterBar({ toggleLabel, children }: { toggleLabel: string; chil
 
 // Un filtro individual dentro de la FilterBar: label arriba + su control (combo/input/lo que sea).
 export function FilterField({ label, children }: { label: ReactNode; children: ReactNode }) {
+
   return (
-    <div className="flex w-full flex-col gap-1.5 sm:w-60">
+    <div className="flex w-full flex-col gap-1.5 sm:w-70">
       <label className="text-sm font-medium text-foreground">{label}</label>
       {children}
     </div>

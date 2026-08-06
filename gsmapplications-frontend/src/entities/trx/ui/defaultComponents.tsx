@@ -477,9 +477,12 @@ function TrxTable({ node, ctx }: { node: ComponentNode; ctx: RuntimeCtx }) {
   const { search, select, dynamicFields: df } = node
 
   // Filtro cliente por context (ej. categoría → skuPrefix): la fila entra si
-  // row[field] empieza con context[prefixFrom]. Vacío = no filtra.
+  // row[field] empieza con context[prefixFrom]. Vacío = no filtra. Aplica IGUAL a las filas
+  // agregadas a mano (`_added`) — es solo un filtro de VISTA sobre esta tabla (no toca el
+  // estado ni el carrito), así que no se "pierde" nada: si no matchea la categoría activa
+  // queda oculta, con sus datos intactos, hasta que cambies/limpies el filtro.
   const scoped = node.filterBy
-    ? raw.filter(r => { if (r._added) return true; const pre = ctx.context[node.filterBy!.prefixFrom] ?? ''; return !pre || String(r[node.filterBy!.field] ?? '').startsWith(pre) })
+    ? raw.filter(r => { const pre = ctx.context[node.filterBy!.prefixFrom] ?? ''; return !pre || String(r[node.filterBy!.field] ?? '').startsWith(pre) })
     : raw
 
   const query = q.trim().toLowerCase()

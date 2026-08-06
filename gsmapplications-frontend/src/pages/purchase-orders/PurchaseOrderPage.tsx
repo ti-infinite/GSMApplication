@@ -1,4 +1,4 @@
-import { buildRegistry, TrxModule, pivotAttributes } from '@/entities/trx'
+import { buildRegistry, TrxModule, pivotAttributes, DEFAULT_ACTIONS } from '@/entities/trx'
 import type { Fetcher } from '@/entities/trx'
 import { getFilteredLocations } from '@/shared/api/application/endpoints'
 import type { LocationDTOListApiResponse } from '@/shared/api/application/model'
@@ -42,10 +42,18 @@ const searchMissingTrx: Fetcher = async (_process, params) => {
   return envelope(data)
 }
 
+
+let supplierEmailById: Record<string, string> = {}
+
 // Proveedores: filtered-suppliers → SupplierDTO[] (idSupplier/nameSupplier).
 const loadSuppliers: Fetcher = async () => {
   const res  = await getFilteredSuppliers({})
   const data = (res.data as SupplierDTOListApiResponse | undefined)?.data ?? []
+  supplierEmailById = Object.fromEntries(data.map(s => {
+    let email = ''
+    if (s.contact) { try { email = String((JSON.parse(s.contact) as { email?: string }).email ?? '') } catch { /* contact mal formado → sin email */ } }
+    return [String(s.idSupplier ?? ''), email]
+  }))
   return envelope(data)
 }
 
@@ -97,6 +105,18 @@ const registry = buildRegistry({
       if (row.productionCost == null || row.productionCost === '') return undefined
       return Number(row.productionCost ?? 0) + Number(row.extraCost ?? 0)
     },
+  },
+  actions: {
+    // createTrx en sí sigue siendo el genérico — no le tocamos nada, solo recibe context y lista
+    // trxAttributes. Lo único que hace este wrapper es DEJAR LISTO el valor en el context ANTES de
+    // llamarlo, con la key EXACTA que declara el JsonFront (`"EmailSupplier"`, ya así por convención
+    // — otros procesos aguas abajo ya lo referencian en ese casing, no camelCase como el resto).
+    // El filtro "Proveedor" del JsonFront usa key "idSupplier" (no "supplier") — el lookup acá
+    // tiene que matchear esa key exacta del context.
+    createTrx: ctx => DEFAULT_ACTIONS.createTrx({
+      ...ctx,
+      context: { ...ctx.context, EmailSupplier: supplierEmailById[ctx.context.idSupplier ?? ''] ?? '' },
+    }),
   },
 })
 

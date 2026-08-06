@@ -782,6 +782,36 @@
           }
         }
       }
+    },
+    "/api/v1/Resources/trx-series": {
+      "get": {
+        "tags": [
+          "Resources"
+        ],
+        "operationId": "GetTrxSeries",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrxSeriesDTOListApiResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrxSeriesDTOListApiResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrxSeriesDTOListApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1271,6 +1301,16 @@
             "type": "string",
             "nullable": true
           },
+          "trxDateFrom": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "trxDateTo": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
           "status": {
             "type": "string",
             "nullable": true
@@ -1746,6 +1786,10 @@
             "format": "double",
             "nullable": true
           },
+          "measurementUnit": {
+            "type": "string",
+            "nullable": true
+          },
           "trxProductAttributes": {
             "type": "array",
             "items": {
@@ -1777,6 +1821,59 @@
             "nullable": true
           },
           "comments": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "TrxSeriesDTO": {
+        "type": "object",
+        "properties": {
+          "prefix": {
+            "type": "string",
+            "nullable": true
+          },
+          "descr": {
+            "type": "string",
+            "nullable": true
+          },
+          "currentNumber": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "hasNumberByLocation": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "TrxSeriesDTOListApiResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string",
+            "nullable": true
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrxSeriesDTO"
+            },
+            "nullable": true
+          },
+          "errorType": {
+            "$ref": "#/components/schemas/ErrorType"
+          },
+          "traceId": {
+            "type": "string",
+            "nullable": true
+          },
+          "details": {
             "type": "string",
             "nullable": true
           }

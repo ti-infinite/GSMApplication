@@ -2,22 +2,17 @@ import { buildRegistry, TrxModule, pivotAttributes } from '@/entities/trx'
 import type { Fetcher } from '@/entities/trx'
 import { getFilteredLocations } from '@/shared/api/application/endpoints'
 import type { LocationDTOListApiResponse } from '@/shared/api/application/model'
-import { getTransaction, getCategories, getMasterProducts, getFilteredVarieties } from '@/shared/api/operations/endpoints'
+import { getTransaction, getCategories, getMasterProducts } from '@/shared/api/operations/endpoints'
 import type {
   TrxResponseDTOListApiResponse, StringApiResponse, MasterProductDTOListApiResponse,
-  VarietyCostBySupplierDTOListApiResponse,
 } from '@/shared/api/operations/model'
 
-const PREFIX = 'FAC'   // Factura — deriva de RPI (LOADMISSINGTRX: source=FAC, relative=RPI)
+const PREFIX = 'VFI'   // Verificación — deriva de RPI (LOADMISSINGTRX: source=VFI, relative=RPI)
 
 /* ───────────────────────────────────────────────────────────────────────────
- * REGISTRY del módulo — confirm-as-is, igual patrón que RPI/VFI (sin carrito,
- * `products` ES la transacción). Por ahora solo crea la factura (FAC) — la
- * exportación/descarga es un módulo aparte, más adelante.
+ * REGISTRY del módulo — mismo patrón que RPI (Reception), solo cambia de qué
+ * documento deriva: acá el "originalQty" es lo que RPI recibió, no lo del OCM.
  * ─────────────────────────────────────────────────────────────────────────── */
-
-// Nombre SAP por defecto (editable en la UI): normaliza el insumo a MAYÚSCULAS.
-const sapNameFor = (varietyName: string) => varietyName.trim().toUpperCase().replace(/\s+/g, ' ')
 
 const envelope = (data: unknown[]) => ({ success: 'true', message: '', data, traceId: null })
 
@@ -29,37 +24,23 @@ const fincasFetcher: Fetcher = async () => {
   return envelope(data)
 }
 
-// Líneas de la RPI elegida: filtered-trx({ trxDocument }) → data[0].trxProducts.
-// idSupplier heredado del header de la RPI (que a su vez lo heredó del OCM — passthrough en
-// cadena, nadie lo selecciona acá): con eso se precarga `price` como SUGERIDO desde el costo
-// real del proveedor (mismo endpoint que usa OC) — el usuario lo corrige si hace falta, no
-// arranca en 0. Sin idSupplier (documento viejo, sin ese dato) queda en 0 como antes.
+// Líneas del RPI elegido: filtered-trx({ trxDocument }) → data[0].trxProducts.
+// originalQty = qty (lo recibido en RPI); qty arranca igual (aceptado por defecto).
 const searchMissingTrx: Fetcher = async (_process, params) => {
   const res = await getTransaction({ trxDocument: params.trxDocument ?? '' })
   const trx = (res.data as TrxResponseDTOListApiResponse | undefined)?.data?.[0]
-  const idSupplier = pivotAttributes(trx?.trxAttributes).idSupplier ?? ''
-
-  const priceByVariety = new Map<number, number>()
-  if (idSupplier) {
-    try {
-      const costRes  = await getFilteredVarieties({ idSupplier })
-      const costList = (costRes.data as VarietyCostBySupplierDTOListApiResponse | undefined)?.data ?? []
-      for (const c of costList) {
-        if (c.idVariety != null) priceByVariety.set(c.idVariety, Number(c.productionCost ?? 0) + Number(c.extraCost ?? 0))
-      }
-    } catch { /* sin costo por proveedor → price queda en 0, el usuario lo completa a mano */ }
-  }
-
   const data = (trx?.trxProducts ?? []).map(p => ({
     idVariety:   p.idVariety ?? 0,
     varietyName: p.varietyName ?? '',
     sku:         p.sku ?? '',
-    // pivotAttributes PRIMERO: que gane el default de acá, no lo heredado de la RPI.
+    // pivotAttributes PRIMERO: RPI trae sus propios OriginalQty/Comment (heredados de OCM) —
+    // si fueran después, pisarían lo de acá con el pedido viejo en vez de lo recibido en RPI.
     ...pivotAttributes(p.trxProductAttributes),
     measurementUnit: p.measurementUnit ?? '',
-    qty:     p.qty ?? 0,
-    price:   priceByVariety.get(p.idVariety ?? -1) ?? 0,
-    sapName: sapNameFor(p.varietyName ?? ''),
+    originalQty:     p.qty ?? 0,
+    qty:             p.qty ?? 0,
+    rejected:        false,
+    comment:     '',
   }))
   return envelope(data)
 }
@@ -72,7 +53,7 @@ const categoriesFetcher: Fetcher = async () => {
   return envelope(cats)
 }
 
-// Catálogo (master products) → filas para "cargar insumo" (algo que llegó fuera de la RPI).
+// Catálogo (master products) → filas para "cargar insumo".
 const catalogFetcher: Fetcher = async () => {
   const res = await getMasterProducts()
   const all = (res.data as MasterProductDTOListApiResponse | undefined)?.data ?? []
@@ -81,30 +62,27 @@ const catalogFetcher: Fetcher = async () => {
     varietyName:     v.name ?? '',
     sku:             p.sku ?? '',
     measurementUnit: p.measurementUnit ?? '',
-    qty:     0,
-    price:   0,
-    sapName: sapNameFor(v.name ?? ''),
+    originalQty:     0,
+    qty:             0,
+    rejected:        false,
+    comment:      '',
   })))
   return envelope(data)
 }
 
 const registry = buildRegistry({
   fetchers: { FINCAS: fincasFetcher, SEARCHMISSINGTRX: searchMissingTrx, CATALOG: catalogFetcher, CATEGORIES: categoriesFetcher },
-  computeds: {
-    // Renombrado a "productTotal" para matchear el `selectorValue` del JsonFront actual.
-    productTotal: row => Number(row.qty || 0) * Number(row.price || 0),
-  },
 })
 
-export default function InvoicePage() {
+export default function VerificationPage() {
   return (
     <TrxModule
       prefix={PREFIX}
       registry={registry}
-      title="invoice"
-      subtitle="invoiceSubtitle"
-      heading="prepareInvoice"
-      trxLabel="invoice"
+      title="verification"
+      subtitle="verificationSubtitle"
+      heading="farmVerification"
+      trxLabel="verification"
     />
   )
 }

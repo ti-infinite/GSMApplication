@@ -37,6 +37,7 @@ const searchMissingTrx: Fetcher = async (_process, params) => {
     sku:         p.sku ?? '',
     qty:         p.qty ?? '',
     ...pivotAttributes(p.trxProductAttributes),
+    measurementUnit: p.measurementUnit ?? '',
   }))
   return envelope(data)
 }
@@ -91,7 +92,8 @@ const registry = buildRegistry({
   },
   computeds: {
     // Precio de la línea = costo de producción + extra (del proveedor elegido). Sin proveedor → "—".
-    priceQty: row => {
+    // Renombrado de "priceQty" a "unitPrice" para matchear el `selectorValue` del JsonFront.
+    unitPrice: row => {
       if (row.productionCost == null || row.productionCost === '') return undefined
       return Number(row.productionCost ?? 0) + Number(row.extraCost ?? 0)
     },

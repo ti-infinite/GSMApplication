@@ -1,11 +1,15 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { ChevronDown, Check, Plus, Search, Filter, X } from 'lucide-react'
+import { format } from 'date-fns'
+import { ChevronDown, Check, Plus, Search, Filter, X, Trash2, CalendarIcon } from 'lucide-react'
 import { Combobox } from '@/shared/ui/combobox'
 import { Button } from '@/shared/ui/button'
 import { DataTable, type TableColumn } from '@/shared/ui/data-table'
+import { FilterBar, FilterField } from '@/shared/ui/filter-bar'
 import { ErrorState } from '@/shared/components/ErrorState'
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/shared/ui/dropdown-menu'
+import { Popover, PopoverTrigger, PopoverContent } from '@/shared/ui/popover'
+import { Calendar } from '@/shared/ui/calendar'
 import { getValueByPath } from '@/shared/lib/pathResolver'
 import type { ComponentNode, RuntimeCtx, SearchConfig, FilterConfig, TrxField, WfButton, WfTransition } from '../model/runtime'
 
@@ -29,15 +33,21 @@ function buttonBar(buttons: WfButton[], ctx: RuntimeCtx, align?: string) {
   if (pairs.length === 0) return null
   const inline = align === 'end' || align === 'center' || align === 'start'
   const wrap = inline
-    ? `flex flex-wrap gap-3 ${align === 'end' ? 'justify-end' : align === 'center' ? 'justify-center' : 'justify-start'}`
+    ? `flex flex-wrap items-start gap-3 ${align === 'end' ? 'justify-end' : align === 'center' ? 'justify-center' : 'justify-start'}`
     : 'flex flex-col gap-3'
   return (
     <div className={wrap}>
-      {pairs.map(({ b, t }) => (
-        <Button key={b.on} variant={b.variant ?? 'default'} onClick={() => ctx.fire(t)} disabled={!ctx.canFire(t)} className={inline ? '' : 'w-full'}>
-          {ctx.t(b.label)}
-        </Button>
-      ))}
+      {pairs.map(({ b, t }) => {
+        const reason = ctx.whyCantFire(t)
+        return (
+          <div key={b.on} className={`flex flex-col gap-1 ${inline ? '' : 'w-full'}`}>
+            <Button variant={b.variant ?? 'default'} onClick={() => ctx.fire(t)} disabled={!ctx.canFire(t)} className={inline ? '' : 'w-full'}>
+              {ctx.t(b.label)}
+            </Button>
+            {reason && <p className="text-xs text-destructive">{reason}</p>}
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -325,12 +335,50 @@ function renderSearch(cfg: SearchConfig, ctx: RuntimeCtx) {
     : <div className="w-full sm:w-56"><TrxSearch cfg={cfg} ctx={ctx} /></div>
 }
 
+// Filtro de fecha ÚNICA (no rango) — mismo patrón visual del rango de fechas de Reportes,
+// pero guarda/lee un solo string ISO ("yyyy-MM-dd") en el context, como cualquier otro filtro.
+function DateFilterField({ value, onChange, placeholder, disabled, clearLabel }: {
+  value: string; onChange: (v: string) => void; placeholder?: string; disabled?: boolean; clearLabel?: string
+}) {
+  const selected = value ? new Date(`${value}T00:00:00`) : undefined
+  return (
+    <div className="relative">
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            disabled={disabled}
+            className={`h-auto w-full justify-start gap-2 px-3.5 py-2.5 text-sm font-normal ${selected ? 'pr-8 text-foreground' : 'text-muted-foreground'}`}
+          >
+            <CalendarIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <span className="flex-1 text-left">{selected ? format(selected, 'dd/MM/yyyy') : placeholder}</span>
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-0" align="start">
+          <Calendar mode="single" selected={selected} onSelect={d => onChange(d ? format(d, 'yyyy-MM-dd') : '')} />
+        </PopoverContent>
+      </Popover>
+      {/* Hermano del trigger de Radix a propósito: anidado adentro, el click bubblea al
+          <button> del Popover y reabre/cierra en vez de solo limpiar. */}
+      {selected && !disabled && (
+        <button
+          type="button"
+          onClick={() => onChange('')}
+          aria-label={clearLabel ?? 'clear'}
+          className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:text-foreground"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      )}
+    </div>
+  )
+}
+
 // Barra de filtros. Con `applyLabel`, los combos ESTACIONAN el valor localmente y el
 // botón (primary → verde del tenant) confirma todo de una (dispara la carga). Sin él,
 // los filtros se auto-aplican al cambiar.
 function FiltersBar({ filters, applyLabel, ctx }: { filters: FilterConfig[]; applyLabel?: string; ctx: RuntimeCtx }) {
   const [staged, setStaged] = useState<Record<string, string>>({})
-  const [open, setOpen] = useState(false)   // toggle del panel en mobile (en sm+ siempre visible)
   const apply = !!applyLabel
   const valueOf = (k: string) => (apply ? (staged[k] ?? ctx.context[k] ?? '') : (ctx.context[k] ?? ''))
   const onPick = (f: FilterConfig, v: string) => {
@@ -342,21 +390,18 @@ function FiltersBar({ filters, applyLabel, ctx }: { filters: FilterConfig[]; app
     })
   }
   return (
-    <div className="flex flex-col gap-3 sm:w-fit">
-      {/* Botón toggle SOLO en mobile → muestra/oculta el panel de filtros (soft primary del tenant) */}
-      <button
-        type="button" onClick={() => setOpen(o => !o)}
-        className="flex items-center justify-between gap-2 rounded-lg border border-primary/20 bg-primary/10 px-4 py-2.5 text-sm font-medium text-primary shadow-sm transition-colors hover:border-primary/40 hover:bg-primary/20 sm:hidden"
-      >
-        <span className="flex items-center gap-2"><Filter className="h-4 w-4" /> {ctx.t('filters')}</span>
-        <ChevronDown className={`h-4 w-4 transition-transform ${open ? 'rotate-180' : ''}`} />
-      </button>
-      {/* Panel: oculto en mobile si !open; en sm+ siempre visible */}
-      <div className={`${open ? 'flex' : 'hidden'} flex-wrap items-end gap-3 rounded-xl border border-border bg-card p-4 shadow-sm sm:flex`}>
+    <FilterBar toggleLabel={ctx.t('filters')}>
       {filters.map(f => (
-        <div key={f.key} className="flex w-full flex-col gap-1.5 sm:w-60">
-          <label className="text-sm font-medium text-foreground">{ctx.t(f.label)}</label>
-          {f.input === 'text' ? (
+        <FilterField key={f.key} label={ctx.t(f.label)}>
+          {f.input === 'date' ? (
+            <DateFilterField
+              value={valueOf(f.key)}
+              onChange={v => onPick(f, v)}
+              placeholder={ctx.t(f.placeholder ?? f.label)}
+              disabled={ctx.locked.has(f.key)}
+              clearLabel={ctx.t('clearDate')}
+            />
+          ) : f.input === 'text' ? (
             <input
               value={valueOf(f.key)}
               onChange={e => onPick(f, e.target.value)}
@@ -374,15 +419,14 @@ function FiltersBar({ filters, applyLabel, ctx }: { filters: FilterConfig[]; app
               disabled={ctx.locked.has(f.key) || (!!f.resource && (ctx.options[f.key] ?? []).length === 0)}
             />
           )}
-        </div>
+        </FilterField>
       ))}
       {apply && (
         <Button className="w-full gap-2 sm:w-auto" onClick={() => ctx.setContext(c => ({ ...c, ...staged }))}>
           <Filter className="h-4 w-4" /> {applyLabel}
         </Button>
       )}
-      </div>
-    </div>
+    </FilterBar>
   )
 }
 
@@ -445,6 +489,26 @@ function TrxTable({ node, ctx }: { node: ComponentNode; ctx: RuntimeCtx }) {
 
   // "Cargar insumo": solo en la tabla principal (no carrito) y si el módulo provee un fetcher CATALOG.
   const showAddPicker = !isCollection && !!ctx.registry.fetchers.CATALOG && node.addSupply !== false
+
+  // "Agregar todos": solo donde ya hay `addButton` por fila (mismo criterio de validez que el
+  // botón individual — qty>0 y sin pasarse del `max` de esa fila; respeta el buscador/filtro
+  // de esta tabla, usa `data` no `raw`) — NO reemplaza el `+` individual, va como HEADER de esa
+  // misma columna (antes vacío) en vez de un botón aparte en la barra.
+  const qtyField = (node.fields ?? []).find(f => f.selectorValue === 'qty')
+  const addAll = () => {
+    for (const row of data) {
+      const id = String(row[kf] ?? '')
+      if (ctx.collection.has(id)) continue
+      const qty = Number(row.qty)
+      if (row.qty == null || row.qty === '' || Number.isNaN(qty) || qty === 0) continue
+      if (qtyField?.max) {
+        const max = Number(row[qtyField.max])
+        if (Number.isFinite(max) && max + qty < 0) continue
+      }
+      ctx.collection.add(row)
+    }
+  }
+
   const tb = node.title || search || select || node.rowFilter || showAddPicker ? (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex items-center gap-3">
@@ -508,7 +572,39 @@ function TrxTable({ node, ctx }: { node: ComponentNode; ctx: RuntimeCtx }) {
       }
     : undefined
 
-  const columns = [...ctx.makeColumns(node.fields ?? [], kf, isCollection), ...dynCols]
+  // Contraparte automática de "cargar insumo": misma condición que `showAddPicker` (tabla
+  // principal + CATALOG en el registry), sin nada que declarar en el JSON — igual que el
+  // picker en sí. Quita una fila `_added` si el usuario se equivocó al agregarla.
+  const removeExtraCol: TableColumn<Record<string, unknown>>[] = showAddPicker ? [{
+    key: '_removeExtra', header: '',
+    render: row => row._added ? (
+      <Button
+        variant="ghost" size="icon"
+        onClick={() => ctx.removeProductRow(String(row[kf] ?? ''))}
+        className="h-8 w-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+        aria-label="Quitar" title="Quitar insumo agregado"
+      >
+        <Trash2 className="h-4 w-4" />
+      </Button>
+    ) : null,
+  }] : []
+
+  const columns = [...ctx.makeColumns(node.fields ?? [], kf, isCollection), ...dynCols, ...removeExtraCol]
+
+  // "Agregar todos" reemplaza el header vacío de la columna del `+` (mismo índice que en
+  // `node.fields`, ya que `makeColumns` mapea 1:1) — clickeable, misma jerarquía visual que
+  // el resto de headers de la tabla, sin agregar un botón aparte en la barra.
+  const addBtnIdx = (node.fields ?? []).findIndex(f => f.renderer === 'addButton')
+  if (!isCollection && addBtnIdx !== -1 && columns[addBtnIdx]) {
+    columns[addBtnIdx] = {
+      ...columns[addBtnIdx],
+      header: (
+        <button type="button" onClick={addAll} className="text-primary hover:underline">
+          {ctx.t('addAll')}
+        </button>
+      ),
+    }
+  }
 
   // Card mobile propio: separa la fila en Título (variedad) · Datos (grilla) · Acción
   // (input + botones abajo). Categoriza por el renderer de cada field (ya normalizado).
@@ -552,11 +648,13 @@ function TrxTable({ node, ctx }: { node: ComponentNode; ctx: RuntimeCtx }) {
     )
   }
 
-  // Estados de la tabla principal (no aplica al carrito): gated (sin location, no fetch) ·
-  // loading (skeleton) · error (inline + retry) · noData. El carrito usa su propio hint.
+  // Estados de la tabla principal (no aplica al carrito): gated · loading (skeleton) · error
+  // (inline + retry) · noData. El carrito usa su propio hint. `gated` = falta CUALQUIER param
+  // que pida el resource principal (no necesariamente location — puede ser un combo-desde-resource
+  // como "N° de recepción" — por eso el mensaje no puede nombrar un filtro específico).
   const gated     = !isCollection && !ctx.ready
   const showError = !isCollection && ctx.ready && !ctx.loading && !!ctx.error
-  const emptyMsg  = isCollection ? 'addProductsHint' : gated ? 'pickLocation' : 'noData'
+  const emptyMsg  = isCollection ? 'addProductsHint' : gated ? 'pickFilters' : 'noData'
 
   // Fallo de carga de data: el shell (filtros arriba) queda; la zona de la tabla muestra
   // el error con Reintentar (design system), en vez de "sin datos" silencioso.
@@ -620,11 +718,17 @@ function TrxDrawer({ node, ctx }: { node: ComponentNode; ctx: RuntimeCtx }) {
               const ts = ctx.transitions.filter(t => t.label)   // acciones del workflow del estado actual
               return ts.length ? (
                 <div className="flex flex-col gap-2 border-t border-border px-5 py-4">
-                  {ts.map(t => (
-                    <Button key={t.on} variant={t.variant ?? 'default'} onClick={() => ctx.fire(t)} disabled={!ctx.canFire(t)} className="w-full">
-                      {ctx.t(t.label ?? '')}
-                    </Button>
-                  ))}
+                  {ts.map(t => {
+                    const reason = ctx.whyCantFire(t)
+                    return (
+                      <div key={t.on} className="flex flex-col gap-1">
+                        <Button variant={t.variant ?? 'default'} onClick={() => ctx.fire(t)} disabled={!ctx.canFire(t)} className="w-full">
+                          {ctx.t(t.label ?? '')}
+                        </Button>
+                        {reason && <p className="text-center text-xs text-destructive">{reason}</p>}
+                      </div>
+                    )
+                  })}
                 </div>
               ) : null
             })()}

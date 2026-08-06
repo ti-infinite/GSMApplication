@@ -1,9 +1,9 @@
 import { Fragment, useState, type ReactNode } from 'react'
-import { ChevronUp, ChevronDown, ChevronsUpDown, ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronUp, ChevronDown, ChevronsUpDown, ChevronLeft, ChevronRight, Inbox } from 'lucide-react'
 
 export interface TableColumn<T> {
   key:        string
-  header:     string
+  header:     ReactNode   // texto normal, o un elemento (ej. "Agregar todos" clickeable en la columna del +)
   render?:    (row: T) => ReactNode
   sortable?:  boolean
   align?:     'left' | 'center' | 'right'   // alineación de header + celda (default left)
@@ -75,9 +75,15 @@ export function DataTable<T>({
     </div>
   ) : null
 
+  // Ícono en halo neutro (ni primary ni destructive: no es una acción ni un error, es
+  // informativo) + texto más oscuro que antes (era text-muted-foreground puro) para que
+  // el estado "vacío" pese más que un simple placeholder gris y se note de un vistazo.
   const empty = (
-    <div className="flex items-center justify-center bg-card py-12">
-      <p className="text-sm text-muted-foreground">{emptyMessage}</p>
+    <div className="flex flex-col items-center justify-center gap-3 bg-card py-12">
+      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+        <Inbox className="h-5 w-5 text-muted-foreground" />
+      </div>
+      <p className="text-sm font-medium text-foreground">{emptyMessage}</p>
     </div>
   )
 

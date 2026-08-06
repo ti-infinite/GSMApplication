@@ -159,16 +159,6 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <div className="flex items-center justify-between">
-              <label className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
-                <input type="checkbox" className="h-4 w-4 rounded border-border accent-primary" />
-                {t('login.rememberMe')}
-              </label>
-              <Button type="button" variant="link" className="h-auto p-0 text-sm">
-                {t('login.forgotPassword')}
-              </Button>
-            </div>
-
             {error && (
               <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-3.5 py-2.5 text-sm text-destructive">
                 {t(error, { defaultValue: error })}

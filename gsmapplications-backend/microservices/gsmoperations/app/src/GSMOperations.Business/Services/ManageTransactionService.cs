@@ -288,6 +288,10 @@ public sealed class ManageTransactionService : IManageTransactionService
                         VarietyName = x.VarietyName,
                         Sku = x.Sku,
                         Qty = x.Qty,
+                            MeasurementUnit = _context.MasterVarieties
+                            .Where(u => u.IdVariety == x.IdVariety)
+                            .Select(u => u.MasterProduct.MeasurementUnit)
+                            .FirstOrDefault(),
                         TrxProductAttributes = x.TrxProductAttributes
                             .Select(x => new TrxProductAttributesDTO
                             {

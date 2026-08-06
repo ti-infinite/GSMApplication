@@ -110,7 +110,7 @@ export default function InvoicePage() {
               options={recepciones.map(r => ({ value: r.numero, label: r.numero }))}
               value={sel}
               onChange={setSel}
-              placeholder={recepciones.length === 0 ? 'Sin recepciones' : 'Elegí una recepción'}
+              placeholder={recepciones.length === 0 ? 'Sin recepciones' : 'Elige una recepción'}
               emptyMessage="No hay recepciones registradas"
             />
           </div>
@@ -140,7 +140,7 @@ export default function InvoicePage() {
           columns={columns}
           data={items}
           rowKey={l => l.id}
-          emptyMessage={applied ? 'La recepción no tiene insumos.' : 'Elegí una recepción y aplicá los filtros.'}
+          emptyMessage={applied ? 'La recepción no tiene insumos.' : 'Elige una recepción y aplicá los filtros.'}
         />
 
         <p className="text-xs italic text-muted-foreground">

@@ -337,26 +337,40 @@ function renderSearch(cfg: SearchConfig, ctx: RuntimeCtx) {
 
 // Filtro de fecha ÚNICA (no rango) — mismo patrón visual del rango de fechas de Reportes,
 // pero guarda/lee un solo string ISO ("yyyy-MM-dd") en el context, como cualquier otro filtro.
-function DateFilterField({ value, onChange, placeholder, disabled }: {
-  value: string; onChange: (v: string) => void; placeholder?: string; disabled?: boolean
+function DateFilterField({ value, onChange, placeholder, disabled, clearLabel }: {
+  value: string; onChange: (v: string) => void; placeholder?: string; disabled?: boolean; clearLabel?: string
 }) {
   const selected = value ? new Date(`${value}T00:00:00`) : undefined
   return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          disabled={disabled}
-          className={`h-auto w-full justify-start gap-2 px-3.5 py-2.5 text-sm font-normal ${selected ? 'text-foreground' : 'text-muted-foreground'}`}
+    <div className="relative">
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            disabled={disabled}
+            className={`h-auto w-full justify-start gap-2 px-3.5 py-2.5 text-sm font-normal ${selected ? 'pr-8 text-foreground' : 'text-muted-foreground'}`}
+          >
+            <CalendarIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <span className="flex-1 text-left">{selected ? format(selected, 'dd/MM/yyyy') : placeholder}</span>
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-0" align="start">
+          <Calendar mode="single" selected={selected} onSelect={d => onChange(d ? format(d, 'yyyy-MM-dd') : '')} />
+        </PopoverContent>
+      </Popover>
+      {/* Hermano del trigger de Radix a propósito: anidado adentro, el click bubblea al
+          <button> del Popover y reabre/cierra en vez de solo limpiar. */}
+      {selected && !disabled && (
+        <button
+          type="button"
+          onClick={() => onChange('')}
+          aria-label={clearLabel ?? 'clear'}
+          className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:text-foreground"
         >
-          <CalendarIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
-          <span className="flex-1 text-left">{selected ? format(selected, 'dd/MM/yyyy') : placeholder}</span>
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="start">
-        <Calendar mode="single" selected={selected} onSelect={d => onChange(d ? format(d, 'yyyy-MM-dd') : '')} />
-      </PopoverContent>
-    </Popover>
+          <X className="h-3.5 w-3.5" />
+        </button>
+      )}
+    </div>
   )
 }
 
@@ -385,6 +399,7 @@ function FiltersBar({ filters, applyLabel, ctx }: { filters: FilterConfig[]; app
               onChange={v => onPick(f, v)}
               placeholder={ctx.t(f.placeholder ?? f.label)}
               disabled={ctx.locked.has(f.key)}
+              clearLabel={ctx.t('clearDate')}
             />
           ) : f.input === 'text' ? (
             <input

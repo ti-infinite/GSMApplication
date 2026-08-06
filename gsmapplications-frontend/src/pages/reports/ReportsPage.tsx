@@ -261,10 +261,6 @@ export default function ReportsPage() {
     void getTransaction({
       trxPrefix:   prefix,
       location,
-      // El backend espera DateOnly (SearchTrx.TrxDateFrom/To) desde el commit d05b8bd — un
-      // string con hora ("...THH:mm:ss") no parsea como DateOnly y el query-param cae en null,
-      // ignorando el filtro en silencio. Solo fecha; la comparación server-side ya es inclusiva
-      // por día (DateOnly.FromDateTime(x.TrxDate) <= TrxDateTo), no hace falta startOfDay/endOfDay.
       trxDateFrom: format(range.from, 'yyyy-MM-dd'),
       trxDateTo:   format(range.to,   'yyyy-MM-dd'),
     })

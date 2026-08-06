@@ -462,6 +462,7 @@
     "paymentMethod": "Forma de pago",
     "deliveryDate": "Fecha de entrega",
     "selectDeliveryDate": "Selecciona una fecha",
+    "clearDate": "Limpiar fecha",
     "observations": "Observaciones",
     "confirmarOrden": "Confirmar orden",
     "quantity": "Cantidad",

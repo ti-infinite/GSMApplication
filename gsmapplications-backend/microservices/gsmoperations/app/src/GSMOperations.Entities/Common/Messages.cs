@@ -25,13 +25,15 @@ namespace GSMOperations.Entities.Common
             public const string Healthy = "Application is healthy.";
             public const string EmptyFields = "The url endpoint and the operation fields are required.";
             public const string HttpMethodUnknown = "Http method not implemented.";
-            public const string VarietiesLoaded = "Varieties loaded succesfully";
+            public const string VarietiesLoaded = "Varieties loaded succesfully.";
+            public const string SeriesLoaded = "Series loaded succesfully.";
         }
 
-    public static class Events
+        public static class Events
         {
             public const string EventNotificationSuccess = "Notification queued successfully.";
             public const string EventAdjustSuccess = "Inventory adjusted successfully.";
+            public const string EmailNotFoundDifferences = """No se encontraron diferencias entre las cantidades recibidas y las cantidades emitidas.""";
         }
         public static class Tenant
         {

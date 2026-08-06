@@ -1,9 +1,13 @@
+import { useState } from 'react'
+import { Plus } from 'lucide-react'
 import { buildRegistry, TrxModule } from '@/entities/trx'
-import type { Fetcher } from '@/entities/trx'
+import type { Fetcher, ComponentNode, RuntimeCtx } from '@/entities/trx'
+import { Button } from '@/shared/ui/button'
 import { getCategories, getMasterProducts } from '@/shared/api/operations/endpoints'
 import type { StringApiResponse, MasterProductDTOListApiResponse } from '@/shared/api/operations/model'
 import { getFilteredLocations } from '@/shared/api/application/endpoints'
 import type { LocationDTOListApiResponse } from '@/shared/api/application/model'
+import { BulkLoadDialog } from './BulkLoadDialog'
 
 const PREFIX = 'AJT'
 const num = (v: unknown) => Number(v ?? 0) || 0
@@ -42,6 +46,24 @@ const catalogFetcher: Fetcher = async () => {
   return { success: 'true', message: '', data, traceId: null }
 }
 
+// Override SOLO de Ajuste: el heading de sección ("Ajustar existencias") + botón propio de
+// carga masiva, aparte de "Cargar insumo" (que sigue existiendo, 1 a la vez). Componente REAL
+// (capitalizado, vía JSX) — no una función suelta — porque necesita su propio useState para el
+// popup; `registry.components[type]` se invoca como función plana, así que los hooks tienen
+// que vivir en un componente aparte al que esa función solo delega.
+function AdjustHeading({ node, ctx }: { node: ComponentNode; ctx: RuntimeCtx }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <h2 className="text-base font-semibold text-foreground">{ctx.t(node.title ?? '')}</h2>
+      <Button size="sm" className="gap-1.5" onClick={() => setOpen(true)}>
+        <Plus className="h-4 w-4" /> {ctx.t('loadInventory')}
+      </Button>
+      <BulkLoadDialog ctx={ctx} open={open} onClose={() => setOpen(false)} />
+    </div>
+  )
+}
+
 const registry = buildRegistry({
   fetchers: { FINCAS: fincasFetcher, CATEGORIES: categoriesFetcher, CATALOG: catalogFetcher },
   computeds: {
@@ -51,6 +73,9 @@ const registry = buildRegistry({
     },
     // nuevo total = existencia (remaining) ± ajuste (qty), no baja de 0.
     newTotal: r => Math.max(0, num(r.remaining) + num(r.qty)),
+  },
+  components: {
+    heading: (node, ctx) => <AdjustHeading node={node} ctx={ctx} />,
   },
 })
 

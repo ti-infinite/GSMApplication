@@ -255,6 +255,10 @@ public sealed class ManageTransactionService : IManageTransactionService
         {
             query = query.Where(x => x.Location == searchTrx.Location);
         }
+        if (searchTrx.TrxDateFrom.HasValue && searchTrx.TrxDateTo.HasValue)
+        {
+            query = query.Where(x => DateOnly.FromDateTime(x.TrxDate) >= searchTrx.TrxDateFrom.Value && DateOnly.FromDateTime(x.TrxDate) <= searchTrx.TrxDateTo.Value);
+        }
 
         var result = await query
             .Select(x => new TrxResponseDTO
@@ -284,6 +288,10 @@ public sealed class ManageTransactionService : IManageTransactionService
                         VarietyName = x.VarietyName,
                         Sku = x.Sku,
                         Qty = x.Qty,
+                            MeasurementUnit = _context.MasterVarieties
+                            .Where(u => u.IdVariety == x.IdVariety)
+                            .Select(u => u.MasterProduct.MeasurementUnit)
+                            .FirstOrDefault(),
                         TrxProductAttributes = x.TrxProductAttributes
                             .Select(x => new TrxProductAttributesDTO
                             {

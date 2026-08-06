@@ -44,8 +44,13 @@ function addFilterSpec(spec: FilterSpec, acc: Second): void {
     acc.filterBy = acc.filterBy ?? { field: 'sku', prefixFrom: 'skuPrefix' }
   } else if (typeof spec === 'object' && 'type' in spec && spec.type === 'combo') {
     // COMBO ESTÁTICO: opciones quemadas en el JSON (no todo se llena por un source).
+    // `input:"text"|"date"` (sin `values`) → input libre / date picker en vez de combo
+    // (FiltersBar ya sabe renderizar cualquier FilterConfig con esos `input` como tal).
+    // `required` es opt-in: si el JSON no lo declara queda `undefined` (mismo comportamiento
+    // de siempre) — no exige tocar los JSON de los demás módulos.
     acc.filters.push({ key: spec.key ?? slug(spec.label ?? 'filter'), label: spec.label ?? 'filter',
-                       values: spec.values, optionValue: 'value', optionLabel: 'label' })
+                       values: spec.values, optionValue: 'value', optionLabel: 'label', input: spec.input,
+                       required: spec.required })
   } else if (typeof spec === 'object' && 'type' in spec && spec.type === 'resource') {
     // COMBO DESDE RESOURCE: opciones desde un resource (JsonREA) con params del context + gate.
     // Ej. Requerimiento ← LOADMISSINGTRX(location, origen, destino). Al elegir → context → líneas.

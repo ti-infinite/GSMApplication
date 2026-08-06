@@ -73,7 +73,7 @@ public abstract class SendNotification : IEventExecutor
                 subjectTemplate,
                 trxRequest);
 
-            var body = ResolveTemplate(
+            var body = BuildBody(
                 bodyTemplate,
                 trxRequest);
 
@@ -117,6 +117,12 @@ public abstract class SendNotification : IEventExecutor
         }
     }
 
+
+    protected virtual string BuildBody(string bodyTemplate, TrxHeader trxRequest)
+    {
+        return ResolveTemplate(bodyTemplate, trxRequest);
+    }
+
     private static List<string> ResolveParameter(JsonReaEvents eventDefinition, string parameterKey, TrxHeader trx)
     {
         var parameter = eventDefinition.Parameters
@@ -130,30 +136,41 @@ public abstract class SendNotification : IEventExecutor
             throw new InvalidOperationException($"Parameter '{parameterKey}' not configured.");
         }
 
-        if (string.IsNullOrWhiteSpace(parameter.SourceType))
-        {
-            return parameter.Values;
-        }
-
-        var values = trx.TrxAttributes
-            .Where(x =>
-                x.AttributeKey.Equals(
-                    parameter.SourceType,
-                    StringComparison.OrdinalIgnoreCase))
-            .Select(x => x.AttributeValue)
+        var values = parameter.Values?
             .Where(x => !string.IsNullOrWhiteSpace(x))
-            .Select(x => x!)
-            .ToList();
+            .Select(x => x.Trim())
+            .ToList() ?? [];
+
+        if (!string.IsNullOrWhiteSpace(parameter.SourceType))
+        {
+            var attributeValues = trx.TrxAttributes
+                .Where(x =>
+                    x.AttributeKey.Equals(
+                        parameter.SourceType,
+                        StringComparison.OrdinalIgnoreCase
+                    ))
+                .Select(x => x.AttributeValue)
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Select(x => x!.Trim())
+                .ToList();
+
+                if (!attributeValues.Any())
+                {
+                    throw new InvalidOperationException($"Attribute '{parameter.SourceType}' not found.");
+                }
+
+                values.AddRange(attributeValues);
+        }
 
         if (!values.Any())
         {
-            throw new InvalidOperationException($"Attribute '{parameter.SourceType}' not found.");
+            throw new InvalidOperationException($"Parameter '{parameterKey}' has no configured values.");
         }
 
         return values;
     }
 
-    private static string ResolveTemplate(string template, TrxHeader trx)
+    protected static string ResolveTemplate(string template, TrxHeader trx)
     {
         return template
             .Replace("{TrxDocument}", trx.TrxDocument ?? string.Empty)
@@ -161,4 +178,5 @@ public abstract class SendNotification : IEventExecutor
             .Replace("{Status}", trx.Status ?? string.Empty)
             .Replace("{Username}", trx.Username ?? string.Empty);
     }
+
 }

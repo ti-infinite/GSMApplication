@@ -45,8 +45,9 @@ export interface FilterConfig {
   cookieDefault?: { field: string }   // default (y bloqueo) desde la cookie del usuario
   dependsOn?:     string   // CASCADA: depende de la selección de otro filtro
   optionsFrom?:   string   // path en la OPCIÓN elegida del padre (ej. "Children")
-  input?:         'text'   // si es 'text', el filtro es un input libre (no combo)
+  input?:         'text' | 'date'   // 'text' = input libre · 'date' = date picker (no combo)
   placeholder?:   string   // placeholder del input/combo
+  required?:      boolean  // sin valor, el motor bloquea las transiciones (ver canFire/whyCantFire)
 }
 
 /** Buscador de catálogo del toolbar. Con `cascade` se vuelve un PICKER: botón +
@@ -101,12 +102,15 @@ export interface DocFilter {
   input?:       'text'
 }
 
-/** 2do filtro tipo COMBO ESTÁTICO: opciones QUEMADAS en el JSON (sin request). */
+/** 2do filtro tipo COMBO ESTÁTICO: opciones QUEMADAS en el JSON (sin request).
+ *  Con `input:"text"` (sin `values`) es una caja de texto libre en vez de combo. */
 export interface ComboFilter {
   type:   'combo'
   key?:   string
   label?: string
-  values: { value: string; label: string }[]
+  values?: { value: string; label: string }[]
+  input?:  'text' | 'date'
+  required?: boolean
 }
 
 /** 2do filtro tipo COMBO desde RESOURCE: las opciones salen de un resource (JsonREA)
@@ -155,7 +159,7 @@ export interface SummarySlot {
 export interface ItemsSlots {
   filter?:   FilterSpec | FilterSpec[]
   products?: ProductsSlot
-  summary?:    SummarySlot
+  summary?:    SummarySlot | false   // false = sin carrito: `products` ES la transacción completa (ej. RPI/VFI)
 }
 
 /** JsonFront: qué se ve. `components` = lista PLANA de componentes por `type`. */
@@ -174,7 +178,7 @@ export interface FrontConfig {
   items?:      ItemsSlots           // agrupa lo visual (filter/products/cart); también se acepta plano
   filter?:     FilterSpec | FilterSpec[]   // 2do filtro(s): 'category' | { source } (doc) | combo estático
   products?:   ProductsSlot        // tabla principal (solo `columns`)
-  summary?:    SummarySlot         // resumen (`columns` + `title`)
+  summary?:    SummarySlot | false   // resumen/carrito (`columns` + `title`); false = sin carrito
   // ── SLOTS internos (el template los arma; también aceptados explícitos = legacy) ──
   location?:   FilterConfig        // filtro ubicación FIJO → el template lo pone 1º
   main?:       MainSlot            // slot de la tabla principal
@@ -284,6 +288,7 @@ export interface CellRenderCtx {
   collection: CollectionApi
   keyField:   string     // rowKey configurado → identidad de la fila (no asumir 'id')
   removeProductRow?: (id: string) => void   // quita una fila AGREGADA a mano (`_added`) de la tabla
+  addProductRow?: (row: Record<string, unknown>) => void   // agrega una fila EXTRA a la tabla principal (mismo canal que "cargar insumo")
   t?:         (key: string, opts?: Record<string, unknown>) => string   // i18n (keyPrefix 'trx') — para mensajes del renderer (ej. validación)
 }
 
@@ -297,6 +302,7 @@ export interface ActionCtx {
   transition?:     WfTransition     // la transición disparada (from/to → trxStates)
   trxLabel?:       string           // key i18n del módulo para el toast (ej. "requirement", "adjustment")
   t:               (key: string, opts?: Record<string, unknown>) => string   // i18n (keyPrefix 'trx') → toast traducido
+  registry:        TrxRegistry      // para resolver columnas COMPUTED (ej. priceQty) al armar trxProductAttributes — no están en la fila, solo en registry.computeds
 }
 
 /** Contexto para evaluar un guard (precondición de transición). */
@@ -320,7 +326,7 @@ export interface TrxRegistry {
 
 /** Estado + helpers que el runtime le pasa a cada componente SDUI para renderizar. */
 export interface RuntimeCtx {
-  t:           (key: string) => string     // i18n: traduce un label (keyPrefix 'trx'; fallback = el propio texto)
+  t:           (key: string, opts?: Record<string, unknown>) => string   // i18n: traduce un label (keyPrefix 'trx'; fallback = el propio texto). `opts` para interpolación/pluralización (ej. count).
   front:       FrontConfig
   rows:        Record<string, unknown>[]   // filas del resource principal (con ediciones)
   loading:     boolean
@@ -329,6 +335,7 @@ export interface RuntimeCtx {
   retry:       () => void                  // re-dispara el fetch del recurso (para el "Reintentar")
   collection:  CollectionApi
   addProductRow: (row: Record<string, unknown>) => void   // agrega una fila EXTRA a la tabla (ej. "cargar insumo" del catálogo)
+  removeProductRow: (id: string) => void   // quita una fila EXTRA (`_added`) de la tabla — contraparte de addProductRow
   context:     Record<string, string>
   setContext:  (updater: (c: Record<string, string>) => Record<string, string>) => void
   setFilter:   (key: string, value: string) => void   // setea un filtro y resetea sus dependientes (cascada)
@@ -342,6 +349,7 @@ export interface RuntimeCtx {
   transitionFor: (on: string) => WfTransition | undefined   // transición saliente por evento
   fire:        (t: WfTransition) => void
   canFire:     (t: WfTransition) => boolean
+  whyCantFire: (t: WfTransition) => string | null   // motivo (texto YA traducido) de por qué canFire da false — null si sí se puede
   makeColumns:  (fields: TrxField[], keyField: string, fromCollection?: boolean) => TableColumn<Record<string, unknown>>[]  // helper tabla
   renderField:  (field: TrxField, row: Record<string, unknown>) => ReactNode                       // genérico (card/…)
   keyField:    string

@@ -132,7 +132,7 @@ export default function PurchaseOrdersPage() {
               options={pedidos.map(p => ({ value: p.consecutivo, label: p.consecutivo, badge: p.location }))}
               value={consecSel}
               onChange={setConsecSel}
-              placeholder={pedidos.length === 0 ? 'Sin pedidos' : 'Elegí un pedido'}
+              placeholder={pedidos.length === 0 ? 'Sin pedidos' : 'Elige un pedido'}
               emptyMessage="No hay pedidos confirmados"
             />
           </div>

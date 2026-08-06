@@ -19,12 +19,14 @@ public sealed class ResourcesController : ControllerBase
     private readonly ICategoriesService _categoriesService;
     private readonly ISkuDefinitionsService _skuDefinitionsService;
     private readonly IVarietyCostBySupplierService _varietyCostService;
+    private readonly ITrxSeriesService _trxSeriesService;
 
 
     public ResourcesController(IGlobalAndParamAttributeService paramAttributeService, IMasterHerbsService masterHerbsService, 
         IEmployeesService employeesService, ISuppliersService suppliersService, ICategoriesService categoriesService,
         ISkuDefinitionsService skuDefinitionsService,
-        IVarietyCostBySupplierService varietyCostService)
+        IVarietyCostBySupplierService varietyCostService,
+        ITrxSeriesService trxSeriesService)
     {
         _paramAttributeService = paramAttributeService;
         _masterHerbsService = masterHerbsService;
@@ -33,6 +35,7 @@ public sealed class ResourcesController : ControllerBase
         _categoriesService = categoriesService;
         _skuDefinitionsService = skuDefinitionsService; 
         _varietyCostService = varietyCostService;
+        _trxSeriesService = trxSeriesService;
     }
 
 
@@ -92,6 +95,14 @@ public sealed class ResourcesController : ControllerBase
     public async Task<IActionResult> GetFilteredVarieties([FromBody] SearchVarietyCost? searchCriteria, CancellationToken cancellationToken)
     {
         var response = await _varietyCostService.GetFilteredVarietyCost(searchCriteria, cancellationToken);
+        return Ok(response);
+    }
+
+    [HttpGet("trx-series")]
+    [ProducesResponseType(typeof(ApiResponse<List<TrxSeriesDTO>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetTrxSeries(CancellationToken cancellationToken)
+    {
+        var response = await _trxSeriesService.GetSeries();
         return Ok(response);
     }
 

@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type Key } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { MapPin } from 'lucide-react'
+import { MapPin, Info } from 'lucide-react'
 import { Button } from '@/shared/ui/button'
 import { getStoredUser } from '@/shared/lib/auth'
 import { clearResourcePrefix, getResource, saveResource } from '@/shared/lib/idb'
@@ -60,6 +60,7 @@ function renderField(
   context: Record<string, string>, setValue: (v: unknown) => void, collection: CollectionApi,
   keyField: string, removeProductRow?: (id: string) => void,
   t?: (key: string, opts?: Record<string, unknown>) => string,
+  addProductRow?: (row: Record<string, unknown>) => void,
 ) {
   const raw = resolveValue(f, row, registry, context)
   // `negate`: el usuario ve/edita en POSITIVO, pero el valor se GUARDA negado (ej. gasto 90 → -90).
@@ -69,7 +70,7 @@ function renderField(
     ? (v: unknown) => setValue(v === '' || v == null ? v : -Math.abs(Number(v)))
     : setValue
   if (f.renderer && f.renderer in registry.renderers) {
-    return registry.renderers[f.renderer]({ value, row, field: f, context, setValue: set, collection, keyField, removeProductRow, t })
+    return registry.renderers[f.renderer]({ value, row, field: f, context, setValue: set, collection, keyField, removeProductRow, t, addProductRow })
   }
   return value == null || value === '' ? '—' : String(value)
 }
@@ -277,9 +278,23 @@ export function TrxRuntime({ config, registry, title, subtitle, heading, trxLabe
         if (!resource) continue
         const set = (data: unknown) => { if (!cancelled) setFetchedOptions(prev => ({ ...prev, [f.key]: Array.isArray(data) ? (data as unknown[]) : [] })) }
         // Gate: sin los params completos (ej. falta location) → sin opciones (limpia lo previo).
+        // Sin toast acá: todavía no es "no hay resultados", es "faltan filtros".
         if (!paramsReady(resource, enrichedContext)) { set([]); continue }
-        try { set(await resolveResource(resource, enrichedContext, fetcherFor(resource), set)) }
-        catch { set([]) }
+        let data: unknown
+        try { data = await resolveResource(resource, enrichedContext, fetcherFor(resource), set) }
+        catch { data = [] }
+        set(data)
+        // Efecto solo re-corre cuando resFiltersKey cambia (params de ESTE resource) → un
+        // toast por combinación real de filtros elegida, no en cada render.
+        if (!cancelled && Array.isArray(data) && data.length === 0) {
+          const locationLabel = comboOptions.location?.find(o => o.value === enrichedContext.location)?.label ?? enrichedContext.location ?? ''
+          // `text-primary` → var(--primary): sigue el color del TENANT activo (TenantProvider lo
+          // pisa en runtime), no un color fijo. Solo el ícono — sin borde de acento (se ve
+          // genérico/IA, look "side-tab").
+          toast(t('noOptionsForFilter', { filter: t(f.label), location: locationLabel }), {
+            icon: <Info className="h-4 w-4 text-primary" />,
+          })
+        }
       }
     })()
     return () => { cancelled = true }
@@ -399,13 +414,23 @@ export function TrxRuntime({ config, registry, title, subtitle, heading, trxLabe
   // Resuelve + dibuja un field sobre una fila (con edición inline). Genérico: lo usan
   // la tabla y la card. Si la fila viene de la collection, la edición la parchea a la
   // collection; si viene de un resource, va a `edits` (overlay sobre las filas).
+  // SINCRONIZADO en los dos sentidos mientras la fila esté en AMBOS lados (ya agregada al
+  // carrito): editar en products también actualiza su copia en el carrito, y viceversa —
+  // si no, quedan como dos copias independientes (snapshot al momento del +) y editar
+  // cualquiera de las dos no se refleja en la otra, que es confuso.
   const renderFieldInRow = (f: TrxField, row: Row, kField: string, fromCollection = false): React.ReactNode => {
     const key = f.selectorValue ?? ''
     const id  = String(row[kField] ?? '')
     const setValue = fromCollection
-      ? (v: unknown) => collectionApi.update(id, { [key]: v })
-      : (v: unknown) => setEdits(prev => ({ ...prev, [id]: { ...prev[id], [key]: v } }))
-    return renderField(f, row, registry, enrichedContext, setValue, collectionApi, kField, removeProductRow, t)
+      ? (v: unknown) => {
+          collectionApi.update(id, { [key]: v })
+          setEdits(prev => ({ ...prev, [id]: { ...prev[id], [key]: v } }))
+        }
+      : (v: unknown) => {
+          setEdits(prev => ({ ...prev, [id]: { ...prev[id], [key]: v } }))
+          if (collectionApi.has(id)) collectionApi.update(id, { [key]: v })
+        }
+    return renderField(f, row, registry, enrichedContext, setValue, collectionApi, kField, removeProductRow, t, addProductRow)
   }
 
   // Helper de TABLA: convierte fields → columnas de DataTable.
@@ -436,14 +461,54 @@ export function TrxRuntime({ config, registry, title, subtitle, heading, trxLabe
         const m = Number(row[f.max as string]); const v = Number(row[f.selectorValue as string])
         return Number.isFinite(m) && Number.isFinite(v) && m + v < 0
       }))
-      return !over
+      if (over) return false
     }
+    // Si el módulo tiene un resource de ENRIQUECIMIENTO (enrichBy) gateado por context (ej. OCM:
+    // LOADPRICEBYSUPPLIER, necesita el proveedor elegido), sus params deben estar completos antes
+    // de poder confirmar — sin esto se podía finalizar sin proveedor (el precio quedaba vacío).
+    // 100% genérico: no hace falta declarar nada nuevo en el JSON, se apoya en el `enrichBy` que
+    // el módulo ya tiene para el precio.
+    if (enrichResources.some(r => !paramsReady(r, enrichedContext))) return false
+    // Filtros marcados `required` (ej. forma de pago/fecha de entrega en OCM) deben tener
+    // valor en el context antes de poder confirmar — mismo mecanismo genérico que el de
+    // arriba, pero para campos SIN resource asociado (no gatean ninguna carga, solo se
+    // guardan como trxAttributes).
+    if (filters.some(f => f.required && !context[f.key])) return false
     return true
+  }
+  // Mismo orden de chequeos que canFire, pero devuelve el MOTIVO (texto ya traducido) en vez de
+  // bool — para mostrarlo como feedback visible junto al botón, no solo deshabilitarlo en silencio.
+  const whyCantFire = (tr: WfTransition): string | null => {
+    if (tr.guard) {
+      const g = registry.guards?.[tr.guard]
+      return g && !g({ rows: effectiveRows, collection, context, state }) ? t('cantConfirmHint') : null
+    }
+    if (front.collection) {
+      if (collection.length === 0) return t('addProductsHint')
+      const maxFields = [...(front.main?.fields ?? []), ...(front.collection.fields ?? [])]
+        .filter(f => f.max && f.selectorValue)
+      const over = collection.some(row => maxFields.some(f => {
+        const m = Number(row[f.max as string]); const v = Number(row[f.selectorValue as string])
+        return Number.isFinite(m) && Number.isFinite(v) && m + v < 0
+      }))
+      if (over) return t('overMaxHint')
+    }
+    const missingEnrich = enrichResources.find(r => !paramsReady(r, enrichedContext))
+    if (missingEnrich) {
+      const missingKey = missingEnrich.parameters.find(p =>
+        (p.sourceType ?? 'CONTEXT') === 'CONTEXT' && !String(context[p.values?.[0] ?? ''] ?? ''),
+      )?.values?.[0]
+      const label = filters.find(f => f.key === missingKey)?.label
+      return label ? t('completeFieldHint', { field: t(label) }) : t('completeRequiredHint')
+    }
+    const missingRequired = filters.find(f => f.required && !context[f.key])
+    if (missingRequired) return t('completeFieldHint', { field: t(missingRequired.label) })
+    return null
   }
   // `tr` (no `t`) para no tapar el `t` de i18n → el createTrx lo usa para el toast traducido.
   const fire = async (tr: WfTransition) => {
     if (!canFire(tr)) return
-    const args = { rows: effectiveRows, collection, context, state, config, clearCollection: () => setCollection([]), transition: tr, trxLabel, t }
+    const args = { rows: effectiveRows, collection, context, state, config, clearCollection: () => setCollection([]), transition: tr, trxLabel, t, registry }
 
     // create-trx es INTRÍNSECO y debe tener ÉXITO para resetear/transicionar. Si falla,
     // salimos SIN tocar nada → el pedido (carrito + cantidades) queda intacto para reintentar.
@@ -458,8 +523,9 @@ export function TrxRuntime({ config, registry, title, subtitle, heading, trxLabe
     setCollection([])
     setEdits({})
     setExtraRows([])   // limpia las filas agregadas a mano (catálogo) tras crear
-    // Resetea los filtros variables (requerimiento/proveedor/categoría…) preservando la finca → empezar limpio.
-    setContext(c => { const next = initialContext(filters); if (c.location) next.location = c.location; return next })
+    // Resetea TODOS los filtros (ubicación incluida) — es una TRX nueva, no continuación de la
+    // anterior. Si el usuario tiene finca fija por cookie, initialContext ya la vuelve a poner sola.
+    setContext(() => initialContext(filters))
     setState(tr.to)
     for (const r of rea.resources) if (r.cacheIn) await clearResourcePrefix(r.id)
     setRefreshKey(k => k + 1)
@@ -483,11 +549,11 @@ export function TrxRuntime({ config, registry, title, subtitle, heading, trxLabe
 
   const ctx: RuntimeCtx = {
     t,
-    front, rows: effectiveRows, loading, ready, error, retry, collection: collectionApi, addProductRow,
+    front, rows: effectiveRows, loading, ready, error, retry, collection: collectionApi, addProductRow, removeProductRow,
     // enrichedContext (no el crudo): incluye los DERIVADOS (skuPrefix…) que el filterBy
     // de la tabla necesita para filtrar por prefijo. setContext/setFilter siguen tocando el crudo.
     context: enrichedContext, setContext, setFilter, options: comboOptions, filterData: fetchedOptions, selections, setSelection, locked,
-    state, transitions, transitionFor, fire, canFire,
+    state, transitions, transitionFor, fire, canFire, whyCantFire,
     makeColumns, renderField: (f, row) => renderFieldInRow(f, row, keyField),
     keyField, registry, renderNode,
   }
@@ -525,12 +591,18 @@ export function TrxRuntime({ config, registry, title, subtitle, heading, trxLabe
       {components.map((node, i) => renderNode(node, `${refreshKey}-${i}`))}
 
       {front.collection?.display !== 'drawer' && transitions.some(tr => tr.label) && (
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          {transitions.filter(tr => tr.label).map(tr => (
-            <Button key={tr.on} variant={tr.variant ?? 'default'} onClick={() => fire(tr)} disabled={!canFire(tr)}>
-              {t(tr.label ?? '')}
-            </Button>
-          ))}
+        <div className="flex flex-wrap items-start justify-end gap-2">
+          {transitions.filter(tr => tr.label).map(tr => {
+            const reason = whyCantFire(tr)
+            return (
+              <div key={tr.on} className="flex flex-col items-end gap-1">
+                <Button variant={tr.variant ?? 'default'} onClick={() => fire(tr)} disabled={!canFire(tr)}>
+                  {t(tr.label ?? '')}
+                </Button>
+                {reason && <p className="text-xs text-destructive">{reason}</p>}
+              </div>
+            )
+          })}
         </div>
       )}
     </div>

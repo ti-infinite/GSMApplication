@@ -13,12 +13,15 @@ import type { TrxRegistry } from '../model/runtime'
  *   • config falla    → header + ErrorState (contenido, NO toma toda la pantalla)
  * El error de DATA (LOADCS) se maneja adentro, inline en la tabla.
  */
-export function TrxModule({ prefix, registry, title, subtitle, heading, trxLabel }: {
+export function TrxModule({ prefix, registry, title, subtitle, heading, headingBadge, trxLabel }: {
   prefix:    string
   registry:  TrxRegistry
   title?:    string
   subtitle?: string
   heading?:  string
+  // Id de un computed (registry.computeds) que arma un total/conteo visible junto al heading —
+  // ej. total de la orden en OCM/Factura. Opcional, no toca el JSON del módulo.
+  headingBadge?: string
   trxLabel?: string
 }) {
   const { t } = useTranslation(undefined, { keyPrefix: 'trx' })
@@ -26,7 +29,7 @@ export function TrxModule({ prefix, registry, title, subtitle, heading, trxLabel
 
   // Config OK → el template real. TrxRuntime pinta su propio header + el contenido.
   if (config) {
-    return <TrxRuntime config={config} registry={registry} title={title} subtitle={subtitle} heading={heading} trxLabel={trxLabel} />
+    return <TrxRuntime config={config} registry={registry} title={title} subtitle={subtitle} heading={heading} headingBadge={headingBadge} trxLabel={trxLabel} />
   }
 
   // Cargando / error → header SIEMPRE visible; el estado va en la zona de contenido.

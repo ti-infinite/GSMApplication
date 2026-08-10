@@ -97,15 +97,17 @@ function normField(f: TrxField): TrxField {
 
 // TEMPLATE: arma el árbol de components desde los SLOTS (location/filters/main/collection).
 // Reusa el render existente. Si el config trae `components`, ese path gana (backward-compat).
-function defaultTree(front: FrontConfig, heading?: string): ComponentNode[] {
+function defaultTree(front: FrontConfig, heading?: string, headingBadge?: string): ComponentNode[] {
   const nodes: ComponentNode[] = []
 
   // Filtros: el template ya dejó la ubicación FIJA como filters[0] + los variables.
   const filters = front.filters ?? []
   if (filters.length) nodes.push({ type: 'filters', filters })
 
-  // Título de sección estático (page) entre los filtros y la tabla de productos.
-  if (heading) nodes.push({ type: 'heading', title: heading })
+  // Título de sección estático (page) entre los filtros y la tabla de productos. `headingBadge`
+  // (opcional, prop del módulo — no JSON): id de un computed que arma un total visible siempre,
+  // sin depender de abrir el drawer del carrito (ej. total de la orden en OCM/Factura).
+  if (heading) nodes.push({ type: 'heading', title: heading, badge: headingBadge })
 
   // Tabla principal (slot `main` o legacy `fields`), con field shorthand normalizado.
   const mainTable: ComponentNode = {
@@ -160,7 +162,7 @@ function paramsReady(resource: Resource, ctx: Record<string, string>): boolean {
  */
 // title/subtitle son FIJOS por módulo → los pasa el page (no van en el JSON). A futuro
 // salen de i18n/ruta. Fallback al JSON legacy (front.title) y al prefix.
-export function TrxRuntime({ config, registry, title, subtitle, heading, trxLabel }: { config: JsonConfig; registry: TrxRegistry; title?: string; subtitle?: string; heading?: string; trxLabel?: string }) {
+export function TrxRuntime({ config, registry, title, subtitle, heading, headingBadge, trxLabel }: { config: JsonConfig; registry: TrxRegistry; title?: string; subtitle?: string; heading?: string; headingBadge?: string; trxLabel?: string }) {
   // i18n: traduce labels por su texto (keyPrefix 'trx'). Si no hay traducción, devuelve el
   // propio texto (los labels del JSON van en inglés → sirve de fallback y de key).
   const { t } = useTranslation(undefined, { keyPrefix: 'trx' })
@@ -558,7 +560,7 @@ export function TrxRuntime({ config, registry, title, subtitle, heading, trxLabe
     keyField, registry, renderNode,
   }
 
-  const components = front.components ?? defaultTree(front, heading)
+  const components = front.components ?? defaultTree(front, heading, headingBadge)
 
   return (
     <div className="flex flex-col gap-6">

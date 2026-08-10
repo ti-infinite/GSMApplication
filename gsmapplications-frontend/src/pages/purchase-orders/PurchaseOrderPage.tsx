@@ -1,4 +1,4 @@
-import { buildRegistry, TrxModule, pivotAttributes, DEFAULT_ACTIONS } from '@/entities/trx'
+import { buildRegistry, TrxModule, pivotAttributes, DEFAULT_ACTIONS, formatMoney } from '@/entities/trx'
 import type { Fetcher } from '@/entities/trx'
 import { getFilteredLocations } from '@/shared/api/application/endpoints'
 import type { LocationDTOListApiResponse } from '@/shared/api/application/model'
@@ -105,6 +105,19 @@ const registry = buildRegistry({
       if (row.productionCost == null || row.productionCost === '') return undefined
       return Number(row.productionCost ?? 0) + Number(row.extraCost ?? 0)
     },
+    // Total de la orden (heading badge, `headingBadge="orderTotal"` abajo) — suma qty × unitPrice
+    // del CARRITO (`$items`, no `$rows`: acá lo que se confirma es la collection). Misma fórmula
+    // que `unitPrice` (los items del carrito ya vienen con productionCost/extraCost mergeados,
+    // heredan el enrichBy de cuando estaban en la tabla principal).
+    orderTotal: ({ $items }) => {
+      const items = ($items as Record<string, unknown>[]) ?? []
+      if (!items.length) return null
+      const total = items.reduce((s, r) => {
+        if (r.productionCost == null || r.productionCost === '') return s
+        return s + Number(r.qty ?? 0) * (Number(r.productionCost ?? 0) + Number(r.extraCost ?? 0))
+      }, 0)
+      return formatMoney(total)
+    },
   },
   actions: {
     // createTrx en sí sigue siendo el genérico — no le tocamos nada, solo recibe context y lista
@@ -128,6 +141,7 @@ export default function PurchaseOrderPage() {
       title="purchaseOrder"
       subtitle="purchaseOrderSubtitle"
       heading="createPurchaseOrder"
+      headingBadge="orderTotal"
       trxLabel="order"
     />
   )

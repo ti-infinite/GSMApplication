@@ -749,14 +749,19 @@ function TrxDrawer({ node, ctx }: { node: ComponentNode; ctx: RuntimeCtx }) {
  * El registry del app puede overridear un `type` o agregar tipos nuevos.
  */
 export const DEFAULT_COMPONENTS: Record<string, (node: ComponentNode, ctx: RuntimeCtx) => ReactNode> = {
-  // Encabezado de sección (h2). Opcional: `badge` (computed) → pill con un conteo.
+  // Encabezado de sección (h2). Opcional: `badge` (computed) → pill con un conteo/total.
+  // `$items` = carrito (collection) · `$rows` = tabla principal — módulos SIN carrito
+  // (ej. Factura, `summary:false`) usan `$rows` para un total, los que sí tienen carrito
+  // (ej. OCM) usan `$items`. El computed elige cuál leer.
   heading: (node, ctx) => {
-    const badge = node.badge ? ctx.registry.computeds[node.badge]?.({ $items: ctx.collection.items }) : null
+    const badge = node.badge ? ctx.registry.computeds[node.badge]?.({ $items: ctx.collection.items, $rows: ctx.rows }) : null
     return (
       <div className="flex items-center gap-2">
         <h2 className="text-base font-semibold text-foreground">{ctx.t(node.title ?? '')}</h2>
+        {/* `rounded-lg` (no `rounded-full`): esto ya no es un conteo cortito ("5") sino
+            valores más largos (totales en $) — el pill circular se veía apretado/raro. */}
         {badge != null && badge !== '' && (
-          <span className="rounded-full bg-chart-1/10 px-2.5 py-0.5 text-xs font-medium text-chart-1">{String(badge)}</span>
+          <span className="rounded-lg border border-primary/20 bg-primary/10 px-3 py-1 text-sm font-semibold text-primary">{String(badge)}</span>
         )}
       </div>
     )

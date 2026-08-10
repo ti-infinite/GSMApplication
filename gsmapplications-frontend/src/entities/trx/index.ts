@@ -17,6 +17,7 @@ export { resolveResource, resolveItemValue, httpFetcher } from './model/engine'
 export { DEFAULT_SELECTORS } from './model/selectors'
 export { buildRegistry, DEFAULT_RENDERERS, DEFAULT_GUARDS, DEFAULT_ACTIONS } from './registry'
 export { pivotAttributes } from './model/attributes'
+export { formatMoney } from './model/money'
 export type { Context, Fetcher } from './model/engine'
 export type { TrxAttrPair } from './model/attributes'
 

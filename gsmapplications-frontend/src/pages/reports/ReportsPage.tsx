@@ -46,13 +46,19 @@ function TrxPreviewDialog({ trx, onClose, locationName, supplierName, documentTy
   locationName: (code?: string | null) => string; supplierName: (id?: string) => string; documentTypeName: string
 }) {
   const { t } = useTranslation(undefined, { keyPrefix: 'reports' })
+  // Las keys de pivotAttributes son arbitrarias (cualquier prefix) — pero MUCHAS ya están
+  // traducidas en el namespace 'trx' (price/productTotal/consumption/remaining/paymentMethod/
+  // deliveryDate/observations…, las usa el motor TRX para sus propias columnas/filtros). Se
+  // reusa ESE diccionario ya existente como fallback — si la key no está ahí, cae a titleCase.
+  const { t: tTrx } = useTranslation(undefined, { keyPrefix: 'trx' })
+  const translateKey = (k: string) => tTrx(k, { defaultValue: titleCase(k) })
   const { branding } = useTenant()
   if (!trx) return null
   const headerAttrs = Object.entries(pivotAttributes(trx.trxAttributes))
     .filter(([, v]) => v !== '')
     .map(([k, v]) => k === 'idSupplier'
       ? { key: k, label: t('supplier'), value: supplierName(v) || v }
-      : { key: k, label: titleCase(k), value: v })
+      : { key: k, label: translateKey(k), value: v })
   const products = (trx.trxProducts ?? []).map(p => ({
     name:  p.varietyName ?? p.sku ?? '—',
     qty:   p.qty != null ? `${p.qty}${p.measurementUnit ? ' ' + p.measurementUnit : ''}` : '',
@@ -113,7 +119,7 @@ function TrxPreviewDialog({ trx, onClose, locationName, supplierName, documentTy
               <tr>
                 <th>{t('variety')}</th>
                 <th className="num">{t('qty')}</th>
-                {columnKeys.map(k => <th key={k} className="num">{titleCase(k)}</th>)}
+                {columnKeys.map(k => <th key={k} className="num">{translateKey(k)}</th>)}
               </tr>
             </thead>
             <tbody>

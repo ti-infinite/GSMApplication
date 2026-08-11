@@ -80,6 +80,16 @@ export function resolveItemValue(data: unknown, item: TrxItem): unknown {
   return getValueByPath(data, item.selectorValue)
 }
 
+// Gate genérico: ¿todos los params que el resource saca del CONTEXT (location, trxDocument…)
+// tienen valor? Reusado por la tabla principal (no fetchea sin finca), los combos-desde-resource
+// (no cargan opciones hasta tener sus params) y el evento ENRICH_READY (no deja confirmar sin
+// ellos). Un solo lugar para la regla del gate.
+export function paramsReady(resource: Resource, ctx: Record<string, string>): boolean {
+  return resource.parameters
+    .filter(p => (p.sourceType ?? 'CONTEXT') === 'CONTEXT')
+    .every(p => String(ctx[p.values?.[0] ?? p.value ?? p.keyValue ?? p.key] ?? '') !== '')
+}
+
 /**
  * Fetcher genérico: usa el MISMO mutator que orval (operationsFetch), pero con la
  * URL que viene del JSON (resource.endpoint) + los params resueltos. Sirve para

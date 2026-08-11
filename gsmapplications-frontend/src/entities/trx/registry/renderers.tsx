@@ -8,13 +8,16 @@ import type { CellRenderCtx, TrxField } from '../model/runtime'
 import { unitOptionsFor, toBaseUnit, fromBaseUnit } from '../model/units'
 import { formatMoney } from '../model/money'
 
-// ¿La qty deja el stock negativo? (`field.max` = columna del disponible, ej. "remaining"). Marca el input
-// en rojo → señala JUSTO el dato incorrecto. Mismo criterio que el addButton (remaining + qty < 0).
-function overMax(field: TrxField, row: Record<string, unknown>): boolean {
-  if (!field?.max) return false
-  const max = Number(row[field.max])
+// ¿La qty deja el stock negativo? Se activa con `sign`/`negate` (ya dicen "esto resta stock",
+// no hace falta un tag `max` aparte) comparado siempre contra `remaining` de la MISMA fila —
+// convención fija, igual en todo módulo que lo usa. Marca el input en rojo → señala JUSTO el
+// dato incorrecto. Exportada: la usa también `addButton` de acá abajo y el evento STOCK_LIMIT
+// (registry/events.ts, cuando el módulo lo declara en `event`) — un solo cálculo, un lugar.
+export function overMax(field: TrxField, row: Record<string, unknown>): boolean {
+  if (!field.sign && !field.negate) return false
+  const remaining = Number(row.remaining)
   const val = Number(row[field.selectorValue ?? ''])
-  return Number.isFinite(max) && Number.isFinite(val) && max + val < 0
+  return Number.isFinite(remaining) && Number.isFinite(val) && remaining + val < 0
 }
 const errBorder = (over: boolean, focusWithin = false) =>
   over
@@ -73,7 +76,10 @@ function InputUnitSelect({ value, row, field, setValue }: CellRenderCtx): ReactN
       <input
         type="text" inputMode="decimal" value={text}
         onChange={e => onText(e.target.value)}
-        onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
+        // select(): al hacer click en un campo que ya tiene "0" (valor real, no placeholder),
+        // el cursor solo se posicionaba ahí — tipear insertaba junto al 0 ("090") en vez de
+        // reemplazarlo. Seleccionar todo al entrar hace que tipear lo reemplace de una.
+        onFocus={e => { setFocused(true); e.target.select() }} onBlur={() => setFocused(false)}
         placeholder="0"
         className="w-16 min-w-0 rounded-l-md bg-transparent px-2 py-1 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
       />
@@ -110,10 +116,14 @@ function InputUnitSelect({ value, row, field, setValue }: CellRenderCtx): ReactN
 function MoneyInput({ value, field, setValue }: CellRenderCtx): ReactNode {
   const allowNeg = field.sign === true
   const [focused, setFocused] = useState(false)
-  const [text, setText] = useState(value == null || value === '' ? '' : String(value))
+  // 0 se trata como vacío TAMBIÉN acá (no solo en `display` sin foco) — si no, al hacer click
+  // aparecía un "0" real que había que seleccionar/borrar antes de tipear (fácil de pasar por
+  // alto y terminar escribiendo "098784"). Así el campo arranca en blanco directo.
+  const isZero = (v: unknown) => v != null && v !== '' && Number(v) === 0
+  const [text, setText] = useState(value == null || value === '' || isZero(value) ? '' : String(value))
 
   useEffect(() => {
-    if (!focused) setText(value == null || value === '' ? '' : String(value))
+    if (!focused) setText(value == null || value === '' || isZero(value) ? '' : String(value))
   }, [value, focused])
 
   const onChange = (raw: string) => {
@@ -134,7 +144,7 @@ function MoneyInput({ value, field, setValue }: CellRenderCtx): ReactNode {
   return (
     <input
       type="text" inputMode="decimal" value={display}
-      onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
+      onFocus={e => { setFocused(true); e.target.select() }} onBlur={() => setFocused(false)}
       onChange={e => onChange(e.target.value)} placeholder={formatMoney(0)}
       className="w-28 min-w-0 rounded-md border border-border bg-background px-2 py-1 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
     />
@@ -197,6 +207,7 @@ export const DEFAULT_RENDERERS: Record<string, (ctx: CellRenderCtx) => ReactNode
       type="number" min="0" inputMode="numeric"
       value={value == null || value === '' ? '' : String(value)}
       onChange={e => setValue(e.target.value.replace(/[^0-9.]/g, ''))}
+      onFocus={e => e.target.select()}
       placeholder="0"
       className={`w-24 min-w-0 rounded-md border bg-background px-2 py-1 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 ${errBorder(overMax(field, row))}`}
     />
@@ -214,6 +225,7 @@ export const DEFAULT_RENDERERS: Record<string, (ctx: CellRenderCtx) => ReactNode
           type={signed ? 'text' : 'number'} inputMode="decimal" min={signed ? undefined : '0'}
           value={value == null || value === '' ? '' : String(value)}
           onChange={e => { let v = e.target.value.replace(signed ? /[^0-9.-]/g : /[^0-9.]/g, ''); if (signed && v.lastIndexOf('-') > 0) v = v.replace(/-/g, ''); setValue(v) }}
+          onFocus={e => e.target.select()}
           placeholder={signed ? '±0' : '0'}
           className={`w-20 min-w-0 rounded-md border bg-background px-2 py-1 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 ${errBorder(overMax(field, row))}`}
         />
@@ -271,6 +283,7 @@ export const DEFAULT_RENDERERS: Record<string, (ctx: CellRenderCtx) => ReactNode
         type="number" min="0" inputMode="decimal"
         value={value == null || value === '' ? '' : String(value)}
         onChange={e => setValue(e.target.value.replace(/[^0-9.]/g, ''))}
+        onFocus={e => e.target.select()}
         placeholder="0"
         className="w-20 min-w-0 rounded-md border border-border bg-background px-2 py-1 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
       />
@@ -287,6 +300,7 @@ export const DEFAULT_RENDERERS: Record<string, (ctx: CellRenderCtx) => ReactNode
       type="text" inputMode="decimal"
       value={value == null || value === '' ? '' : String(value)}
       onChange={e => { let v = e.target.value.replace(/[^0-9.-]/g, ''); if (v.lastIndexOf('-') > 0) v = v.replace(/-/g, ''); setValue(v) }}
+      onFocus={e => e.target.select()}
       placeholder="±0"
       className={`w-24 min-w-0 rounded-md border bg-background px-2 py-1 text-right text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 ${errBorder(overMax(field, row))}`}
     />
@@ -299,6 +313,7 @@ export const DEFAULT_RENDERERS: Record<string, (ctx: CellRenderCtx) => ReactNode
         type="text" inputMode="decimal"
         value={value == null || value === '' ? '' : String(value)}
         onChange={e => { let v = e.target.value.replace(/[^0-9.-]/g, ''); if (v.lastIndexOf('-') > 0) v = v.replace(/-/g, ''); setValue(v) }}
+        onFocus={e => e.target.select()}
         placeholder="±0"
         className="w-24 min-w-0 rounded-md border border-border bg-background px-2 py-1 text-right text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
       />
@@ -312,17 +327,21 @@ export const DEFAULT_RENDERERS: Record<string, (ctx: CellRenderCtx) => ReactNode
   // (`qty`, el campo estándar) está vacía o en 0. Permite NEGATIVOS (ajustes -/+); quién
   // controla si se pueden tipear negativos es el input (`sign: true` sí, si no, no).
   addButton: ({ row, field, collection, keyField, t }) => {
-    const qty = Number(row.qty)
-    const emptyQty = row.qty == null || row.qty === '' || Number.isNaN(qty) || qty === 0
-    // Tope declarativo: si el campo trae `max` (ej. "remaining"), la qty (CON signo) aplicada a ese
-    // stock no puede dejarlo negativo → `remaining + qty ≥ 0`. Sirve para gasto (siempre resta) y
-    // ajuste (solo el lado negativo topa; sumar es libre). Deshabilita agregar + avisa.
-    const max  = field.max ? Number(row[field.max]) : null
-    const over = !emptyQty && max != null && Number.isFinite(max) && max + qty < 0
+    // `field.selectorValue` (no `row.qty` fijo): esta columna puede editar cualquier campo,
+    // no siempre se llama "qty" — antes quedaba mudo si algún día no lo era.
+    const qtyKey = field.selectorValue ?? 'qty'
+    const qty = Number(row[qtyKey])
+    const emptyQty = row[qtyKey] == null || row[qtyKey] === '' || Number.isNaN(qty) || qty === 0
+    // Tope: si el campo tiene `sign`/`negate` (resta stock), la qty aplicada a `remaining` de la
+    // misma fila no puede dejarlo negativo. Sirve para gasto (siempre resta) y ajuste (solo el
+    // lado negativo topa; sumar es libre). Deshabilita agregar + avisa. Mismo cálculo que el
+    // borde rojo del input y que el evento STOCK_LIMIT (registry/events.ts) — `overMax` de arriba.
+    const remaining = Number(row.remaining)
+    const over = !emptyQty && overMax(field, row)
     // Sin crecer la fila: el + se pone ROJO (destructive) + Tooltip (nuestro, con el theme del tenant)
     // con el motivo (hover), en vez de texto abajo. El span envuelve el botón deshabilitado para
     // que capture el hover (un `disabled` no dispara eventos por sí solo).
-    const overMsg = over ? (t?.('overMax', { max }) ?? `Supera el disponible (${max})`) : undefined
+    const overMsg = over ? (t?.('overMax', { max: remaining }) ?? `Supera el disponible (${remaining})`) : undefined
     const addBtn = (
       <Button
         size="icon"
@@ -377,6 +396,7 @@ export const DEFAULT_RENDERERS: Record<string, (ctx: CellRenderCtx) => ReactNode
           disabled={!row.rejected && !row._added}
           value={value == null || value === '' ? '' : String(value)}
           onChange={e => setValue(e.target.value.replace(/[^0-9.]/g, ''))}
+          onFocus={e => e.target.select()}
           placeholder="0"
           className={`w-24 min-w-0 rounded-md border bg-background px-2 py-1 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60 ${errBorder(overMax(field, row))}`}
         />

@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { format } from 'date-fns'
-import { ChevronDown, Check, Plus, Search, Filter, X, Trash2, CalendarIcon } from 'lucide-react'
+import { toast } from 'sonner'
+import { ChevronDown, Check, Plus, Search, Filter, X, Trash2, CalendarIcon, Loader2 } from 'lucide-react'
 import { Combobox } from '@/shared/ui/combobox'
 import { Button } from '@/shared/ui/button'
 import { DataTable, type TableColumn } from '@/shared/ui/data-table'
@@ -11,7 +12,8 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuIte
 import { Popover, PopoverTrigger, PopoverContent } from '@/shared/ui/popover'
 import { Calendar } from '@/shared/ui/calendar'
 import { getValueByPath } from '@/shared/lib/pathResolver'
-import type { ComponentNode, RuntimeCtx, SearchConfig, FilterConfig, TrxField, WfButton, WfTransition } from '../model/runtime'
+import type { ComponentNode, RuntimeCtx, SearchConfig, FilterConfig, TrxField } from '../model/runtime'
+import { overMax } from '../registry/renderers'
 
 const countBadge = (n: number) => (
   <span className="shrink-0 rounded-md bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">{n}</span>
@@ -23,33 +25,6 @@ const COL_SPAN: Record<number, string> = {
 }
 const GRID_COLS: Record<number, string> = {
   2: 'lg:grid-cols-2', 3: 'lg:grid-cols-3', 4: 'lg:grid-cols-4', 10: 'lg:grid-cols-10', 12: 'lg:grid-cols-12',
-}
-// Botones (WfButton) → transiciones salientes del estado actual; label del front.
-// `align` (end/center/start) → fila con ancho automático; sin él, apilado full-width.
-function buttonBar(buttons: WfButton[], ctx: RuntimeCtx, align?: string) {
-  const pairs = buttons
-    .map(b => ({ b, t: ctx.transitionFor(b.on) }))
-    .filter((x): x is { b: WfButton; t: WfTransition } => !!x.t)
-  if (pairs.length === 0) return null
-  const inline = align === 'end' || align === 'center' || align === 'start'
-  const wrap = inline
-    ? `flex flex-wrap items-start gap-3 ${align === 'end' ? 'justify-end' : align === 'center' ? 'justify-center' : 'justify-start'}`
-    : 'flex flex-col gap-3'
-  return (
-    <div className={wrap}>
-      {pairs.map(({ b, t }) => {
-        const reason = ctx.whyCantFire(t)
-        return (
-          <div key={b.on} className={`flex flex-col gap-1 ${inline ? '' : 'w-full'}`}>
-            <Button variant={b.variant ?? 'default'} onClick={() => ctx.fire(t)} disabled={!ctx.canFire(t)} className={inline ? '' : 'w-full'}>
-              {ctx.t(b.label)}
-            </Button>
-            {reason && <p className="text-xs text-destructive">{reason}</p>}
-          </div>
-        )
-      })}
-    </div>
-  )
 }
 
 // Buscador simple: combo de catálogo → al elegir agrega a la collection.
@@ -215,12 +190,10 @@ function CatalogPicker({ cfg, ctx }: { cfg: SearchConfig; ctx: RuntimeCtx }) {
 // Picker "Cargar insumo": botón junto al buscador → cascada categoría→subcategoría (REUSA
 // las categorías ya traídas, sin re-fetch) + lista del catálogo (1 solo llamado) filtrada
 // por el skuPrefix de la subcategoría elegida en el picker. Elegir agrega la fila a la tabla.
-function AddProductPicker({ ctx, source }: { ctx: RuntimeCtx; source: string }) {
+function AddProductPicker({ ctx, source, categoryFilters }: { ctx: RuntimeCtx; source: string; categoryFilters: FilterConfig[] }) {
   const [open, setOpen]       = useState(false)
   const [catalog, setCatalog] = useState<Record<string, unknown>[]>([])
-  const [ownCats, setOwnCats] = useState<Record<string, unknown>[]>([])   // categorías propias (fallback si el módulo no tiene filtro category)
   const [query, setQuery]     = useState('')
-  const [sel, setSel]         = useState<{ category?: string; subcategory?: string }>({})
   const [pos, setPos]         = useState<{ top: number; left: number; width: number } | null>(null)
   const btnRef = useRef<HTMLButtonElement>(null)
 
@@ -235,26 +208,11 @@ function AddProductPicker({ ctx, source }: { ctx: RuntimeCtx; source: string }) 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, source])
 
-  // Categorías: si el módulo YA las trae por un filtro (ctx.filterData.category), se reusan; si no
-  // (ej. OC, sin filtro category), el picker las trae él mismo con el fetcher CATEGORIES → auto-suficiente.
-  useEffect(() => {
-    if (!open || (ctx.filterData.category?.length ?? 0) > 0 || ownCats.length) return
-    const f = ctx.registry.fetchers.CATEGORIES
-    if (!f) return
-    let cancel = false
-    void f('CATEGORIES', {}).then(e => { if (!cancel) setOwnCats(Array.isArray(e.data) ? e.data as Record<string, unknown>[] : []) })
-    return () => { cancel = true }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open])
-
-  // Cascada: reusa las categorías del filtro (sin re-fetch) o las que trajo el picker (fallback).
-  const cats     = ((ctx.filterData.category?.length ? ctx.filterData.category : ownCats) ?? []) as Record<string, unknown>[]
-  const catObj   = cats.find(c => String(c.IdCategory ?? '') === (sel.category ?? ''))
-  const subs     = (catObj?.Children as Record<string, unknown>[] | undefined) ?? []
-  const subObj   = subs.find(s => String(s.IdCategory ?? '') === (sel.subcategory ?? ''))
-  const catOpts  = cats.map(c => ({ value: String(c.IdCategory ?? ''), label: String(c.Descr ?? '') }))
-  const subOpts  = subs.map(s => ({ value: String(s.IdCategory ?? ''), label: String(s.Descr ?? '') }))
-  const skuPrefix = String((subObj ?? catObj)?.AggregatedCode ?? '')
+  // Categoría/subcategoría YA NO son propias de este picker (antes tenía su propia cascada,
+  // duplicada visualmente con la de la tabla) — hereda el `skuPrefix` que YA calcula el motor
+  // (el mismo `derive` que usa el filtro de la tabla principal). Sin nada elegido arriba,
+  // `skuPrefix` es '' → busca en TODO el catálogo, sin restringir.
+  const skuPrefix = ctx.context.skuPrefix ?? ''
 
   const kf        = ctx.keyField
   const inTable   = new Set(ctx.rows.map(r => String(r[kf] ?? '')))
@@ -294,26 +252,42 @@ function AddProductPicker({ ctx, source }: { ctx: RuntimeCtx; source: string }) 
           <div style={{ position: 'fixed', inset: 0, zIndex: 9998 }} onClick={() => setOpen(false)} />
           <div style={{ position: 'fixed', top: pos.top, left: pos.left, width: pos.width, zIndex: 9999 }}
             className="flex flex-col gap-3 rounded-xl border border-border bg-popover p-3 shadow-[0_8px_30px_rgb(0,0,0,0.12)] ring-1 ring-black/5">
-            <div className="grid grid-cols-2 gap-2">
-              <Combobox size="sm" options={catOpts} value={sel.category ?? ''}
-                onChange={v => setSel({ category: v })} placeholder={ctx.t('category')} />
-              <Combobox size="sm" options={subOpts} value={sel.subcategory ?? ''}
-                onChange={v => setSel(s => ({ ...s, subcategory: v }))} disabled={!sel.category} placeholder={ctx.t('subcategory')} />
-            </div>
+            {/* Mismo estado que los combos de la barra (ctx.context/ctx.setFilter) — no uno propio:
+                podés acotar la búsqueda sin cerrar el popover, y como es el MISMO valor, la tabla
+                principal queda igual de filtrada, sin nada que sincronizar a mano. */}
+            {categoryFilters.length > 0 && (
+              <div className="grid grid-cols-2 gap-2">
+                {categoryFilters.map(f => (
+                  <Combobox key={f.key} size="sm"
+                    options={ctx.options[f.key] ?? []}
+                    value={ctx.context[f.key] ?? ''}
+                    onChange={v => ctx.setFilter(f.key, v)}
+                    placeholder={ctx.t(f.placeholder ?? f.label)}
+                    disabled={ctx.locked.has(f.key)}
+                  />
+                ))}
+              </div>
+            )}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
               <input value={query} onChange={e => setQuery(e.target.value)} placeholder={ctx.t('searchSupply')}
                 className="w-full min-w-0 rounded-lg border border-border bg-background py-1.5 pl-8 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
             </div>
             <div className="max-h-56 overflow-y-auto rounded-lg border border-border">
-              {!skuPrefix ? (
-                <p className="px-3 py-4 text-center text-sm text-muted-foreground">{ctx.t('selectCategoryFirst')}</p>
-              ) : filtered.length === 0 ? (
+              {filtered.length === 0 ? (
                 <p className="px-3 py-4 text-center text-sm text-muted-foreground">{ctx.t('noResults')}</p>
               ) : filtered.map(p => (
                 <div key={String(p[kf] ?? '')} className="flex items-center justify-between gap-2 px-3 py-2 text-sm hover:bg-muted/50">
                   <span className="truncate text-foreground">{String(p.varietyName ?? '')}</span>
-                  <button type="button" onClick={() => { ctx.addProductRow(p); setQuery('') }} aria-label="Agregar"
+                  <button type="button" onClick={() => {
+                    ctx.addProductRow(p)
+                    setQuery('')
+                    // Limpia SOLO la subcategoría (no la categoría): es el filtro compartido con
+                    // la tabla — si quedara puesta, después de agregar la tabla se ve angosta
+                    // ("solo veo el que acabo de agregar") hasta limpiarla a mano.
+                    if (categoryFilters.some(f => f.key === 'subcategory')) ctx.setFilter('subcategory', '')
+                    toast.success(ctx.t('supplyAdded', { name: String(p.varietyName ?? '') }))
+                  }} aria-label="Agregar"
                     className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-primary/30 bg-primary/10 text-primary hover:bg-primary/20">
                     <Plus className="h-3.5 w-3.5" />
                   </button>
@@ -474,7 +448,8 @@ function TrxTable({ node, ctx }: { node: ComponentNode; ctx: RuntimeCtx }) {
   const isCollection = node.source === 'collection'
   const raw = isCollection ? ctx.collection.items : ctx.rows
   const kf  = node.rowKey ?? ctx.keyField
-  const { search, select, dynamicFields: df } = node
+  const { search, select, dynamicFields: df, categoryFilters: catFilters } = node
+  const categoryFilters = catFilters ?? []
 
   // Filtro cliente por context (ej. categoría → skuPrefix): la fila entra si
   // row[field] empieza con context[prefixFrom]. Vacío = no filtra. Aplica IGUAL a las filas
@@ -494,9 +469,9 @@ function TrxTable({ node, ctx }: { node: ComponentNode; ctx: RuntimeCtx }) {
   const showAddPicker = !isCollection && !!ctx.registry.fetchers.CATALOG && node.addSupply !== false
 
   // "Agregar todos": solo donde ya hay `addButton` por fila (mismo criterio de validez que el
-  // botón individual — qty>0 y sin pasarse del `max` de esa fila; respeta el buscador/filtro
-  // de esta tabla, usa `data` no `raw`) — NO reemplaza el `+` individual, va como HEADER de esa
-  // misma columna (antes vacío) en vez de un botón aparte en la barra.
+  // botón individual — qty>0 y sin dejar `remaining` en negativo si el campo resta stock;
+  // respeta el buscador/filtro de esta tabla, usa `data` no `raw`) — NO reemplaza el `+`
+  // individual, va como HEADER de esa misma columna (antes vacío) en vez de un botón aparte.
   const qtyField = (node.fields ?? []).find(f => f.selectorValue === 'qty')
   const addAll = () => {
     for (const row of data) {
@@ -504,35 +479,52 @@ function TrxTable({ node, ctx }: { node: ComponentNode; ctx: RuntimeCtx }) {
       if (ctx.collection.has(id)) continue
       const qty = Number(row.qty)
       if (row.qty == null || row.qty === '' || Number.isNaN(qty) || qty === 0) continue
-      if (qtyField?.max) {
-        const max = Number(row[qtyField.max])
-        if (Number.isFinite(max) && max + qty < 0) continue
-      }
+      if (qtyField && overMax(qtyField, row)) continue
       ctx.collection.add(row)
     }
   }
 
-  const tb = node.title || search || select || node.rowFilter || showAddPicker ? (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex items-center gap-3">
-        {node.title && (
-          <div className="flex items-center gap-2">
-            <h2 className="text-sm font-semibold text-foreground">{ctx.t(node.title)}</h2>{countBadge(raw.length)}
-          </div>
-        )}
-        {search && renderSearch(search, ctx)}
-      </div>
-      <div className="flex items-center gap-2">
-        {showAddPicker && <AddProductPicker ctx={ctx} source="CATALOG" />}
-        {node.rowFilter && (
-          <div className="relative flex-1 sm:w-56">
-            <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-            <input value={q} onChange={e => setQ(e.target.value)} placeholder={ctx.t(String(node.placeholder ?? 'search'))}
-              className="w-full min-w-0 rounded-lg border border-border bg-background py-1.5 pl-8 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
-          </div>
-        )}
-        {select && <TrxMultiSelect node={node} ctx={ctx} />}
-      </div>
+  const tb = node.title || search || select || node.rowFilter || showAddPicker || categoryFilters.length ? (
+    // UNA sola fila `flex-wrap` — "Cargar insumo" pegado a la derecha con `ml-auto` (queda
+    // igual que antes, full a la derecha) mientras se retoma esto con una referencia visual.
+    <div className="flex flex-wrap items-center gap-3">
+      {node.title && (
+        <div className="flex items-center gap-2">
+          <h2 className="text-sm font-semibold text-foreground">{ctx.t(node.title)}</h2>{countBadge(raw.length)}
+        </div>
+      )}
+      {search && renderSearch(search, ctx)}
+      {node.rowFilter && (
+        // `w-full sm:w-64` (no `flex-1`): antes crecía a llenar todo el espacio sobrante del
+        // toolbar porque `flex-1` le ganaba al ancho fijo — quedaba gigante en desktop.
+        <div className="relative w-full sm:w-64">
+          <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+          <input value={q} onChange={e => setQ(e.target.value)} placeholder={ctx.t(String(node.placeholder ?? 'search'))}
+            className="w-full min-w-0 rounded-lg border border-border bg-background py-1.5 pl-8 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+        </div>
+      )}
+      {/* Categoría/subcategoría YA NO son un filtro de módulo — viven fijas acá, siempre
+          visibles (sin popover/botón — fijo por registry: si el módulo tiene CATEGORIES,
+          aparecen solas, nada que declarar en el JSON). Sin label (solo placeholder) para
+          no ocupar tanto alto en la barra. */}
+      {categoryFilters.map(f => (
+        <div key={f.key} className="w-36 sm:w-44">
+          <Combobox
+            options={ctx.options[f.key] ?? []}
+            value={ctx.context[f.key] ?? ''}
+            onChange={v => ctx.setFilter(f.key, v)}
+            placeholder={ctx.t(f.placeholder ?? f.label)}
+            disabled={ctx.locked.has(f.key)}
+            size="sm"
+          />
+        </div>
+      ))}
+      {(showAddPicker || select) && (
+        <div className="ml-auto flex items-center gap-2">
+          {showAddPicker && <AddProductPicker ctx={ctx} source="CATALOG" categoryFilters={categoryFilters} />}
+          {select && <TrxMultiSelect node={node} ctx={ctx} />}
+        </div>
+      )}
     </div>
   ) : undefined
 
@@ -673,7 +665,7 @@ function TrxTable({ node, ctx }: { node: ComponentNode; ctx: RuntimeCtx }) {
       toolbar={tb}
       renderExpanded={renderExpanded}
       mobileCard={mobileCard}
-      pageSize={10}
+      pageSize={25}
     />
   )
 }
@@ -721,14 +713,17 @@ function TrxDrawer({ node, ctx }: { node: ComponentNode; ctx: RuntimeCtx }) {
               const ts = ctx.transitions.filter(t => t.label)   // acciones del workflow del estado actual
               return ts.length ? (
                 <div className="flex flex-col gap-2 border-t border-border px-5 py-4">
-                  {ts.map(t => {
-                    const reason = ctx.whyCantFire(t)
+                  {ts.map((t, i) => {
+                    const reason = ctx.blockReason(t)
                     return (
-                      <div key={t.on} className="flex flex-col gap-1">
+                      <div key={t.label ?? i} className="flex flex-col gap-1">
                         <Button variant={t.variant ?? 'default'} onClick={() => ctx.fire(t)} disabled={!ctx.canFire(t)} className="w-full">
+                          {ctx.submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                           {ctx.t(t.label ?? '')}
                         </Button>
-                        {reason && <p className="text-center text-xs text-destructive">{reason}</p>}
+                        {/* Neutro, no destructive: "falta completar X" es guía, no un error —
+                            el rojo se ve como que algo salió mal apenas se entra al módulo. */}
+                        {reason && <p className="text-center text-xs text-muted-foreground">{reason}</p>}
                       </div>
                     )
                   })}
@@ -756,12 +751,15 @@ export const DEFAULT_COMPONENTS: Record<string, (node: ComponentNode, ctx: Runti
   heading: (node, ctx) => {
     const badge = node.badge ? ctx.registry.computeds[node.badge]?.({ $items: ctx.collection.items, $rows: ctx.rows }) : null
     return (
-      <div className="flex items-center gap-2">
+      // `justify-between`: antes el título y el badge quedaban pegados a la izquierda aunque
+      // la fila ocupara todo el ancho (el div es block, no encoge a su contenido) — el badge
+      // se veía apretado contra el texto en vez de separado, limpio, a la derecha.
+      <div className="flex items-center justify-between gap-2">
         <h2 className="text-base font-semibold text-foreground">{ctx.t(node.title ?? '')}</h2>
         {/* `rounded-lg` (no `rounded-full`): esto ya no es un conteo cortito ("5") sino
             valores más largos (totales en $) — el pill circular se veía apretado/raro. */}
         {badge != null && badge !== '' && (
-          <span className="rounded-lg border border-primary/20 bg-primary/10 px-3 py-1 text-sm font-semibold text-primary">{String(badge)}</span>
+          <span className="rounded-lg border border-primary/20 bg-primary/10 px-3.5 py-1.5 text-base font-semibold text-primary">{String(badge)}</span>
         )}
       </div>
     )
@@ -878,7 +876,4 @@ export const DEFAULT_COMPONENTS: Record<string, (node: ComponentNode, ctx: Runti
   search: (node, ctx) => renderSearch(node.search ?? {
     source: String(node.source ?? ''), optionValue: node.optionValue, optionLabel: node.optionLabel, placeholder: node.placeholder,
   }, ctx),
-
-  // Botones sueltos (para módulos de una tabla). `align` → fila con ancho automático.
-  actions: (node, ctx) => buttonBar(node.buttons ?? [], ctx, node.align),
 }

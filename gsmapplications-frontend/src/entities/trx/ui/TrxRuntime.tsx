@@ -287,14 +287,16 @@ export function TrxRuntime({ config, registry, title, subtitle, heading, heading
         const set = (data: unknown) => { if (!cancelled) setFetchedOptions(prev => ({ ...prev, [f.key]: Array.isArray(data) ? (data as unknown[]) : [] })) }
         // Gate: sin los params completos (ej. falta location) → sin opciones (limpia lo previo).
         // Sin toast acá: todavía no es "no hay resultados", es "faltan filtros".
-        if (!paramsReady(resource, enrichedContext)) { set([]); continue }
+        if (!paramsReady(resource, enrichedContext)) { set([]); clearStaleSelection(f, []); continue }
         let data: unknown
         try { data = await resolveResource(resource, enrichedContext, fetcherFor(resource), set) }
         catch { data = [] }
         set(data)
+        const list = Array.isArray(data) ? data : []
+        clearStaleSelection(f, list)
         // Efecto solo re-corre cuando resFiltersKey cambia (params de ESTE resource) → un
         // toast por combinación real de filtros elegida, no en cada render.
-        if (!cancelled && Array.isArray(data) && data.length === 0) {
+        if (!cancelled && list.length === 0) {
           const locationLabel = comboOptions.location?.find(o => o.value === enrichedContext.location)?.label ?? enrichedContext.location ?? ''
           // `text-primary` → var(--primary): sigue el color del TENANT activo (TenantProvider lo
           // pisa en runtime), no un color fijo. Solo el ícono — sin borde de acento (se ve
@@ -306,6 +308,26 @@ export function TrxRuntime({ config, registry, title, subtitle, heading, heading
       }
     })()
     return () => { cancelled = true }
+    // Real bug reportado: cambiar `location` NO limpiaba `trxDocument` (combo-desde-resource,
+    // no usa `dependsOn`/cascada de opción — su "padre" es un PARAM del resource, no una opción
+    // elegida) — el valor elegido quedaba "fantasma" en el context (el combo se veía vacío
+    // porque ya no hay opción con ese label, pero el resource principal seguía disparando con
+    // el trxDocument viejo → tabla nunca se vaciaba). Se limpia acá apenas la lista de opciones
+    // deja de incluir el valor actualmente elegido — sin importar POR QUÉ cambió la lista.
+    function clearStaleSelection(f: FilterConfig, list: unknown[]) {
+      const current = context[f.key]
+      if (!current) return
+      const valOf = (o: unknown) => (o != null && typeof o === 'object' ? String((o as Record<string, unknown>)[f.optionValue] ?? '') : String(o ?? ''))
+      if (list.some(o => valOf(o) === current)) return
+      if (cancelled) return
+      setContext(c => {
+        if (!c[f.key]) return c
+        const next = { ...c }
+        delete next[f.key]
+        for (const other of filters) if (other.dependsOn === f.key) delete next[other.key]
+        return next
+      })
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resFiltersKey, refreshKey])
 

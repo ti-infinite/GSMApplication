@@ -3,11 +3,13 @@ import { DEFAULT_RENDERERS } from './renderers'
 import { DEFAULT_GUARDS } from './guards'
 import { DEFAULT_ACTIONS } from './actions'
 import { DEFAULT_EVENTS } from './events'
+import { DEFAULT_COMPUTEDS } from './computeds'
 
 export { DEFAULT_RENDERERS } from './renderers'
 export { DEFAULT_GUARDS } from './guards'
 export { DEFAULT_ACTIONS } from './actions'
 export { DEFAULT_EVENTS } from './events'
+export { DEFAULT_COMPUTEDS } from './computeds'
 
 /**
  * Une el KIT BASE (renderers/guards genéricos del motor) con lo ESPECÍFICO del
@@ -18,7 +20,7 @@ export { DEFAULT_EVENTS } from './events'
 export function buildRegistry(module: Partial<TrxRegistry>): TrxRegistry {
   return {
     fetchers:   { ...module.fetchers },
-    computeds:  { ...module.computeds },
+    computeds:  { ...DEFAULT_COMPUTEDS, ...module.computeds },
     renderers:  { ...DEFAULT_RENDERERS, ...module.renderers },
     selectors:  { ...module.selectors },
     valueSources: { ...module.valueSources },

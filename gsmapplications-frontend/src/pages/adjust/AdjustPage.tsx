@@ -12,10 +12,8 @@ const num = (v: unknown) => Number(v ?? 0) || 0
 const registry = buildRegistry({
   fetchers: { LOCATIONS: locationsFetcher, CATEGORIES: categoriesFetcher, CATALOG: catalogFetcher },
   computeds: {
-    skuPrefix: ctx => {
-      const opts = (ctx.$options ?? {}) as Record<string, { AggregatedCode?: string } | undefined>
-      return (opts.subcategory ?? opts.category)?.AggregatedCode ?? ''
-    },
+    // skuPrefix (category/subcategory → filtro de sku) es un DEFAULT_COMPUTEDS del motor
+    // (registry/computeds.ts) — no hace falta redeclararlo acá.
     // nuevo total = existencia (remaining) ± ajuste (qty), no baja de 0.
     newTotal: r => Math.max(0, num(r.remaining) + num(r.qty)),
   },

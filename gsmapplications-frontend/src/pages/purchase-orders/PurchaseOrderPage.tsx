@@ -1,11 +1,9 @@
-import { buildRegistry, TrxModule, pivotAttributes, DEFAULT_ACTIONS, formatMoney } from '@/entities/trx'
+import { buildRegistry, TrxModule, pivotAttributes, formatMoney } from '@/entities/trx'
 import type { Fetcher } from '@/entities/trx'
-import { getFilteredLocations } from '@/shared/api/application/endpoints'
-import type { LocationDTOListApiResponse } from '@/shared/api/application/model'
-import { getTransaction, getFilteredSuppliers, getFilteredVarieties, getCategories, getMasterProducts } from '@/shared/api/operations/endpoints'
+import { locationsFetcher, categoriesFetcher, catalogFetcher } from '@/shared/lib/trxFetchers'
+import { getTransaction, getFilteredSuppliers, getFilteredVarieties } from '@/shared/api/operations/endpoints'
 import type {
   TrxResponseDTOListApiResponse, SupplierDTOListApiResponse, VarietyCostBySupplierDTOListApiResponse,
-  StringApiResponse, MasterProductDTOListApiResponse,
 } from '@/shared/api/operations/model'
 
 const PREFIX = 'OCM'   // Orden de Compra — TrxDefinition + cabeza del trxId
@@ -18,14 +16,6 @@ const PREFIX = 'OCM'   // Orden de Compra — TrxDefinition + cabeza del trxId
  * ─────────────────────────────────────────────────────────────────────────── */
 
 const envelope = (data: unknown[]) => ({ success: 'true', message: '', data, traceId: null })
-
-// Ubicación (gate).
-const fincasFetcher: Fetcher = async () => {
-  const res  = await getFilteredLocations()
-  const locs = (res.data as LocationDTOListApiResponse | undefined)?.data ?? []
-  const data = locs.map(l => ({ location: l.codeLocation ?? '', name: l.descr ?? l.codeLocation ?? '' }))
-  return envelope(data)
-}
 
 // Líneas del requerimiento: filtered-trx({ trxDocument }) → data[0].trxProducts, atributos pivoteados.
 const searchMissingTrx: Fetcher = async (_process, params) => {
@@ -43,17 +33,11 @@ const searchMissingTrx: Fetcher = async (_process, params) => {
 }
 
 
-let supplierEmailById: Record<string, string> = {}
-
-// Proveedores: filtered-suppliers → SupplierDTO[] (idSupplier/nameSupplier).
+// Proveedores: filtered-suppliers → SupplierDTO[] (idSupplier/nameSupplier/contact — el `contact`
+// crudo viaja completo en la data, `computeds.emailSupplier` lo lee de ahí vía `$options`).
 const loadSuppliers: Fetcher = async () => {
   const res  = await getFilteredSuppliers({})
   const data = (res.data as SupplierDTOListApiResponse | undefined)?.data ?? []
-  supplierEmailById = Object.fromEntries(data.map(s => {
-    let email = ''
-    if (s.contact) { try { email = String((JSON.parse(s.contact) as { email?: string }).email ?? '') } catch { /* contact mal formado → sin email */ } }
-    return [String(s.idSupplier ?? ''), email]
-  }))
   return envelope(data)
 }
 
@@ -65,33 +49,10 @@ const loadPriceBySupplier: Fetcher = async (_process, params) => {
   return envelope(data)
 }
 
-// Categorías (para el picker "agregar insumo"). JSON string → parse.
-const categoriesFetcher: Fetcher = async () => {
-  const res = await getCategories()
-  let cats: unknown[] = []
-  try { cats = JSON.parse((res.data as StringApiResponse).data ?? '[]') } catch { cats = [] }
-  return envelope(cats)
-}
-
-// Catálogo (master products) → filas para "agregar insumo" (consumo/restante en 0; sin movimiento aún).
-const catalogFetcher: Fetcher = async () => {
-  const res = await getMasterProducts()
-  const all = (res.data as MasterProductDTOListApiResponse | undefined)?.data ?? []
-  const data = all.flatMap(p => (p.mv ?? []).map(v => ({
-    idVariety:       v.idVariety ?? 0,
-    varietyName:     v.name ?? '',
-    sku:             p.sku ?? '',
-    measurementUnit: p.measurementUnit ?? '',
-    consumption:     0,
-    remaining:       0,
-  })))
-  return envelope(data)
-}
-
 // LOADMISSINGTRX NO se registra → cae al httpFetcher (executor genérico del backend).
 const registry = buildRegistry({
   fetchers: {
-    FINCAS: fincasFetcher,
+    LOCATIONS: locationsFetcher,
     SEARCHMISSINGTRX: searchMissingTrx,
     LOADSUPPLIER: loadSuppliers,
     LOADPRICEBYSUPPLIER: loadPriceBySupplier,
@@ -110,26 +71,25 @@ const registry = buildRegistry({
     // que `unitPrice` (los items del carrito ya vienen con productionCost/extraCost mergeados,
     // heredan el enrichBy de cuando estaban en la tabla principal).
     orderTotal: ({ $items }) => {
+      // Fijo desde $0 (no oculto hasta el primer item): así el badge siempre está ahí,
+      // dando feedback constante de que existe un total corriendo, en vez de aparecer
+      // de la nada recién cuando se agrega algo.
       const items = ($items as Record<string, unknown>[]) ?? []
-      if (!items.length) return null
       const total = items.reduce((s, r) => {
         if (r.productionCost == null || r.productionCost === '') return s
         return s + Number(r.qty ?? 0) * (Number(r.productionCost ?? 0) + Number(r.extraCost ?? 0))
       }, 0)
       return formatMoney(total)
     },
-  },
-  actions: {
-    // createTrx en sí sigue siendo el genérico — no le tocamos nada, solo recibe context y lista
-    // trxAttributes. Lo único que hace este wrapper es DEJAR LISTO el valor en el context ANTES de
-    // llamarlo, con la key EXACTA que declara el JsonFront (`"EmailSupplier"`, ya así por convención
-    // — otros procesos aguas abajo ya lo referencian en ese casing, no camelCase como el resto).
-    // El filtro "Proveedor" del JsonFront usa key "idSupplier" (no "supplier") — el lookup acá
-    // tiene que matchear esa key exacta del context.
-    createTrx: ctx => DEFAULT_ACTIONS.createTrx({
-      ...ctx,
-      context: { ...ctx.context, EmailSupplier: supplierEmailById[ctx.context.idSupplier ?? ''] ?? '' },
-    }),
+    // Email del proveedor ELEGIDO (`idSupplier`) — derivado (`JsonFront.derive`), igual mecanismo
+    // que `skuPrefix`: `$options.idSupplier` es la opción CRUDA del combo (el SupplierDTO entero,
+    // `contact` incluido), no solo optionValue/optionLabel. Sin proveedor o sin contact → "".
+    // createTrx ya NO necesita override — `EmailSupplier` llega solo en el context enriquecido.
+    emailSupplier: ({ $options }) => {
+      const supplier = ($options as Record<string, { contact?: string | null }> | undefined)?.idSupplier
+      if (!supplier?.contact) return ''
+      try { return (JSON.parse(supplier.contact) as { email?: string }).email ?? '' } catch { return '' }
+    },
   },
 })
 

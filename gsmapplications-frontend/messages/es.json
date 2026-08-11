@@ -439,7 +439,7 @@
     "requirementsSubtitle": "Genera transacción de requerimientos de insumos.",
     "makeSupplyRequirement": "Realiza el requerimiento de insumos",
     "inventoryAdjustments": "Ajustes de inventario",
-    "adjustStock": "Ajustar existencias",
+    "adjustStock": "Ajustar inventario",
     "adjustSubtitle": "Ajusta y corrige los niveles de stock por ubicación.",
     "expenses": "Gastos",
     "expense": "Gasto",

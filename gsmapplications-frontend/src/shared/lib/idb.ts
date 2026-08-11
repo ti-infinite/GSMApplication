@@ -15,15 +15,10 @@ interface EngineDB extends DBSchema {
     value:   { resourceId: string; module: string; data: unknown; updatedAt: number }
     indexes: { module: string }
   }
-  // ── Andamiaje del POC (en el modelo real vive en el backend) ──
-  pedidos:     { key: string; value: { consecutivo: string; data: unknown; updatedAt: number } }
-  ordenes:     { key: string; value: { numero: string; data: unknown; updatedAt: number } }
-  recepciones: { key: string; value: { numero: string; data: unknown; updatedAt: number } }
-  facturas:    { key: string; value: { numero: string; data: unknown; updatedAt: number } }
 }
 
 const DB_NAME    = 'gsm_engine'
-const DB_VERSION = 6
+const DB_VERSION = 7
 
 let dbPromise: Promise<IDBPDatabase<EngineDB>> | null = null
 
@@ -43,10 +38,9 @@ function getDb(): Promise<IDBPDatabase<EngineDB>> {
           const s = db.createObjectStore('trx_data', { keyPath: 'resourceId' })
           s.createIndex('module', 'module')
         }
-        if (!db.objectStoreNames.contains('pedidos'))     db.createObjectStore('pedidos',     { keyPath: 'consecutivo' })
-        if (!db.objectStoreNames.contains('ordenes'))     db.createObjectStore('ordenes',     { keyPath: 'numero' })
-        if (!db.objectStoreNames.contains('recepciones')) db.createObjectStore('recepciones', { keyPath: 'numero' })
-        if (!db.objectStoreNames.contains('facturas'))    db.createObjectStore('facturas',    { keyPath: 'numero' })
+        for (const store of ['pedidos', 'ordenes', 'recepciones', 'facturas'] as const) {
+          if (db.objectStoreNames.contains(store as never)) db.deleteObjectStore(store as never)
+        }
       },
     })
   }
@@ -99,66 +93,3 @@ export async function invalidateModule(module: string): Promise<void> {
   }
 }
 
-// ── Pedidos confirmados (POC) — key = consecutivo ──────────────────
-export async function savePedido(consecutivo: string, data: unknown): Promise<void> {
-  const db = await getDb()
-  await db.put('pedidos', { consecutivo, data, updatedAt: Date.now() })
-}
-export async function getPedido<T = unknown>(consecutivo: string): Promise<T | null> {
-  const db  = await getDb()
-  const rec = await db.get('pedidos', consecutivo)
-  return (rec?.data as T | undefined) ?? null
-}
-export async function listPedidos<T = unknown>(): Promise<T[]> {
-  const db  = await getDb()
-  const all = await db.getAll('pedidos')
-  return all.map(r => r.data as T)
-}
-
-// ── Órdenes de compra (POC) — key = numero ─────────────────────────
-export async function saveOrden(numero: string, data: unknown): Promise<void> {
-  const db = await getDb()
-  await db.put('ordenes', { numero, data, updatedAt: Date.now() })
-}
-export async function getOrden<T = unknown>(numero: string): Promise<T | null> {
-  const db  = await getDb()
-  const rec = await db.get('ordenes', numero)
-  return (rec?.data as T | undefined) ?? null
-}
-export async function listOrdenes<T = unknown>(): Promise<T[]> {
-  const db  = await getDb()
-  const all = await db.getAll('ordenes')
-  return all.map(r => r.data as T)
-}
-
-// ── Recepciones (POC) — key = numero de la orden ───────────────────
-export async function saveRecepcion(numero: string, data: unknown): Promise<void> {
-  const db = await getDb()
-  await db.put('recepciones', { numero, data, updatedAt: Date.now() })
-}
-export async function getRecepcion<T = unknown>(numero: string): Promise<T | null> {
-  const db  = await getDb()
-  const rec = await db.get('recepciones', numero)
-  return (rec?.data as T | undefined) ?? null
-}
-export async function listRecepciones<T = unknown>(): Promise<T[]> {
-  const db  = await getDb()
-  const all = await db.getAll('recepciones')
-  return all.map(r => r.data as T)
-}
-
-// ── Facturas (POC) — key = numero ──────────────────────────────────
-export async function saveFactura(numero: string, data: unknown): Promise<void> {
-  const db = await getDb()
-  await db.put('facturas', { numero, data, updatedAt: Date.now() })
-}
-export async function getFactura<T = unknown>(numero: string): Promise<T | null> {
-  const db  = await getDb()
-  const rec = await db.get('facturas', numero)
-  return (rec?.data as T | undefined) ?? null
-}
-export async function listFacturas<T = unknown>(): Promise<T[]> {
-  const db  = await getDb()
-  const all = await db.getAll('facturas')
-  return all.map(r => r.data as T)
-}

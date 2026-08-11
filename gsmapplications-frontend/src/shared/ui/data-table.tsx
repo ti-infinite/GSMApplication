@@ -21,11 +21,14 @@ interface DataTableProps<T> {
   mobileCard?:  (row: T) => ReactNode  // custom mobile card renderer
   toolbar?:     ReactNode               // barra opcional DENTRO de la tabla (buscador, filtros…)
   renderExpanded?: (row: T) => ReactNode  // fila full-width debajo (si devuelve truthy). Ej. comentario de rechazo.
-  pageSize?:    number                  // si se define → pagina la tabla (desktop + mobile); sin él, muestra todo
+  pageSize?:    number                  // si se define → pagina la tabla (desktop + mobile) y es el default del selector; sin él, muestra todo
+  pageSizeOptions?: number[]            // opciones del selector "Filas por página" (default [10, 25, 50, 100])
   loading?:     boolean                 // si true → filas skeleton (mantiene shell + columnas) en vez del emptyMessage
 }
 
 type SortDir = 'asc' | 'desc' | null
+
+const DEFAULT_PAGE_SIZE_OPTIONS = [10, 25, 50, 100]
 
 export function DataTable<T>({
   columns,
@@ -36,11 +39,15 @@ export function DataTable<T>({
   toolbar,
   renderExpanded,
   pageSize,
+  pageSizeOptions = DEFAULT_PAGE_SIZE_OPTIONS,
   loading = false,
 }: DataTableProps<T>) {
   const [sortKey, setSortKey] = useState<string | null>(null)
   const [sortDir, setSortDir] = useState<SortDir>(null)
   const [page,    setPage]    = useState(0)
+  // El `pageSize` prop es solo el DEFAULT inicial — a partir de ahí el usuario elige el suyo
+  // con el selector "Filas por página" (mejor visual: puede ver más o menos según prefiera).
+  const [rowsPerPage, setRowsPerPage] = useState(pageSize ?? DEFAULT_PAGE_SIZE_OPTIONS[0])
 
   const handleSort = (key: string) => {
     if (sortKey !== key) { setSortKey(key); setSortDir('asc'); return }
@@ -56,21 +63,36 @@ export function DataTable<T>({
       })
     : data
 
-  // Paginación (opt-in): si hay pageSize, corta las filas de la página actual.
+  // Paginación (opt-in): si el caller pasó pageSize, corta las filas de la página actual —
+  // pero el TAMAÑO real de página es `rowsPerPage` (el selector), no el prop directo.
   const paginate  = pageSize != null && pageSize > 0
-  const pageCount = paginate ? Math.max(1, Math.ceil(sorted.length / pageSize)) : 1
+  const pageCount = paginate ? Math.max(1, Math.ceil(sorted.length / rowsPerPage)) : 1
   const safePage  = Math.min(page, pageCount - 1)
-  const paged     = paginate ? sorted.slice(safePage * pageSize, safePage * pageSize + pageSize) : sorted
+  const paged     = paginate ? sorted.slice(safePage * rowsPerPage, safePage * rowsPerPage + rowsPerPage) : sorted
 
-  const pager = paginate && pageCount > 1 ? (
-    <div className="flex items-center justify-between gap-3 border-t border-border bg-card px-4 py-2.5 text-sm">
-      <span className="text-muted-foreground">{safePage * pageSize + 1}–{Math.min(sorted.length, (safePage + 1) * pageSize)} / {sorted.length}</span>
-      <div className="flex items-center gap-1">
-        <button type="button" disabled={safePage === 0} onClick={() => setPage(safePage - 1)} aria-label="Anterior"
-          className="rounded-md p-1 text-muted-foreground hover:bg-muted disabled:opacity-40"><ChevronLeft className="h-4 w-4" /></button>
-        <span className="px-1 text-muted-foreground">{safePage + 1} / {pageCount}</span>
-        <button type="button" disabled={safePage >= pageCount - 1} onClick={() => setPage(safePage + 1)} aria-label="Siguiente"
-          className="rounded-md p-1 text-muted-foreground hover:bg-muted disabled:opacity-40"><ChevronRight className="h-4 w-4" /></button>
+  const pager = paginate ? (
+    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-card px-4 py-2.5 text-sm">
+      <div className="flex items-center gap-2 text-muted-foreground">
+        <span>Filas por página</span>
+        <select
+          value={rowsPerPage}
+          onChange={e => { setRowsPerPage(Number(e.target.value)); setPage(0) }}
+          className="rounded-md border border-border bg-background px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+        >
+          {pageSizeOptions.map(n => <option key={n} value={n}>{n}</option>)}
+        </select>
+      </div>
+      <div className="flex items-center gap-3">
+        <span className="text-muted-foreground">{safePage * rowsPerPage + 1}–{Math.min(sorted.length, (safePage + 1) * rowsPerPage)} / {sorted.length}</span>
+        {pageCount > 1 && (
+          <div className="flex items-center gap-1">
+            <button type="button" disabled={safePage === 0} onClick={() => setPage(safePage - 1)} aria-label="Anterior"
+              className="rounded-md p-1 text-muted-foreground hover:bg-muted disabled:opacity-40"><ChevronLeft className="h-4 w-4" /></button>
+            <span className="px-1 text-muted-foreground">{safePage + 1} / {pageCount}</span>
+            <button type="button" disabled={safePage >= pageCount - 1} onClick={() => setPage(safePage + 1)} aria-label="Siguiente"
+              className="rounded-md p-1 text-muted-foreground hover:bg-muted disabled:opacity-40"><ChevronRight className="h-4 w-4" /></button>
+          </div>
+        )}
       </div>
     </div>
   ) : null
@@ -92,7 +114,7 @@ export function DataTable<T>({
     <thead>
       <tr className="border-b border-border bg-muted/40">
         {columns.map(col => (
-          <th key={col.key} className={`px-4 py-3 text-xs font-semibold text-muted-foreground ${alignCls(col.align)}`}>
+          <th key={col.key} className={`px-4 py-1 text-xs font-semibold text-muted-foreground ${alignCls(col.align)}`}>
             {col.sortable ? (
               <button type="button" onClick={() => handleSort(col.key)}
                 className={`flex items-center gap-1 hover:text-foreground ${col.align === 'center' ? 'mx-auto' : col.align === 'right' ? 'ml-auto' : ''}`}>
@@ -114,7 +136,7 @@ export function DataTable<T>({
       {Array.from({ length: 6 }).map((_, i) => (
         <tr key={i}>
           {columns.map(col => (
-            <td key={col.key} className={`px-4 py-3 ${alignCls(col.align)}`}>
+            <td key={col.key} className={`px-4 py-1 ${alignCls(col.align)}`}>
               <div className="h-4 w-24 max-w-full animate-pulse rounded bg-muted" />
             </td>
           ))}
@@ -149,7 +171,7 @@ export function DataTable<T>({
                     <Fragment key={rowKey(row)}>
                       <tr className="transition-colors hover:bg-muted/30">
                         {columns.map(col => (
-                          <td key={col.key} className={`px-4 py-3 text-foreground ${alignCls(col.align)}`}>
+                          <td key={col.key} className={`px-4 py-1 text-foreground ${alignCls(col.align)}`}>
                             {col.render
                               ? col.render(row)
                               : String((row as Record<string, unknown>)[col.key] ?? '—')}

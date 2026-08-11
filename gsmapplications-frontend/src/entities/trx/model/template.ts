@@ -2,13 +2,19 @@
 // modificación — SOLID/OCP). Expande el JsonFront MÍNIMO (filter + products + cart)
 // a la forma interna (location gate + filters + derive + main/collection) que ya
 // consume el runtime. Lo que es igual en las 7 TRX vive AQUÍ, no en cada JSON.
-import type { FrontConfig, FilterConfig, MainSlot, CollectionSection, TrxField, FilterSpec } from './runtime'
+import type { FrontConfig, FilterConfig, MainSlot, CollectionSection, TrxField, FilterSpec, AttributeSpec } from './runtime'
 
 // Filtro de ubicación FIJO (gate): 1º filtro de toda TRX. Nada carga hasta que haya
 // location (por selección o cookie del usuario). Override opcional vía front.location.
+// `required: true`: sin esto, el "Cargar insumo"/"Cargar inventario" (independiente del gate
+// por ubicación del resource principal) dejaba agregar productos y confirmar SIN ubicación —
+// en la mayoría de los casos quedaba "protegido" indirecto (tabla vacía por el gate → carrito
+// vacío bloqueaba confirmar), pero el picker no pasa por ese gate. Al inyectarse acá, aplica a
+// TODAS las TRX de una sola vez (no hay que declararlo por módulo).
 const DEFAULT_LOCATION: FilterConfig = {
-  key: 'location', label: 'costCenter', source: 'FINCAS',
+  key: 'location', label: 'costCenter', source: 'LOCATIONS',
   optionValue: 'location', optionLabel: 'name', cookieDefault: { field: 'location' },
+  required: true,
 }
 
 // 2do filtro 'category': cascada categoría → subcategoría. Filtra el main por prefijo
@@ -24,11 +30,35 @@ const DEFAULT_TARGET = 'trxProducts'  // el resumen siempre mapea a trxProducts 
 const DEFAULT_SUMMARY_TITLE = 'summary'   // key i18n FIJA del resumen (→ "Resumen"/"Summary")
 const DEFAULT_SUMMARY_DISPLAY = 'drawer'  // FIJO: el resumen va en drawer
 
+// La columna qty del carrito NO se redeclara: se toma tal cual de `products` (mismo
+// label/sign/negate/max — es la MISMA cantidad, se edita una sola vez), forzando siempre
+// unitType:"unit" (el carrito ya no re-elige unidad, nunca "unitSelect").
+const FALLBACK_QTY_COLUMN: TrxField = { type: 'input', label: 'quantity', selectorValue: 'qty' }
+const REMOVE_BUTTON: TrxField = { button: 'removeButton' }
+const isQty = (c: TrxField) => (c.value ?? c.selectorValue) === 'qty'
+
 // Toda tabla de TRX muestra la variedad. El template la antepone si el JSON no la trae,
 // para no repetirla en cada módulo (override: incluirla explícita en las columns).
 const VARIETY_COLUMN: TrxField = { label: 'variety', selectorValue: 'varietyName' }
 const withVariety = (columns: TrxField[]): TrxField[] =>
   columns.some(c => (c.value ?? c.selectorValue) === 'varietyName') ? columns : [VARIETY_COLUMN, ...columns]
+
+// Aplica `FrontConfig.validations` (nivel transacción: `sign`/`negate` por selectorValue exacto,
+// `required` por lista de selectorValues) a la columna que matchea — así el campo no necesita
+// declararlo directo (queda como antes, `field.sign`/`.negate`/`.required`, para que renderers/
+// `overMax`/los eventos no cambien nada). Preserva compat: si una columna YA trae alguno propio
+// (JSON viejo sin migrar), no se lo pisa.
+const withValidations = (columns: TrxField[], validations?: FrontConfig['validations']): TrxField[] => {
+  if (!validations) return columns
+  return columns.map(c => {
+    if (!c.selectorValue) return c
+    const sign     = c.sign     || c.selectorValue === validations.sign
+    const negate   = c.negate   || c.selectorValue === validations.negate
+    const required = c.required || !!validations.required?.includes(c.selectorValue)
+    if (sign === !!c.sign && negate === !!c.negate && required === !!c.required) return c
+    return { ...c, sign: sign || undefined, negate: negate || undefined, required: required || undefined }
+  })
+}
 
 const slug = (s: string) =>
   s.normalize('NFD').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/(^_|_$)/g, '')
@@ -63,12 +93,31 @@ function addFilterSpec(spec: FilterSpec, acc: Second): void {
   }
 }
 
+// Un `trxAttributes` con control (label) se vuelve un filtro más — misma FiltersBar, mismo
+// context, mismo gate de resources — así no hay que declarar la key dos veces (antes: una en
+// `filter`, otra en `trxAttributes: string[]`). Sin `label` → sin control (ej. EmailSupplier,
+// su valor lo pone otra cosa, ej. un action override); no se agrega a `filters`, solo viaja
+// tal cual en `front.trxAttributes` para que `actions.ts` lo mande al payload.
+function attributeToFilter(a: AttributeSpec, requiredKeys?: string[]): FilterConfig | null {
+  if (!a.label) return null
+  const required = a.required || !!requiredKeys?.includes(a.key)
+  if (a.resource) return { key: a.key, label: a.label, resource: a.resource, optionValue: a.optionValue ?? 'id', optionLabel: a.optionLabel ?? 'name', placeholder: a.placeholder, required }
+  if (a.source)   return { key: a.key, label: a.label, source: a.source, optionValue: a.optionValue ?? 'id', optionLabel: a.optionLabel ?? 'name', placeholder: a.placeholder, required }
+  return { key: a.key, label: a.label, values: a.values, optionValue: 'value', optionLabel: 'label', input: a.input, placeholder: a.placeholder, required }
+}
+
 /**
  * Expande el JsonFront mínimo a la forma que consume el runtime. Si el config trae
  * `components` (SDUI legacy) no toca nada. Idempotente para configs que ya declaran
  * main/collection/filters explícitos (los respeta y solo garantiza la location fija).
+ *
+ * `hasCategories`: TrxRuntime lo pasa en `true` si el módulo registra un fetcher `CATEGORIES`
+ * — mismo criterio que ya usa "Cargar insumo" con `CATALOG` (`showAddPicker`). Categoría/
+ * subcategoría dejan de declararse en el JSON (`"filter":"category"` queda deprecado, se
+ * ignora si ya no aparece) — el motor las inyecta solo y las renderiza DENTRO de la tabla
+ * (panel "Filtros" colapsable), no en la barra de filtros de arriba junto a ubicación.
  */
-export function expandFront(input: FrontConfig): FrontConfig {
+export function expandFront(input: FrontConfig, hasCategories?: boolean): FrontConfig {
   if (input.components) return input   // SDUI legacy: el JSON manda tal cual
 
   // `items` agrupa lo visual (filter/products/cart) para separarlo del contrato
@@ -78,7 +127,8 @@ export function expandFront(input: FrontConfig): FrontConfig {
   // 1) Ubicación FIJA (gate). Override opcional (label/source) vía front.location.
   const location: FilterConfig = { ...DEFAULT_LOCATION, ...(front.location ?? {}) }
 
-  // 2) 2do filtro(s) variable(s): 'category' | documento | combo estático | array de varios.
+  // 2) 2do filtro(s) variable(s): documento | combo estático | array de varios (más category
+  // vía JSON, deprecado pero soportado — ver abajo la inyección automática).
   let second: FilterConfig[]
   let derive = front.derive ?? []
   let filterBy = front.products?.filterBy ?? front.main?.filterBy
@@ -91,10 +141,33 @@ export function expandFront(input: FrontConfig): FrontConfig {
     second = front.filters ?? []   // legacy: filtros explícitos
   }
 
+  // `trxAttributes` con control (label) → un filtro más (ver `attributeToFilter`). Los sin
+  // control (solo `key`) NO se agregan acá — siguen en `front.trxAttributes` tal cual, para
+  // que `actions.ts` los mande al payload igual, sin pasar por la UI.
+  const attrFilters = (front.trxAttributes ?? [])
+    .map(a => attributeToFilter(a, front.validations?.required))
+    .filter((x): x is FilterConfig => x != null)
+  second = [...second, ...attrFilters]
+
+  // `trxAttributes` con `compute` (sin control, ej. EmailSupplier) → un `derive` más, sin
+  // declarar la key dos veces (antes: una en `trxAttributes`, otra en un `derive` aparte).
+  for (const a of front.trxAttributes ?? []) {
+    if (a.compute && !derive.some(d => d.key === a.key)) derive = [...derive, { key: a.key, compute: a.compute }]
+  }
+
+  // Categoría/subcategoría FIJAS por registry (no por JSON): si ya llegaron por el `"filter"`
+  // deprecado no se duplican (chequea la key); si no, se agregan solas — mismo resultado final
+  // sea cual sea el camino, la única diferencia real es DÓNDE se renderizan (ver defaultTree).
+  if (hasCategories && !second.some(sf => sf.key === 'category')) {
+    second = [...second, ...CATEGORY_CASCADE]
+    if (!derive.some(d => d.key === 'skuPrefix')) derive = [...derive, { key: 'skuPrefix', compute: 'skuPrefix' }]
+    filterBy = filterBy ?? { field: 'sku', prefixFrom: 'skuPrefix' }
+  }
+
   // 3) products → main ; cart → collection (columns → fields; defaults target/rowKey/title).
   const main: MainSlot | undefined = front.main ?? (front.products ? {
     source:      front.products.source,
-    fields:      withVariety(front.products.columns),
+    fields:      withValidations(withVariety(front.products.columns), front.validations),
     placeholder: front.products.placeholder,
     rowFilter:   front.products.rowFilter,
     filterBy,
@@ -102,9 +175,16 @@ export function expandFront(input: FrontConfig): FrontConfig {
     addSupply:   front.products.addSupply,
   } : undefined)
 
+  const productsQty = main?.fields.find(isQty) ?? FALLBACK_QTY_COLUMN
+  const qtyColumn: TrxField = { ...productsQty, unitType: 'unit' }
+
   const collection: CollectionSection | undefined = front.collection ?? (front.summary ? {
     title:   front.summary.title ?? DEFAULT_SUMMARY_TITLE,     // título FIJO
-    fields:  withVariety(front.summary.columns),
+    fields:  withVariety(withValidations([
+      qtyColumn,
+      ...(front.summary.columns ?? []),
+      REMOVE_BUTTON,
+    ], front.validations)),
     target:  front.summary.target ?? DEFAULT_TARGET,
     rowKey:  front.summary.rowKey,
     display: front.summary.display ?? DEFAULT_SUMMARY_DISPLAY,  // FIJO: drawer

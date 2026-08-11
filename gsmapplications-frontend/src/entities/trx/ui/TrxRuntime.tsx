@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type Key } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { MapPin, Info } from 'lucide-react'
+import { MapPin, Info, Loader2 } from 'lucide-react'
 import { Button } from '@/shared/ui/button'
 import { getStoredUser } from '@/shared/lib/auth'
 import { clearResourcePrefix, getResource, saveResource } from '@/shared/lib/idb'
@@ -10,11 +10,11 @@ import type { TableColumn } from '@/shared/ui/data-table'
 import { useTrxData } from '../model/useTrxData'
 import { DEFAULT_SELECTORS } from '../model/selectors'
 import { DEFAULT_VALUE_SOURCES } from '../model/valueSources'
-import { httpFetcher, resolveResource, resolveParams } from '../model/engine'
+import { httpFetcher, resolveResource, resolveParams, paramsReady } from '../model/engine'
 import type { Fetcher } from '../model/engine'
 import type { Resource } from '../model/types'
 import type {
-  JsonConfig, FrontConfig, FilterConfig, TrxField, TrxRegistry, CollectionApi, WfTransition, ComponentNode, RuntimeCtx,
+  JsonConfig, FrontConfig, FilterConfig, TrxField, TrxRegistry, CollectionApi, WfTransition, ComponentNode, RuntimeCtx, EventCtx,
 } from '../model/runtime'
 import { DEFAULT_COMPONENTS } from './defaultComponents'
 import { expandFront } from '../model/template'
@@ -97,15 +97,22 @@ function normField(f: TrxField): TrxField {
 
 // TEMPLATE: arma el árbol de components desde los SLOTS (location/filters/main/collection).
 // Reusa el render existente. Si el config trae `components`, ese path gana (backward-compat).
-function defaultTree(front: FrontConfig, heading?: string): ComponentNode[] {
+function defaultTree(front: FrontConfig, heading?: string, headingBadge?: string): ComponentNode[] {
   const nodes: ComponentNode[] = []
 
-  // Filtros: el template ya dejó la ubicación FIJA como filters[0] + los variables.
-  const filters = front.filters ?? []
-  if (filters.length) nodes.push({ type: 'filters', filters })
+  // Filtros: el template ya dejó la ubicación FIJA como filters[0] + los variables. Categoría/
+  // subcategoría (key 'category'/'subcategory', las inyecta expandFront si el módulo tiene
+  // CATEGORIES) NO van en esta barra — se renderizan DENTRO de la tabla (panel colapsable),
+  // sin importar si llegaron por la inyección automática o por el `"filter"` deprecado.
+  const allFilters = front.filters ?? []
+  const topFilters = allFilters.filter(f => f.key !== 'category' && f.key !== 'subcategory')
+  const categoryFilters = allFilters.filter(f => f.key === 'category' || f.key === 'subcategory')
+  if (topFilters.length) nodes.push({ type: 'filters', filters: topFilters })
 
-  // Título de sección estático (page) entre los filtros y la tabla de productos.
-  if (heading) nodes.push({ type: 'heading', title: heading })
+  // Título de sección estático (page) entre los filtros y la tabla de productos. `headingBadge`
+  // (opcional, prop del módulo — no JSON): id de un computed que arma un total visible siempre,
+  // sin depender de abrir el drawer del carrito (ej. total de la orden en OCM/Factura).
+  if (heading) nodes.push({ type: 'heading', title: heading, badge: headingBadge })
 
   // Tabla principal (slot `main` o legacy `fields`), con field shorthand normalizado.
   const mainTable: ComponentNode = {
@@ -116,6 +123,7 @@ function defaultTree(front: FrontConfig, heading?: string): ComponentNode[] {
     filterBy:    front.main?.filterBy,
     search:      front.main?.search,
     addSupply:   front.main?.addSupply,
+    categoryFilters: categoryFilters.length ? categoryFilters : undefined,
     // Multi-select + columnas comparativas (ej. proveedores/precio). El template NO los
     // propaga (son específicos de una TRX); acá se leen del slot products/main que los declara.
     select:        front.main?.select        ?? front.products?.select,
@@ -144,15 +152,6 @@ function defaultTree(front: FrontConfig, heading?: string): ComponentNode[] {
 
 const NO_FETCHER: Fetcher = async () => ({ success: 'false', message: 'sin fetcher', data: [], traceId: null })
 
-// Gate genérico: ¿todos los params que el resource saca del CONTEXT (location, trxDocument…)
-// tienen valor? Reusado por la tabla principal (no fetchea sin finca) y por los combos-desde-
-// resource (no cargan opciones hasta tener sus params). Un solo lugar para la regla del gate.
-function paramsReady(resource: Resource, ctx: Record<string, string>): boolean {
-  return resource.parameters
-    .filter(p => (p.sourceType ?? 'CONTEXT') === 'CONTEXT')
-    .every(p => String(ctx[p.values?.[0] ?? p.value ?? p.keyValue ?? p.key] ?? '') !== '')
-}
-
 /**
  * Renderiza un módulo entero desde su JsonConfig: JsonFront (SDUI: components →
  * registry.components, layout DENTRO del componente) + JsonREA (data por resource,
@@ -160,14 +159,19 @@ function paramsReady(resource: Resource, ctx: Record<string, string>): boolean {
  */
 // title/subtitle son FIJOS por módulo → los pasa el page (no van en el JSON). A futuro
 // salen de i18n/ruta. Fallback al JSON legacy (front.title) y al prefix.
-export function TrxRuntime({ config, registry, title, subtitle, heading, trxLabel }: { config: JsonConfig; registry: TrxRegistry; title?: string; subtitle?: string; heading?: string; trxLabel?: string }) {
+export function TrxRuntime({ config, registry, title, subtitle, heading, headingBadge, trxLabel }: { config: JsonConfig; registry: TrxRegistry; title?: string; subtitle?: string; heading?: string; headingBadge?: string; trxLabel?: string }) {
   // i18n: traduce labels por su texto (keyPrefix 'trx'). Si no hay traducción, devuelve el
   // propio texto (los labels del JSON van en inglés → sirve de fallback y de key).
   const { t } = useTranslation(undefined, { keyPrefix: 'trx' })
   const { JsonREA: rea, JsonWorkflow: workflow } = config
   // El template expande el JsonFront mínimo (filter/products/cart) a la forma interna
   // (location gate + filters + derive + main/collection). Todo lo demás lee de acá.
-  const front = useMemo(() => expandFront(config.JsonFront), [config.JsonFront])
+  // `hasCategories`: mismo criterio que "Cargar insumo" (CATALOG) — si el módulo registra
+  // CATEGORIES, la cascada categoría/subcategoría se inyecta sola (ver expandFront).
+  const front = useMemo(
+    () => expandFront(config.JsonFront, !!registry.fetchers.CATEGORIES),
+    [config.JsonFront, registry.fetchers.CATEGORIES],
+  )
   // Tabla principal: resource marcado `main:true` (explícito, sin depender del orden) o resources[0] (fallback).
   const mainResource = rea.resources.find(r => r.main) ?? rea.resources[0] ?? null
   const filters = useMemo(() => getFilters(front), [front])
@@ -185,6 +189,10 @@ export function TrxRuntime({ config, registry, title, subtitle, heading, trxLabe
   const [extraRows,  setExtraRows]  = useState<Row[]>([])   // filas agregadas a mano (ej. "cargar insumo" del catálogo)
   const [enrichRows, setEnrichRows] = useState<Record<string, Row[]>>({})   // datos de recursos de enriquecimiento (enrichBy), por resource id
   const [state,      setState]      = useState<string>(workflow.initialState)
+  // Bug real reportado: sin esto, un doble-click mientras createTrx todavía está en vuelo
+  // dispara DOS create-trx (canFire no mira si ya hay una petición en curso). El botón se
+  // deshabilita solo (vía canFire) mientras dure.
+  const [submitting, setSubmitting] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)   // bump → re-resuelve resources (refresh de módulo)
 
   // Filtros bloqueados: la cookie ya fijó el valor (usuario con finca asignada).
@@ -444,100 +452,75 @@ export function TrxRuntime({ config, registry, title, subtitle, heading, trxLabe
 
   // ── Workflow (FSM) ──
   const transitions = workflow.transitions.filter(t => t.from === state)
-  const transitionFor = (on: string) => transitions.find(t => t.on === on)
-  const canFire = (t: WfTransition) => {
-    if (t.guard) {
-      const g = registry.guards?.[t.guard]
-      return g ? g({ rows: effectiveRows, collection, context, state }) : true
-    }
-    // Sin guard declarado: DEFAULT del motor → si el módulo tiene carrito exige ≥1 item Y que
-    // NINGUNA fila viole su `max` (tope: `campo[max] + valor < 0`, ej. remaining+qty<0). Enforcement
-    // ÚNICO del tope — cubre products y summary sin importar dónde se editó; `max` se declara 1 vez.
-    if (front.collection) {
-      if (collection.length === 0) return false
-      const maxFields = [...(front.main?.fields ?? []), ...(front.collection.fields ?? [])]
-        .filter(f => f.max && f.selectorValue)
-      const over = collection.some(row => maxFields.some(f => {
-        const m = Number(row[f.max as string]); const v = Number(row[f.selectorValue as string])
-        return Number.isFinite(m) && Number.isFinite(v) && m + v < 0
-      }))
-      if (over) return false
-    }
-    // Si el módulo tiene un resource de ENRIQUECIMIENTO (enrichBy) gateado por context (ej. OCM:
-    // LOADPRICEBYSUPPLIER, necesita el proveedor elegido), sus params deben estar completos antes
-    // de poder confirmar — sin esto se podía finalizar sin proveedor (el precio quedaba vacío).
-    // 100% genérico: no hace falta declarar nada nuevo en el JSON, se apoya en el `enrichBy` que
-    // el módulo ya tiene para el precio.
-    if (enrichResources.some(r => !paramsReady(r, enrichedContext))) return false
-    // Filtros marcados `required` (ej. forma de pago/fecha de entrega en OCM) deben tener
-    // valor en el context antes de poder confirmar — mismo mecanismo genérico que el de
-    // arriba, pero para campos SIN resource asociado (no gatean ninguna carga, solo se
-    // guardan como trxAttributes).
-    if (filters.some(f => f.required && !context[f.key])) return false
-    return true
-  }
-  // Mismo orden de chequeos que canFire, pero devuelve el MOTIVO (texto ya traducido) en vez de
-  // bool — para mostrarlo como feedback visible junto al botón, no solo deshabilitarlo en silencio.
-  const whyCantFire = (tr: WfTransition): string | null => {
+  // Un solo cálculo: blockReason recorre los eventos (custom por `guard`, o `registry.events`)
+  // y devuelve el PRIMER motivo que encuentra; canFire es simplemente "¿no hay motivo?". Antes
+  // eran 2 funciones con la misma lista de checks copiada dos veces (bool vs texto) — cualquier
+  // regla nueva había que agregarla en las dos, y ahí se desincronizaban.
+  const blockReason = (tr: WfTransition): string | null => {
     if (tr.guard) {
       const g = registry.guards?.[tr.guard]
       return g && !g({ rows: effectiveRows, collection, context, state }) ? t('cantConfirmHint') : null
     }
-    if (front.collection) {
-      if (collection.length === 0) return t('addProductsHint')
-      const maxFields = [...(front.main?.fields ?? []), ...(front.collection.fields ?? [])]
-        .filter(f => f.max && f.selectorValue)
-      const over = collection.some(row => maxFields.some(f => {
-        const m = Number(row[f.max as string]); const v = Number(row[f.selectorValue as string])
-        return Number.isFinite(m) && Number.isFinite(v) && m + v < 0
-      }))
-      if (over) return t('overMaxHint')
+    // `context: enrichedContext` (no el crudo) — así un `required` sobre un valor DERIVADO (ej.
+    // EmailSupplier, calculado vía `derive`) se ve acá igual que cualquier otro.
+    const eventCtx: EventCtx = { front, rows: effectiveRows, collection, context: enrichedContext, filters, enrichResources, enrichedContext, state, t }
+    // HAS_ITEMS corre SIEMPRE, sin declararlo — toda TRX necesita ≥1 línea. El resto (built-in
+    // u custom del módulo) SOLO corre si `front.event` lo lista explícito — así el JSON dice a
+    // simple vista qué se valida, en vez de quedar implícito en un paquete default oculto.
+    const always = registry.events?.HAS_ITEMS?.(eventCtx)
+    if (always) return always
+    for (const name of front.event ?? []) {
+      const reason = registry.events?.[name]?.(eventCtx)
+      if (reason) return reason
     }
-    const missingEnrich = enrichResources.find(r => !paramsReady(r, enrichedContext))
-    if (missingEnrich) {
-      const missingKey = missingEnrich.parameters.find(p =>
-        (p.sourceType ?? 'CONTEXT') === 'CONTEXT' && !String(context[p.values?.[0] ?? ''] ?? ''),
-      )?.values?.[0]
-      const label = filters.find(f => f.key === missingKey)?.label
-      return label ? t('completeFieldHint', { field: t(label) }) : t('completeRequiredHint')
-    }
-    const missingRequired = filters.find(f => f.required && !context[f.key])
-    if (missingRequired) return t('completeFieldHint', { field: t(missingRequired.label) })
     return null
   }
+  // `submitting` cuenta como bloqueo: mientras haya un create-trx en vuelo, canFire da false y
+  // el botón se deshabilita solo (mismo mecanismo que cualquier otro motivo) — sin esto, un
+  // segundo click antes de que responda el backend disparaba OTRO create-trx (bug real: doble
+  // click → dos transacciones idénticas creadas).
+  const canFire = (tr: WfTransition) => !submitting && blockReason(tr) === null
   // `tr` (no `t`) para no tapar el `t` de i18n → el createTrx lo usa para el toast traducido.
   const fire = async (tr: WfTransition) => {
     if (!canFire(tr)) return
-    const args = { rows: effectiveRows, collection, context, state, config, clearCollection: () => setCollection([]), transition: tr, trxLabel, t, registry }
+    setSubmitting(true)
+    // enrichedContext (no el context crudo): incluye los DERIVADOS (skuPrefix, EmailSupplier…)
+    // — antes esto pasaba el crudo, así que un `derive` nunca le llegaba a createTrx/eventos y
+    // había que resolverlo a mano con un override de acción. Un solo context completo en todos lados.
+    const args = { rows: effectiveRows, collection, context: enrichedContext, state, config, clearCollection: () => setCollection([]), transition: tr, trxLabel, t, registry }
 
     // create-trx es INTRÍNSECO y debe tener ÉXITO para resetear/transicionar. Si falla,
     // salimos SIN tocar nada → el pedido (carrito + cantidades) queda intacto para reintentar.
     try {
-      if ('createTrx' in registry.actions) await registry.actions.createTrx(args)
-    } catch {
-      return
-    }
+      try {
+        if ('createTrx' in registry.actions) await registry.actions.createTrx(args)
+      } catch {
+        return
+      }
 
-    // ── SOLO en éxito ── reset del módulo: vacía carrito + cantidades tecleadas, transiciona
-    // y refresca la data (cache invalidada). El árbol se remonta por refreshKey (resetea inputs).
-    setCollection([])
-    setEdits({})
-    setExtraRows([])   // limpia las filas agregadas a mano (catálogo) tras crear
-    // Resetea TODOS los filtros (ubicación incluida) — es una TRX nueva, no continuación de la
-    // anterior. Si el usuario tiene finca fija por cookie, initialContext ya la vuelve a poner sola.
-    setContext(() => initialContext(filters))
-    setState(tr.to)
-    for (const r of rea.resources) if (r.cacheIn) await clearResourcePrefix(r.id)
-    setRefreshKey(k => k + 1)
-    // Estado destino TERMINAL (sin salidas) → auto-reset al inicial (listo para otra TRX).
-    if (!workflow.transitions.some(x => x.from === tr.to)) setState(workflow.initialState)
+      // ── SOLO en éxito ── reset del módulo: vacía carrito + cantidades tecleadas, transiciona
+      // y refresca la data (cache invalidada). El árbol se remonta por refreshKey (resetea inputs).
+      setCollection([])
+      setEdits({})
+      setExtraRows([])   // limpia las filas agregadas a mano (catálogo) tras crear
+      // Resetea TODOS los filtros (ubicación incluida) — es una TRX nueva, no continuación de la
+      // anterior. Si el usuario tiene finca fija por cookie, initialContext ya la vuelve a poner sola.
+      setContext(() => initialContext(filters))
+      setState(tr.to)
+      for (const r of rea.resources) if (r.cacheIn) await clearResourcePrefix(r.id)
+      setRefreshKey(k => k + 1)
+      // Estado destino TERMINAL (sin salidas) → auto-reset al inicial (listo para otra TRX).
+      if (!workflow.transitions.some(x => x.from === tr.to)) setState(workflow.initialState)
 
-    // `event` = efecto(s) post-success (ej. ADJUST_INVENTORY, SEND_EMAIL). El backend los corre
-    // como parte del workflow (el front lee el response para avisar fallos). Acá solo se disparan
-    // los que EXISTAN como registry.actions (override de front), fire-and-forget. Uno o varios.
-    const events = Array.isArray(tr.event) ? tr.event : tr.event ? [tr.event] : []
-    for (const ev of events) {
-      if (ev in registry.actions) void Promise.resolve(registry.actions[ev](args)).catch(() => {})
+      // `event` = efecto(s) post-success (ej. ADJUST_INVENTORY, SEND_EMAIL). El backend los corre
+      // como parte del workflow (el front lee el response para avisar fallos). Acá solo se disparan
+      // los que EXISTAN como registry.actions (override de front), fire-and-forget. Uno o varios.
+      const events = Array.isArray(tr.event) ? tr.event : tr.event ? [tr.event] : []
+      for (const ev of events) {
+        if (ev in registry.actions) void Promise.resolve(registry.actions[ev](args)).catch(() => {})
+      }
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -553,12 +536,12 @@ export function TrxRuntime({ config, registry, title, subtitle, heading, trxLabe
     // enrichedContext (no el crudo): incluye los DERIVADOS (skuPrefix…) que el filterBy
     // de la tabla necesita para filtrar por prefijo. setContext/setFilter siguen tocando el crudo.
     context: enrichedContext, setContext, setFilter, options: comboOptions, filterData: fetchedOptions, selections, setSelection, locked,
-    state, transitions, transitionFor, fire, canFire, whyCantFire,
+    state, transitions, fire, canFire, blockReason, submitting,
     makeColumns, renderField: (f, row) => renderFieldInRow(f, row, keyField),
     keyField, registry, renderNode,
   }
 
-  const components = front.components ?? defaultTree(front, heading)
+  const components = front.components ?? defaultTree(front, heading, headingBadge)
 
   return (
     <div className="flex flex-col gap-6">
@@ -570,18 +553,12 @@ export function TrxRuntime({ config, registry, title, subtitle, heading, trxLabe
         <div className="flex flex-wrap items-center gap-2">
           {(() => {
             const hb = front.headerBadge ? registry.computeds[front.headerBadge]?.(enrichedContext) : null
-            if (hb) return (
+            if (!hb) return null   // sin badge de estado por defecto
+            return (
               <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1 text-sm font-medium text-foreground">
                 <MapPin className="h-3.5 w-3.5 text-primary" /> {String(hb)}
               </span>
             )
-            if (front.headerButtons?.length) return front.headerButtons.map(b => {
-              const tr = transitionFor(b.on)
-              return tr ? (
-                <Button key={b.on} variant={b.variant ?? 'default'} size="sm" onClick={() => fire(tr)} disabled={!canFire(tr)}>{t(b.label)}</Button>
-              ) : null
-            })
-            return null   // sin badge de estado por defecto
           })()}
         </div>
       </div>
@@ -592,14 +569,17 @@ export function TrxRuntime({ config, registry, title, subtitle, heading, trxLabe
 
       {front.collection?.display !== 'drawer' && transitions.some(tr => tr.label) && (
         <div className="flex flex-wrap items-start justify-end gap-2">
-          {transitions.filter(tr => tr.label).map(tr => {
-            const reason = whyCantFire(tr)
+          {transitions.filter(tr => tr.label).map((tr, i) => {
+            const reason = blockReason(tr)
             return (
-              <div key={tr.on} className="flex flex-col items-end gap-1">
+              <div key={tr.label ?? i} className="flex flex-col items-end gap-1">
                 <Button variant={tr.variant ?? 'default'} onClick={() => fire(tr)} disabled={!canFire(tr)}>
+                  {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   {t(tr.label ?? '')}
                 </Button>
-                {reason && <p className="text-xs text-destructive">{reason}</p>}
+                {/* Neutro, no destructive: "falta completar X" es guía, no un error — el rojo
+                    se ve como que algo salió mal apenas se entra al módulo. */}
+                {reason && <p className="text-xs text-muted-foreground">{reason}</p>}
               </div>
             )
           })}

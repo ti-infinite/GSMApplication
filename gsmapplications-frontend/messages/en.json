@@ -478,6 +478,7 @@
     "farmVerification": "Farm verification",
     "selectReception": "Select a reception",
     "originalQty": "Ordered qty.",
+    "sentQty": "Sent qty.",
     "receivedQty": "Received qty.",
     "comment": "Comment",
     "reject": "Reject",

@@ -50,12 +50,8 @@ function TrxSearch({ cfg, ctx }: { cfg: SearchConfig; ctx: RuntimeCtx }) {
   )
 }
 
-// Posiciona un panel FIXED bajo (o, si no hay espacio, arriba de) un botón — mismo criterio
-// que ya usa el Combobox (calcPos): si abajo hay poco lugar y arriba hay más, voltea. Sin esto,
-// en resoluciones bajas el panel se salía por debajo del viewport y, al ser `position:fixed`
-// (no vive en el flujo de la página), scrollear la página no lo alcanzaba — quedaba con
-// contenido inaccesible. `maxHeight` además tapa el panel a lo que realmente entra, así
-// SIEMPRE es scrolleable dentro de sí mismo sin importar la resolución.
+// Posiciona un panel FIXED bajo (o arriba, si no hay espacio) un botón — mismo criterio que
+// el Combobox. `maxHeight` lo hace scrolleable dentro de sí mismo en cualquier resolución.
 interface PopoverPos { top?: number; bottom?: number; left: number; width: number; maxHeight: number }
 const POPOVER_MARGIN = 4
 function placePopover(anchor: HTMLElement, width: number): PopoverPos {
@@ -407,12 +403,9 @@ function FiltersBar({ filters, applyLabel, ctx }: { filters: FilterConfig[]; app
     </FilterField>
   )
 
-  // Agrupa por `section` (default 'main') preservando el orden de primera aparición — tanto de
-  // las secciones entre sí como de los filtros dentro de cada una. 'main' son los que de verdad
-  // interactúan con la trx (gatillan un resource, filtran la tabla) — se ven inline, como
-  // siempre. Cualquier otra sección es dato secundario (no afecta nada) — queda detrás de un
-  // botón (su propio nombre traducido, ej. 'option' → "Opciones") que abre un popover, para no
-  // competir visualmente con lo que sí importa.
+  // Agrupa por `section` (default 'main', inline) — cualquier otra sección va detrás de un
+  // botón con popover (su nombre traducido, ej. 'option' → "Opciones"), para no competir
+  // visualmente con los campos que sí interactúan con la trx.
   const mainFields  = filters.filter(f => !f.section || f.section === 'main')
   const extraGroups = new Map<string, FilterConfig[]>()
   for (const f of filters) {
@@ -424,11 +417,8 @@ function FiltersBar({ filters, applyLabel, ctx }: { filters: FilterConfig[]; app
   return (
     <FilterBar toggleLabel={ctx.t('filters')}>
       {mainFields.map(renderField)}
-      {/* Mismo bloque label+control que cualquier otro campo (label invisible, solo para
-          ocupar la misma altura de fila) — así el botón alinea en altura con los combos por
-          `items-end`. `width="sm:w-auto"` para que el botón en sí no se estire a los 17.5rem de
-          la celda (es corto, no necesita ese ancho) — pero SIGUE ocupando su celda normal del
-          grid, en secuencia justo después del último campo `main`, sin ningún truco de posición. */}
+      {/* Label invisible (misma altura de fila que los combos, alinea por `items-end`);
+          `width="sm:w-auto"` para que el botón no se estire a los 17.5rem de un combo. */}
       {extraGroups.size > 0 && (
         <FilterField label={<span className="invisible select-none">·</span>} width="sm:w-auto">
           <div className="flex gap-2">
@@ -538,8 +528,7 @@ function TrxTable({ node, ctx }: { node: ComponentNode; ctx: RuntimeCtx }) {
   }
 
   const tb = node.title || search || select || node.rowFilter || showAddPicker || categoryFilters.length ? (
-    // UNA sola fila `flex-wrap` — "Cargar insumo" pegado a la derecha con `ml-auto` (queda
-    // igual que antes, full a la derecha) mientras se retoma esto con una referencia visual.
+    // "Cargar insumo" pegado a la derecha con `ml-auto` — pendiente rediseño responsive.
     <div className="flex flex-wrap items-center gap-3">
       {node.title && (
         <div className="flex items-center gap-2">
@@ -769,9 +758,7 @@ function TrxDrawer({ node, ctx }: { node: ComponentNode; ctx: RuntimeCtx }) {
                 </button>
               </div>
             </div>
-            {/* min-h-0: sin esto un hijo flex-1 crece con su contenido en vez de acotarse. La
-                tabla de adentro (DataTable) ahora scrollea sola (header y pager fijos) — esto
-                queda como respaldo por si el children no es una tabla. */}
+            {/* min-h-0: la tabla de adentro scrollea sola; esto es respaldo si no es tabla. */}
             <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-2">
               {(node.children ?? []).map((c, i) => ctx.renderNode(c, i))}
             </div>

@@ -477,6 +477,7 @@
     "farmVerification": "Verificación en finca",
     "selectReception": "Selecciona una recepción",
     "originalQty": "Cant. pedida",
+    "sentQty": "Cant. enviada",
     "receivedQty": "Cant. recibida",
     "comment": "Comentario",
     "reject": "Rechazar",

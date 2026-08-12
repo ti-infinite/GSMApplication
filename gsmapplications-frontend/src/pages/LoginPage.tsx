@@ -223,7 +223,7 @@ export default function LoginPage() {
           </div>
           <div>
             <h2 className="text-3xl font-bold tracking-tight text-primary-foreground">{branding.name}</h2>
-            <p className="mt-2 text-sm text-primary-foreground/70">
+            <p className="mt-2 text-justify text-sm text-primary-foreground/70">
               {branding.tagline?.[locale] ?? branding.tagline?.['en'] ?? t('login.tagline')}
             </p>
           </div>

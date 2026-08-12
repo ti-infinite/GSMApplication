@@ -426,6 +426,10 @@ export function TrxRuntime({ config, registry, title, subtitle, heading, heading
   const removeProductRow = (id: string) => {
     setExtraRows(prev => prev.filter(r => String(r[keyField] ?? '') !== id))
     setEdits(prev => { const next = { ...prev }; delete next[id]; return next })
+    // Bug real reportado: si esa fila ya se había mandado al carrito (+), "Quitar" en la tabla
+    // principal la sacaba de acá pero la dejaba huérfana en `collection` — desaparecía de la
+    // vista pero createTrx la seguía mandando igual. Se limpia de los dos lados a la vez.
+    setCollection(prev => prev.filter(r => String(r[collectionKey] ?? '') !== id))
   }
 
   const collectionApi: CollectionApi = {

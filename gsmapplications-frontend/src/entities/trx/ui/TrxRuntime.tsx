@@ -135,8 +135,12 @@ function defaultTree(front: FrontConfig, heading?: string, headingBadge?: string
   if (coll?.display === 'drawer') {
     // Carrito en DRAWER: tabla principal full-width + drawer con la collection.
     nodes.push({ ...mainTable, span: 10 })
-    nodes.push({ type: 'drawer', trigger: coll.trigger ?? 'finalize', title: coll.title, footerActions: true, children: [
-      { type: 'table', source: 'collection', title: coll.title, rowKey: coll.rowKey, target: coll.target, fields: coll.fields.map(normField) },
+    // `badge: headingBadge` — mismo total que ya se ve junto al heading de la página (ej.
+    // orderTotal en OCM), repetido acá porque el drawer es donde el usuario confirma.
+    nodes.push({ type: 'drawer', trigger: coll.trigger ?? 'finalize', title: coll.title, badge: headingBadge, footerActions: true, children: [
+      // Sin `title` acá: el drawer ya muestra "Resumen" en su propio header — repetirlo en
+      // la tabla de adentro duplicaba el texto.
+      { type: 'table', source: 'collection', rowKey: coll.rowKey, target: coll.target, fields: coll.fields.map(normField) },
     ] })
   } else if (coll) {
     // Carrito INLINE (default): grid 70/30.

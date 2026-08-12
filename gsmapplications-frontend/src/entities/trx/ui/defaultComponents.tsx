@@ -741,6 +741,8 @@ function TrxDrawer({ node, ctx }: { node: ComponentNode; ctx: RuntimeCtx }) {
     window.addEventListener('resize', onResize)
     return () => { document.removeEventListener('keydown', onKey); window.removeEventListener('resize', onResize) }
   }, [open])
+  // Mismo total que el heading de la página (ej. orderTotal) — acá, junto a cerrar.
+  const badge = node.badge ? ctx.registry.computeds[node.badge]?.({ $items: ctx.collection.items, $rows: ctx.rows }) : null
   return (
     <>
       <div className="flex justify-end">
@@ -752,20 +754,31 @@ function TrxDrawer({ node, ctx }: { node: ComponentNode; ctx: RuntimeCtx }) {
             className="bg-black/40" onClick={() => setOpen(false)} />
           <div style={{ position: 'fixed', top: box.top, right: 0, bottom: 0, zIndex: 40 }}
             className="flex w-full max-w-md flex-col border-l border-border bg-card shadow-xl">
-            <div className="flex items-center justify-between border-b border-border px-5 py-4">
-              <h2 className="text-base font-semibold text-foreground">{ctx.t(node.title ?? 'summary')}</h2>
-              <button type="button" onClick={() => setOpen(false)} aria-label="Cerrar"
-                className="flex h-8 w-8 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-muted">
-                <X className="h-4 w-4" />
-              </button>
+            <div className="flex items-center justify-between border-b border-border px-5 py-1.5">
+              <div className="flex items-center gap-2">
+                <h2 className="text-base font-semibold text-foreground">{ctx.t(node.title ?? 'summary')}</h2>
+                {countBadge(ctx.collection.items.length)}
+              </div>
+              <div className="flex items-center gap-2">
+                {badge != null && badge !== '' && (
+                  <span className="rounded-lg border border-primary/20 bg-primary/10 px-3.5 py-1.5 text-base font-semibold text-primary">{String(badge)}</span>
+                )}
+                <button type="button" onClick={() => setOpen(false)} aria-label="Cerrar"
+                  className="flex h-8 w-8 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-muted">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
             </div>
-            <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-5">
+            {/* min-h-0: sin esto un hijo flex-1 crece con su contenido en vez de acotarse. La
+                tabla de adentro (DataTable) ahora scrollea sola (header y pager fijos) — esto
+                queda como respaldo por si el children no es una tabla. */}
+            <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-2">
               {(node.children ?? []).map((c, i) => ctx.renderNode(c, i))}
             </div>
             {node.footerActions === true && (() => {
               const ts = ctx.transitions.filter(t => t.label)   // acciones del workflow del estado actual
               return ts.length ? (
-                <div className="flex flex-col gap-2 border-t border-border px-5 py-4">
+                <div className="flex flex-col gap-2 border-t border-border px-5 py-2">
                   {ts.map((t, i) => {
                     const reason = ctx.blockReason(t)
                     return (

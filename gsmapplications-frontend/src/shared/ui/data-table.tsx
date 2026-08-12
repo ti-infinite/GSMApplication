@@ -72,7 +72,7 @@ export function DataTable<T>({
   const paged     = paginate ? sorted.slice(safePage * rowsPerPage, safePage * rowsPerPage + rowsPerPage) : sorted
 
   const pager = paginate ? (
-    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-card px-4 py-2.5 text-sm">
+    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-card px-4 py-1 text-sm">
       <div className="flex items-center gap-2 text-muted-foreground">
         <span>Filas por página</span>
         <DropdownMenu>
@@ -109,8 +109,10 @@ export function DataTable<T>({
   // Ícono en halo neutro (ni primary ni destructive: no es una acción ni un error, es
   // informativo) + texto más oscuro que antes (era text-muted-foreground puro) para que
   // el estado "vacío" pese más que un simple placeholder gris y se note de un vistazo.
+  // flex-1: cuando el padre acota la altura (ej. el drawer), esto centra el ícono+mensaje en
+  // TODO el espacio libre en vez de quedar pegado arriba con un hueco vacío después del pager.
   const empty = (
-    <div className="flex flex-col items-center justify-center gap-3 bg-card py-12">
+    <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 bg-card py-12">
       <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
         <Inbox className="h-5 w-5 text-muted-foreground" />
       </div>
@@ -119,8 +121,10 @@ export function DataTable<T>({
   )
 
   // Header reusable (se muestra igual con datos o con skeleton, para que el shell no salte).
+  // sticky + bg-card opaco: cuando el padre acota la altura (ej. el drawer), solo las filas
+  // scrollean — el header queda fijo arriba en vez de irse con ellas.
   const head = (
-    <thead>
+    <thead className="sticky top-0 z-10 bg-card">
       <tr className="border-b border-border bg-muted/40">
         {columns.map(col => (
           <th key={col.key} className={`px-4 py-1 text-xs font-semibold text-muted-foreground ${alignCls(col.align)}`}>
@@ -165,12 +169,16 @@ export function DataTable<T>({
   return (
     <>
       {/* ── Desktop table ── */}
-      <div className="hidden overflow-hidden rounded-xl border border-border bg-card md:block">
+      {/* md:flex + md:h-full + md:min-h-0: sin altura acotada de un padre (el caso normal,
+          página completa) esto no cambia nada visualmente. Con un padre que SÍ acota (ej. el
+          drawer, flex-1 min-h-0), esta tabla ocupa exactamente ese espacio y scrollea sola —
+          toolbar y pager quedan fijos, solo el bloque de filas de abajo se mueve. */}
+      <div className="hidden overflow-hidden rounded-xl border border-border bg-card md:flex md:min-h-0 md:flex-1 md:flex-col">
         {toolbar && <div className="border-b border-border px-4 py-3">{toolbar}</div>}
         {loading ? (
-          <div className="overflow-x-auto"><table className="w-full text-sm">{head}{skeletonBody}</table></div>
+          <div className="min-h-0 flex-1 overflow-auto"><table className="w-full text-sm">{head}{skeletonBody}</table></div>
         ) : sorted.length === 0 ? empty : (
-          <div className="overflow-x-auto">
+          <div className="min-h-0 flex-1 overflow-auto">
             <table className="w-full text-sm">
               {head}
               <tbody className="divide-y divide-border">

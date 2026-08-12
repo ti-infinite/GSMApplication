@@ -60,6 +60,12 @@ export interface FilterConfig {
   input?:         'text' | 'date'   // 'text' = input libre · 'date' = date picker (no combo)
   placeholder?:   string   // placeholder del input/combo
   required?:      boolean  // sin valor, el motor bloquea las transiciones (evento REQUIRED_FILTERS, ver canFire/blockReason)
+  // Agrupa visualmente el filtro/attribute dentro de la FiltersBar — default 'main' si se omite
+  // (no hace falta declararlo en los que ya interactúan con la trx: gatillan un resource, filtran
+  // la tabla, etc.). Cualquier otro valor (ej. 'extra') arma una sección aparte, con su propio
+  // label (`ctx.t(section)`) y un separador — para los que solo viajan como dato de la
+  // transacción sin afectar nada (ej. OCM: forma de pago/fecha de entrega/observaciones).
+  section?:       string
 }
 
 /** Buscador de catálogo del toolbar. Con `cascade` se vuelve un PICKER: botón +
@@ -169,6 +175,7 @@ export interface AttributeSpec {
   // `FrontConfig.validations.required` (nivel transacción, un solo lugar para todo lo `required`).
   required?:    boolean
   placeholder?: string
+  section?:     string   // agrupa en la FiltersBar — ver FilterConfig.section (mismo nombre/default)
 }
 
 /** Slot tabla principal — forma MÍNIMA: solo `columns` (el resto lo pone el template). */
@@ -234,6 +241,16 @@ export interface FrontConfig {
     // marcadas `rejected`, no en todas (por eso no entra en `required`, que es incondicional).
     // Lo revisa REQUIRED_FIELDS también.
     when?: Record<string, string>
+    // NO es una validación que bloquea (a diferencia de `required`/`when`, nunca impide
+    // confirmar) — decide qué filas se MANDAN. `qty` explícito en el nombre porque siempre es
+    // ese campo (el estándar del motor, el mismo que usan `addButton`/"Agregar todos"): si una
+    // fila da 0 ahí, `createTrx` la excluye de `trxProducts` — no se manda NADA de esa fila,
+    // ni sus atributos ni un eventual comentario. Ej. RPI: un insumo pedido que no llegó
+    // (cantidad recibida 0) no queda como línea de producto en la transacción, así
+    // Verificación/Factura/Reportes (que leen `trxProducts` después) nunca lo ven. Sin `event`
+    // asociado a propósito: `createTrx` lo aplica directo si el módulo lo declaró, no es algo
+    // que se "active" aparte.
+    voidZeroQty?: boolean
   }
   // Eventos FRONT (registry.events) que gatean el botón de confirmar — ejecutores con nombre,
   // igual patrón que el back (IEventExecutor). `HAS_ITEMS` (≥1 fila) es el ÚNICO que corre

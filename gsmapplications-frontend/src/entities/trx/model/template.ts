@@ -101,9 +101,9 @@ function addFilterSpec(spec: FilterSpec, acc: Second): void {
 function attributeToFilter(a: AttributeSpec, requiredKeys?: string[]): FilterConfig | null {
   if (!a.label) return null
   const required = a.required || !!requiredKeys?.includes(a.key)
-  if (a.resource) return { key: a.key, label: a.label, resource: a.resource, optionValue: a.optionValue ?? 'id', optionLabel: a.optionLabel ?? 'name', placeholder: a.placeholder, required }
-  if (a.source)   return { key: a.key, label: a.label, source: a.source, optionValue: a.optionValue ?? 'id', optionLabel: a.optionLabel ?? 'name', placeholder: a.placeholder, required }
-  return { key: a.key, label: a.label, values: a.values, optionValue: 'value', optionLabel: 'label', input: a.input, placeholder: a.placeholder, required }
+  if (a.resource) return { key: a.key, label: a.label, resource: a.resource, optionValue: a.optionValue ?? 'id', optionLabel: a.optionLabel ?? 'name', placeholder: a.placeholder, required, section: a.section }
+  if (a.source)   return { key: a.key, label: a.label, source: a.source, optionValue: a.optionValue ?? 'id', optionLabel: a.optionLabel ?? 'name', placeholder: a.placeholder, required, section: a.section }
+  return { key: a.key, label: a.label, values: a.values, optionValue: 'value', optionLabel: 'label', input: a.input, placeholder: a.placeholder, required, section: a.section }
 }
 
 /**

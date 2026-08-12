@@ -165,7 +165,7 @@ export default function Sidebar({ items, brand, locale, open = true, onLogout }:
 
   return (
     <TooltipProvider>
-    <aside className={`fixed inset-y-0 left-0 z-50 flex h-screen shrink-0 flex-col overflow-hidden border-r border-sidebar-border bg-sidebar transition-all duration-300 lg:relative lg:inset-y-auto lg:left-auto lg:z-auto ${open ? 'w-60 translate-x-0' : 'w-60 -translate-x-full lg:w-16 lg:translate-x-0'}`}>
+    <aside className={`fixed inset-y-0 left-0 z-50 flex h-screen shrink-0 flex-col overflow-hidden border-r border-sidebar-border bg-sidebar transition-all duration-300 lg:relative lg:inset-y-auto lg:left-auto lg:z-auto ${open ? 'w-67.5 translate-x-0' : 'w-67.5 -translate-x-full lg:w-16 lg:translate-x-0'}`}>
 
       <div className={`flex items-center gap-3 py-4 ${collapsed ? 'justify-center px-0' : 'px-5'}`}>
         <div className={`flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg ${brand.logo && isSafeUrl(brand.logo) ? '' : 'bg-primary'}`}>

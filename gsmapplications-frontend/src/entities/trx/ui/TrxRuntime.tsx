@@ -312,12 +312,9 @@ export function TrxRuntime({ config, registry, title, subtitle, heading, heading
       }
     })()
     return () => { cancelled = true }
-    // Real bug reportado: cambiar `location` NO limpiaba `trxDocument` (combo-desde-resource,
-    // no usa `dependsOn`/cascada de opción — su "padre" es un PARAM del resource, no una opción
-    // elegida) — el valor elegido quedaba "fantasma" en el context (el combo se veía vacío
-    // porque ya no hay opción con ese label, pero el resource principal seguía disparando con
-    // el trxDocument viejo → tabla nunca se vaciaba). Se limpia acá apenas la lista de opciones
-    // deja de incluir el valor actualmente elegido — sin importar POR QUÉ cambió la lista.
+    // Limpia el valor elegido si ya no está en la lista de opciones (ej. cambiar `location`
+    // dejaba `trxDocument` "fantasma" — el combo se veía vacío pero el resource seguía
+    // disparando con el valor viejo, la tabla nunca se vaciaba).
     function clearStaleSelection(f: FilterConfig, list: unknown[]) {
       const current = context[f.key]
       if (!current) return
@@ -430,9 +427,7 @@ export function TrxRuntime({ config, registry, title, subtitle, heading, heading
   const removeProductRow = (id: string) => {
     setExtraRows(prev => prev.filter(r => String(r[keyField] ?? '') !== id))
     setEdits(prev => { const next = { ...prev }; delete next[id]; return next })
-    // Bug real reportado: si esa fila ya se había mandado al carrito (+), "Quitar" en la tabla
-    // principal la sacaba de acá pero la dejaba huérfana en `collection` — desaparecía de la
-    // vista pero createTrx la seguía mandando igual. Se limpia de los dos lados a la vez.
+    // Si ya estaba en el carrito, se limpia de los dos lados (si no, quedaba huérfana ahí).
     setCollection(prev => prev.filter(r => String(r[collectionKey] ?? '') !== id))
   }
 

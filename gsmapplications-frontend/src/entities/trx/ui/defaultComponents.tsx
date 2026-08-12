@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
-import { ChevronDown, Check, Plus, Search, Filter, X, Trash2, CalendarIcon, Loader2 } from 'lucide-react'
+import { ChevronDown, Check, Plus, Search, Filter, X, Trash2, CalendarIcon, Loader2, SlidersHorizontal } from 'lucide-react'
 import { Combobox } from '@/shared/ui/combobox'
 import { Button } from '@/shared/ui/button'
 import { DataTable, type TableColumn } from '@/shared/ui/data-table'
@@ -50,6 +50,25 @@ function TrxSearch({ cfg, ctx }: { cfg: SearchConfig; ctx: RuntimeCtx }) {
   )
 }
 
+// Posiciona un panel FIXED bajo (o, si no hay espacio, arriba de) un botón — mismo criterio
+// que ya usa el Combobox (calcPos): si abajo hay poco lugar y arriba hay más, voltea. Sin esto,
+// en resoluciones bajas el panel se salía por debajo del viewport y, al ser `position:fixed`
+// (no vive en el flujo de la página), scrollear la página no lo alcanzaba — quedaba con
+// contenido inaccesible. `maxHeight` además tapa el panel a lo que realmente entra, así
+// SIEMPRE es scrolleable dentro de sí mismo sin importar la resolución.
+interface PopoverPos { top?: number; bottom?: number; left: number; width: number; maxHeight: number }
+const POPOVER_MARGIN = 4
+function placePopover(anchor: HTMLElement, width: number): PopoverPos {
+  const r = anchor.getBoundingClientRect()
+  const spaceBelow = window.innerHeight - r.bottom - POPOVER_MARGIN
+  const spaceAbove = r.top - POPOVER_MARGIN
+  const left = Math.max(8, Math.min(r.left, window.innerWidth - width - 8))
+  const flip = spaceBelow < 240 && spaceAbove > spaceBelow
+  return flip
+    ? { bottom: window.innerHeight - r.top + POPOVER_MARGIN, left, width, maxHeight: Math.max(160, spaceAbove) }
+    : { top: r.bottom + POPOVER_MARGIN, left, width, maxHeight: Math.max(160, spaceBelow) }
+}
+
 // Picker de catálogo (como Requirements): botón → popover con cascada
 // categoría→subcategoría + lista filtrada por prefijo (AggregatedCode) + texto → add.
 // El panel va en portal (fixed) para no ser recortado por el card de la tabla.
@@ -63,7 +82,7 @@ function CatalogPicker({ cfg, ctx }: { cfg: SearchConfig; ctx: RuntimeCtx }) {
   const [baseOpts, setBaseOpts] = useState<Record<string, Record<string, unknown>[]>>({})
   const [sel, setSel] = useState<Record<string, string>>({})
   const [query, setQuery] = useState('')
-  const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null)
+  const [pos, setPos] = useState<PopoverPos | null>(null)
   const btnRef = useRef<HTMLButtonElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
 
@@ -111,11 +130,7 @@ function CatalogPicker({ cfg, ctx }: { cfg: SearchConfig; ctx: RuntimeCtx }) {
     return next
   })
 
-  const place = () => {
-    const r = btnRef.current?.getBoundingClientRect(); if (!r) return
-    const width = 360
-    setPos({ top: r.bottom + 4, left: Math.max(8, Math.min(r.left, window.innerWidth - width - 8)), width })
-  }
+  const place = () => { if (btnRef.current) setPos(placePopover(btnRef.current, 360)) }
   const toggle = () => { if (!open) place(); setOpen(o => !o) }
 
   // Cierra con Escape o click en el backdrop (NO con mousedown global, que pelea con
@@ -139,8 +154,9 @@ function CatalogPicker({ cfg, ctx }: { cfg: SearchConfig; ctx: RuntimeCtx }) {
       {open && pos && createPortal(
         <>
         <div style={{ position: 'fixed', inset: 0, zIndex: 9998 }} onClick={() => setOpen(false)} />
-        <div ref={panelRef} style={{ position: 'fixed', top: pos.top, left: pos.left, width: pos.width, zIndex: 9999 }}
-          className="flex flex-col gap-3 rounded-xl border border-border bg-popover p-3 shadow-[0_8px_30px_rgb(0,0,0,0.12)] ring-1 ring-black/5">
+        <div ref={panelRef}
+          style={{ position: 'fixed', top: pos.top, bottom: pos.bottom, left: pos.left, width: pos.width, maxHeight: pos.maxHeight, zIndex: 9999 }}
+          className="flex flex-col gap-3 overflow-y-auto rounded-xl border border-border bg-popover p-3 shadow-[0_8px_30px_rgb(0,0,0,0.12)] ring-1 ring-black/5">
           <div className="grid grid-cols-2 gap-2">
             {levels.map(({ f, data }) => (
               <div key={f.key} className="flex flex-col gap-1">
@@ -162,7 +178,7 @@ function CatalogPicker({ cfg, ctx }: { cfg: SearchConfig; ctx: RuntimeCtx }) {
               className="w-full min-w-0 rounded-lg border border-border bg-background py-1.5 pl-8 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
           </div>
 
-          <div className="max-h-56 overflow-y-auto rounded-lg border border-border">
+          <div className="rounded-lg border border-border">
             {filtered.length === 0 ? (
               <p className="px-3 py-4 text-center text-sm text-muted-foreground">Sin resultados</p>
             ) : filtered.map(p => {
@@ -194,7 +210,7 @@ function AddProductPicker({ ctx, source, categoryFilters }: { ctx: RuntimeCtx; s
   const [open, setOpen]       = useState(false)
   const [catalog, setCatalog] = useState<Record<string, unknown>[]>([])
   const [query, setQuery]     = useState('')
-  const [pos, setPos]         = useState<{ top: number; left: number; width: number } | null>(null)
+  const [pos, setPos]         = useState<PopoverPos | null>(null)
   const btnRef = useRef<HTMLButtonElement>(null)
 
   // Catálogo: 1 solo fetch (al abrir la 1ª vez); después se filtra en cliente.
@@ -224,11 +240,7 @@ function AddProductPicker({ ctx, source, categoryFilters }: { ctx: RuntimeCtx; s
     return true
   })
 
-  const place = () => {
-    const r = btnRef.current?.getBoundingClientRect(); if (!r) return
-    const width = 360
-    setPos({ top: r.bottom + 4, left: Math.max(8, Math.min(r.left, window.innerWidth - width - 8)), width })
-  }
+  const place = () => { if (btnRef.current) setPos(placePopover(btnRef.current, 360)) }
   const toggle = () => { if (!open) place(); setOpen(o => !o) }
 
   useEffect(() => {
@@ -250,8 +262,9 @@ function AddProductPicker({ ctx, source, categoryFilters }: { ctx: RuntimeCtx; s
       {open && pos && createPortal(
         <>
           <div style={{ position: 'fixed', inset: 0, zIndex: 9998 }} onClick={() => setOpen(false)} />
-          <div style={{ position: 'fixed', top: pos.top, left: pos.left, width: pos.width, zIndex: 9999 }}
-            className="flex flex-col gap-3 rounded-xl border border-border bg-popover p-3 shadow-[0_8px_30px_rgb(0,0,0,0.12)] ring-1 ring-black/5">
+          <div
+            style={{ position: 'fixed', top: pos.top, bottom: pos.bottom, left: pos.left, width: pos.width, maxHeight: pos.maxHeight, zIndex: 9999 }}
+            className="flex flex-col gap-3 overflow-y-auto rounded-xl border border-border bg-popover p-3 shadow-[0_8px_30px_rgb(0,0,0,0.12)] ring-1 ring-black/5">
             {/* Mismo estado que los combos de la barra (ctx.context/ctx.setFilter) — no uno propio:
                 podés acotar la búsqueda sin cerrar el popover, y como es el MISMO valor, la tabla
                 principal queda igual de filtrada, sin nada que sincronizar a mano. */}
@@ -273,7 +286,7 @@ function AddProductPicker({ ctx, source, categoryFilters }: { ctx: RuntimeCtx; s
               <input value={query} onChange={e => setQuery(e.target.value)} placeholder={ctx.t('searchSupply')}
                 className="w-full min-w-0 rounded-lg border border-border bg-background py-1.5 pl-8 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
             </div>
-            <div className="max-h-56 overflow-y-auto rounded-lg border border-border">
+            <div className="rounded-lg border border-border">
               {filtered.length === 0 ? (
                 <p className="px-3 py-4 text-center text-sm text-muted-foreground">{ctx.t('noResults')}</p>
               ) : filtered.map(p => (
@@ -363,38 +376,78 @@ function FiltersBar({ filters, applyLabel, ctx }: { filters: FilterConfig[]; app
       return next
     })
   }
+  const renderField = (f: FilterConfig) => (
+    <FilterField key={f.key} label={ctx.t(f.label)}>
+      {f.input === 'date' ? (
+        <DateFilterField
+          value={valueOf(f.key)}
+          onChange={v => onPick(f, v)}
+          placeholder={ctx.t(f.placeholder ?? f.label)}
+          disabled={ctx.locked.has(f.key)}
+          clearLabel={ctx.t('clearDate')}
+        />
+      ) : f.input === 'text' ? (
+        <input
+          value={valueOf(f.key)}
+          onChange={e => onPick(f, e.target.value)}
+          placeholder={ctx.t(f.placeholder ?? f.label)}
+          disabled={ctx.locked.has(f.key)}
+          className="rounded-lg border border-border bg-card px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+        />
+      ) : (
+        <Combobox
+          options={ctx.options[f.key] ?? []}
+          value={valueOf(f.key)}
+          onChange={v => onPick(f, v)}
+          placeholder={ctx.t(f.placeholder ?? f.label)}
+          // Combo-desde-resource sin opciones aún → sus params (location…) no están → deshabilitado.
+          disabled={ctx.locked.has(f.key) || (!!f.resource && (ctx.options[f.key] ?? []).length === 0)}
+        />
+      )}
+    </FilterField>
+  )
+
+  // Agrupa por `section` (default 'main') preservando el orden de primera aparición — tanto de
+  // las secciones entre sí como de los filtros dentro de cada una. 'main' son los que de verdad
+  // interactúan con la trx (gatillan un resource, filtran la tabla) — se ven inline, como
+  // siempre. Cualquier otra sección es dato secundario (no afecta nada) — queda detrás de un
+  // botón (su propio nombre traducido, ej. 'option' → "Opciones") que abre un popover, para no
+  // competir visualmente con lo que sí importa.
+  const mainFields  = filters.filter(f => !f.section || f.section === 'main')
+  const extraGroups = new Map<string, FilterConfig[]>()
+  for (const f of filters) {
+    if (!f.section || f.section === 'main') continue
+    if (!extraGroups.has(f.section)) extraGroups.set(f.section, [])
+    extraGroups.get(f.section)!.push(f)
+  }
+
   return (
     <FilterBar toggleLabel={ctx.t('filters')}>
-      {filters.map(f => (
-        <FilterField key={f.key} label={ctx.t(f.label)}>
-          {f.input === 'date' ? (
-            <DateFilterField
-              value={valueOf(f.key)}
-              onChange={v => onPick(f, v)}
-              placeholder={ctx.t(f.placeholder ?? f.label)}
-              disabled={ctx.locked.has(f.key)}
-              clearLabel={ctx.t('clearDate')}
-            />
-          ) : f.input === 'text' ? (
-            <input
-              value={valueOf(f.key)}
-              onChange={e => onPick(f, e.target.value)}
-              placeholder={ctx.t(f.placeholder ?? f.label)}
-              disabled={ctx.locked.has(f.key)}
-              className="rounded-lg border border-border bg-card px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
-            />
-          ) : (
-            <Combobox
-              options={ctx.options[f.key] ?? []}
-              value={valueOf(f.key)}
-              onChange={v => onPick(f, v)}
-              placeholder={ctx.t(f.placeholder ?? f.label)}
-              // Combo-desde-resource sin opciones aún → sus params (location…) no están → deshabilitado.
-              disabled={ctx.locked.has(f.key) || (!!f.resource && (ctx.options[f.key] ?? []).length === 0)}
-            />
-          )}
+      {mainFields.map(renderField)}
+      {/* Mismo bloque label+control que cualquier otro campo (label invisible, solo para
+          ocupar la misma altura de fila) — así el botón alinea en altura con los combos por
+          `items-end`. `width="sm:w-auto"` para que el botón en sí no se estire a los 17.5rem de
+          la celda (es corto, no necesita ese ancho) — pero SIGUE ocupando su celda normal del
+          grid, en secuencia justo después del último campo `main`, sin ningún truco de posición. */}
+      {extraGroups.size > 0 && (
+        <FilterField label={<span className="invisible select-none">·</span>} width="sm:w-auto">
+          <div className="flex gap-2">
+            {[...extraGroups.entries()].map(([section, fields]) => (
+              <Popover key={section}>
+                <PopoverTrigger asChild>
+                  <button type="button"
+                    className="flex items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-border bg-card px-3.5 py-2.5 text-sm font-medium text-foreground transition-colors hover:border-ring focus:outline-none focus:ring-2 focus:ring-ring">
+                    <SlidersHorizontal className="h-4 w-4" /> {ctx.t(section)}
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-80 p-4">
+                  <div className="flex flex-col gap-3">{fields.map(renderField)}</div>
+                </PopoverContent>
+              </Popover>
+            ))}
+          </div>
         </FilterField>
-      ))}
+      )}
       {apply && (
         <Button className="w-full gap-2 sm:w-auto" onClick={() => ctx.setContext(c => ({ ...c, ...staged }))}>
           <Filter className="h-4 w-4" /> {applyLabel}
@@ -665,7 +718,7 @@ function TrxTable({ node, ctx }: { node: ComponentNode; ctx: RuntimeCtx }) {
       toolbar={tb}
       renderExpanded={renderExpanded}
       mobileCard={mobileCard}
-      pageSize={25}
+      pageSize={10}
     />
   )
 }

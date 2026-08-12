@@ -60,11 +60,8 @@ export interface FilterConfig {
   input?:         'text' | 'date'   // 'text' = input libre · 'date' = date picker (no combo)
   placeholder?:   string   // placeholder del input/combo
   required?:      boolean  // sin valor, el motor bloquea las transiciones (evento REQUIRED_FILTERS, ver canFire/blockReason)
-  // Agrupa visualmente el filtro/attribute dentro de la FiltersBar — default 'main' si se omite
-  // (no hace falta declararlo en los que ya interactúan con la trx: gatillan un resource, filtran
-  // la tabla, etc.). Cualquier otro valor (ej. 'extra') arma una sección aparte, con su propio
-  // label (`ctx.t(section)`) y un separador — para los que solo viajan como dato de la
-  // transacción sin afectar nada (ej. OCM: forma de pago/fecha de entrega/observaciones).
+  // Agrupa en la FiltersBar — default 'main' (inline, sin declarar). Otro valor (ej. 'extra')
+  // arma un botón+popover aparte, para dato secundario que no interactúa con la trx.
   section?:       string
 }
 
@@ -241,15 +238,9 @@ export interface FrontConfig {
     // marcadas `rejected`, no en todas (por eso no entra en `required`, que es incondicional).
     // Lo revisa REQUIRED_FIELDS también.
     when?: Record<string, string>
-    // NO es una validación que bloquea (a diferencia de `required`/`when`, nunca impide
-    // confirmar) — decide qué filas se MANDAN. `qty` explícito en el nombre porque siempre es
-    // ese campo (el estándar del motor, el mismo que usan `addButton`/"Agregar todos"): si una
-    // fila da 0 ahí, `createTrx` la excluye de `trxProducts` — no se manda NADA de esa fila,
-    // ni sus atributos ni un eventual comentario. Ej. RPI: un insumo pedido que no llegó
-    // (cantidad recibida 0) no queda como línea de producto en la transacción, así
-    // Verificación/Factura/Reportes (que leen `trxProducts` después) nunca lo ven. Sin `event`
-    // asociado a propósito: `createTrx` lo aplica directo si el módulo lo declaró, no es algo
-    // que se "active" aparte.
+    // NO bloquea confirmar (a diferencia de `required`/`when`) — decide qué filas se MANDAN.
+    // Siempre sobre `qty`: en 0, `createTrx` excluye esa fila entera de `trxProducts`. Ej. RPI:
+    // un insumo que no llegó no queda como línea de producto, así Verificación/Factura no lo ven.
     voidZeroQty?: boolean
   }
   // Eventos FRONT (registry.events) que gatean el botón de confirmar — ejecutores con nombre,

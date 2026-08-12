@@ -106,11 +106,7 @@ export function DataTable<T>({
     </div>
   ) : null
 
-  // Ícono en halo neutro (ni primary ni destructive: no es una acción ni un error, es
-  // informativo) + texto más oscuro que antes (era text-muted-foreground puro) para que
-  // el estado "vacío" pese más que un simple placeholder gris y se note de un vistazo.
-  // flex-1: cuando el padre acota la altura (ej. el drawer), esto centra el ícono+mensaje en
-  // TODO el espacio libre en vez de quedar pegado arriba con un hueco vacío después del pager.
+  // flex-1: centra el ícono+mensaje en el espacio libre en vez de dejar un hueco vacío debajo.
   const empty = (
     <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 bg-card py-12">
       <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
@@ -120,9 +116,7 @@ export function DataTable<T>({
     </div>
   )
 
-  // Header reusable (se muestra igual con datos o con skeleton, para que el shell no salte).
-  // sticky + bg-card opaco: cuando el padre acota la altura (ej. el drawer), solo las filas
-  // scrollean — el header queda fijo arriba en vez de irse con ellas.
+  // sticky + bg-card opaco: con altura acotada (ej. el drawer), solo las filas scrollean.
   const head = (
     <thead className="sticky top-0 z-10 bg-card">
       <tr className="border-b border-border bg-muted/40">
@@ -169,10 +163,8 @@ export function DataTable<T>({
   return (
     <>
       {/* ── Desktop table ── */}
-      {/* md:flex + md:h-full + md:min-h-0: sin altura acotada de un padre (el caso normal,
-          página completa) esto no cambia nada visualmente. Con un padre que SÍ acota (ej. el
-          drawer, flex-1 min-h-0), esta tabla ocupa exactamente ese espacio y scrollea sola —
-          toolbar y pager quedan fijos, solo el bloque de filas de abajo se mueve. */}
+      {/* md:flex-1 md:min-h-0: no-op en la página normal; con un padre de altura acotada
+          (ej. el drawer) hace que solo el bloque de filas scrollee, no toolbar/pager. */}
       <div className="hidden overflow-hidden rounded-xl border border-border bg-card md:flex md:min-h-0 md:flex-1 md:flex-col">
         {toolbar && <div className="border-b border-border px-4 py-3">{toolbar}</div>}
         {loading ? (

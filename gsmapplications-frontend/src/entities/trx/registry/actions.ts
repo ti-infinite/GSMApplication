@@ -49,10 +49,8 @@ export const DEFAULT_ACTIONS: Record<string, (ctx: ActionCtx) => void | Promise<
     const hasCart = !!(front.items?.summary ?? front.summary ?? front.collection)
     const source  = hasCart ? collection : rows
 
-    // `validations.voidZeroQty` (opt-in, no bloquea nada): filas en 0 no se mandan. No-op en
-    // módulos con carrito (`addButton` ya bloquea agregar con qty vacía/0, así que `collection`
-    // nunca trae una de estas) — solo cambia algo en los módulos sin carrito que lo declaren
-    // (ej. RPI: un insumo pedido que no llegó no queda como línea de producto).
+    // `validations.voidZeroQty` (opt-in): filas en 0 no se mandan. No-op en módulos con carrito
+    // (`addButton` ya bloquea agregar con qty 0) — solo importa donde no hay carrito (ej. RPI).
     const trxSource = front.validations?.voidZeroQty ? source.filter(r => Number(r.qty) !== 0) : source
 
     // Variable (no literal contextual) → el campo trxProductsAttributes no choca con el DTO hasta

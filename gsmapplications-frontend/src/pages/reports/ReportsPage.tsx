@@ -12,7 +12,7 @@ import { Dialog, DialogContent } from '@/shared/ui/dialog'
 import { Popover, PopoverTrigger, PopoverContent } from '@/shared/ui/popover'
 import { Calendar } from '@/shared/ui/calendar'
 import { Button } from '@/shared/ui/button'
-import { pivotAttributes } from '@/entities/trx'
+import { pivotAttributes, formatMoney } from '@/entities/trx'
 import { useTenant } from '@/app/providers/TenantProvider'
 import { getTrxSeries, getTransaction, getFilteredSuppliers } from '@/shared/api/operations/endpoints'
 import { getFilteredLocations } from '@/shared/api/application/endpoints'
@@ -37,6 +37,12 @@ const dateOnly = (iso?: string) => (iso ? new Date(iso).toLocaleDateString() : '
 // camelCase → "Camel Case" — las keys de pivotAttributes son arbitrarias (cualquier prefix),
 // no hay un diccionario de labels central para ellas, así que se muestran así, legible sin traducir.
 const titleCase = (s: string) => s.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, c => c.toUpperCase()).trim()
+
+// Atributos de dinero conocidos (los mismos nombres que usan las columnas `money` de los
+// módulos TRX) — formateados con `formatMoney` acá; el resto se muestra tal cual (crudo).
+const MONEY_ATTR_KEYS = new Set(['price', 'unitPrice', 'productTotal', 'priceQty'])
+const formatAttrValue = (key: string, value: string) =>
+  MONEY_ATTR_KEYS.has(key) && value !== '' && !Number.isNaN(Number(value)) ? formatMoney(Number(value)) : value
 
 // Mismo layout que el documento que manda el backend por correo (trx_document.html,
 // WeasyPrint) — pero con los TOKENS del tenant activo (var(--primary) etc.), no la paleta
@@ -127,7 +133,7 @@ function TrxPreviewDialog({ trx, onClose, locationName, supplierName, documentTy
                 <tr key={i}>
                   <td className="rpt-name">{p.name}</td>
                   <td className="num">{p.qty || '—'}</td>
-                  {columnKeys.map(k => <td key={k} className="num">{p.attrs[k] || '—'}</td>)}
+                  {columnKeys.map(k => <td key={k} className="num">{p.attrs[k] ? formatAttrValue(k, p.attrs[k]) : '—'}</td>)}
                 </tr>
               ))}
             </tbody>
@@ -212,6 +218,10 @@ export default function ReportsPage() {
   const [location,  setLocation]  = useState('')
   const [prefix,    setPrefix]    = useState('')
   const [range,     setRange]     = useState<DateRange | undefined>(undefined)
+  // El Calendar edita SOLO este borrador — el `range` real (el que dispara la búsqueda) recién
+  // se actualiza al confirmar con "Aplicar", así ajustar fechas no repite la petición de más.
+  const [rangeOpen,   setRangeOpen]   = useState(false)
+  const [stagedRange, setStagedRange] = useState<DateRange | undefined>(undefined)
   const [rows,      setRows]      = useState<TrxResponseDTO[]>([])
   const [loading,   setLoading]   = useState(false)
   const [error,     setError]     = useState<unknown>(null)
@@ -314,7 +324,7 @@ export default function ReportsPage() {
         </FilterField>
         <FilterField label={t('dateRange')}>
           <div className="relative">
-            <Popover>
+            <Popover open={rangeOpen} onOpenChange={o => { setRangeOpen(o); if (o) setStagedRange(range) }}>
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
@@ -325,7 +335,12 @@ export default function ReportsPage() {
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
-                <Calendar mode="range" selected={range} onSelect={setRange} />
+                <Calendar mode="range" selected={stagedRange} onSelect={setStagedRange} />
+                <div className="border-t border-border p-2">
+                  <Button className="w-full" onClick={() => { setRange(stagedRange); setRangeOpen(false) }}>
+                    {t('applyDateRange')}
+                  </Button>
+                </div>
               </PopoverContent>
             </Popover>
             {/* Fuera del trigger de Radix a propósito: anidado adentro, el click bubblea al

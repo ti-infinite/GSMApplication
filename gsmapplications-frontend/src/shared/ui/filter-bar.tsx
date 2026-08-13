@@ -7,15 +7,8 @@ import { ChevronDown, Filter } from 'lucide-react'
 export function FilterBar({ toggleLabel, children }: { toggleLabel: string; children: ReactNode }) {
   const [open, setOpen] = useState(false)   // toggle del panel en mobile (en sm+ siempre visible)
   return (
-    // `inline-flex` (no `flex w-fit`/`w-full`): hug-content nativo del navegador — 1 campo,
-    // se achica; varios, crece — sin la lógica de `width:fit-content()` que resultó poco
-    // confiable mezclada con hijos `flex-wrap` (calculaba mal cuánto entraba por fila, ya sea
-    // desbordándose de más o quedándose corto). `max-w-full` clampa contra el viewport (un
-    // inline-flex, a diferencia de un bloque con fit-content, no se autolimita solo).
-    // `self-start`: el padre real (TrxRuntime, el `flex flex-col gap-6` que apila TODAS las
-    // secciones del módulo) estira a sus hijos al 100% por default (`align-items:stretch` de
-    // flex-col) — sin esto, NADA de lo de acá adentro importaba, el ancho ya venía impuesto
-    // desde afuera antes de que el `inline-flex` propio tuviera oportunidad de decidir algo.
+    // inline-flex (hug-content) + self-start: sin self-start, el padre (flex-col) estira esto
+    // al 100% por default y el hug-content nunca llega a aplicarse.
     <div className="inline-flex max-w-full flex-col gap-3 self-start">
       <button
         type="button" onClick={() => setOpen(o => !o)}
@@ -31,14 +24,8 @@ export function FilterBar({ toggleLabel, children }: { toggleLabel: string; chil
   )
 }
 
-// Un filtro individual dentro de la FilterBar: label arriba + su control (combo/input/lo que sea).
-// `width` (default el ancho fijo de siempre) — override puntual para un campo que no necesita
-// ocupar lo mismo que un combo (ej. un botón corto tipo "Opciones": mismo alto que los demás
-// vía el label invisible, pero angosto en vez de estirado a 280px — en flex, a diferencia de
-// grid, un item respeta este ancho tal cual, sin estirarse solo). Sin `w-full` a propósito: en
-// mobile ya estira solo por `align-items:stretch` (default de flex-col, el panel de arriba);
-// declararlo además rompía el hug-content del `inline-flex` de arriba (ancho 100% contra un
-// contenedor que todavía no tiene ancho propio = comportamiento indefinido en el spec CSS).
+// Un filtro individual: label arriba + su control. `width` override para campos angostos
+// (ej. un botón "Opciones" que no debe ocupar los 280px de un combo).
 export function FilterField({ label, children, width = 'sm:w-70' }: { label: ReactNode; children: ReactNode; width?: string }) {
   return (
     <div className={`flex flex-col gap-1.5 ${width}`}>

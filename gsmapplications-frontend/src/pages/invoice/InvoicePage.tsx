@@ -58,8 +58,8 @@ const searchMissingTrx: Fetcher = async (_process, params) => {
     // pivotAttributes PRIMERO: que gane el default de acá, no lo heredado de la RPI.
     ...pivotAttributes(p.trxProductAttributes),
     measurementUnit: p.measurementUnit ?? '',
-    qty:   p.qty ?? 0,
-    price: priceByVariety.get(p.idVariety ?? -1) ?? 0,
+    qty:      p.qty ?? 0,
+    unitPrice: priceByVariety.get(p.idVariety ?? -1) ?? 0,
   }))
   return envelope(data)
 }
@@ -73,7 +73,7 @@ const catalogFetcher: Fetcher = async () => {
     ...r,
     idSupplier: currentIdSupplier,
     qty:        0,
-    price:      priceByVariety.get(r.idVariety) ?? 0,
+    unitPrice:  priceByVariety.get(r.idVariety) ?? 0,
   }))
   return envelope(data)
 }
@@ -81,15 +81,11 @@ const catalogFetcher: Fetcher = async () => {
 const registry = buildRegistry({
   fetchers: { LOCATIONS: locationsFetcher, SEARCHMISSINGTRX: searchMissingTrx, CATALOG: catalogFetcher, CATEGORIES: categoriesFetcher },
   computeds: {
-    // Renombrado a "productTotal" para matchear el `selectorValue` del JsonFront actual.
-    productTotal: row => Number(row.qty || 0) * Number(row.price || 0),
-    // Total de la factura (heading badge) — Factura NO tiene carrito (`summary:false`), la
-    // tabla principal ES la transacción → suma sobre `$rows`, no `$items`. Misma fórmula que
-    // `productTotal` por fila.
+    productTotal: row => Number(row.qty || 0) * Number(row.unitPrice || 0),
+    // Total de la factura (heading badge) — Factura no tiene carrito, suma sobre `$rows`.
     invoiceTotal: ({ $rows }) => {
-      // Fijo desde $0 (no oculto sin filas) — mismo criterio que orderTotal (OCM).
       const rows = ($rows as Record<string, unknown>[]) ?? []
-      const total = rows.reduce((s, r) => s + Number(r.qty ?? 0) * Number(r.price ?? 0), 0)
+      const total = rows.reduce((s, r) => s + Number(r.qty ?? 0) * Number(r.unitPrice ?? 0), 0)
       return formatMoney(total)
     },
   },

@@ -1,4 +1,6 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
 :root {
   --background: oklch(0.97 0.001 0);
@@ -16,6 +18,10 @@
   --accent: oklch(0.857 0.048 233.695);
   --accent-foreground: oklch(0.468 0.196 260.463);
   --destructive: oklch(0.552 0.221 28.99);
+  --success: #0CA30C;
+  --success-foreground: #FFFFFF;
+  --warning: #FAB219;
+  --warning-foreground: #422006;
   --border: oklch(0.9300 0.0094 286.2156);
   --input: oklch(0.9401 0 0);
   --ring: oklch(0 0 0);
@@ -53,6 +59,10 @@
   --accent: oklch(0.2795 0.0368 260.0310);
   --accent-foreground: oklch(0.7857 0.1153 246.6596);
   --destructive: oklch(0.7106 0.1661 22.2162);
+  --success: #0CA30C;
+  --success-foreground: #FFFFFF;
+  --warning: #FAB219;
+  --warning-foreground: #422006;
   --border: oklch(0.3289 0.0092 268.3843);
   --input: oklch(0.3289 0.0092 268.3843);
   --ring: oklch(0.6132 0.2294 291.7437);
@@ -87,6 +97,10 @@
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);

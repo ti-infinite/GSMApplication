@@ -29,7 +29,14 @@ const modules: Record<string, React.LazyExoticComponent<React.ComponentType>> = 
   'artificial-intelligence/order/ih-sales':  lazy(() => import('@/pages/ia/orders/IHSalesPage')),
   'artificial-intelligence/order/metrics':   lazy(() => import('@/pages/ia/orders/MetricsPage')),
   'artificial-intelligence/order/upload':    lazy(() => import('@/pages/ia/orders/UploadPage')),
+<<<<<<< Updated upstream
   'artificial-intelligence/purchase/chat':   lazy(() => import('@/pages/ia/purchase/ChatPage')),
+=======
+  'artificial-intelligence/purchase/chat':   lazy(() => import('@/features/ia/purchases/ChatPage')),
+  'artificial-intelligence/audit/gross-margin':    lazy(() => import('@/pages/gross-margin/DashboardPage')),
+  'artificial-intelligence/audit/quote-simulator': lazy(() => import('@/pages/gross-margin/QuoteSimulatorPage')),
+  'artificial-intelligence/audit/updates':         lazy(() => import('@/pages/gross-margin/UpdatesPage')),
+>>>>>>> Stashed changes
 }
 
 function slugToTitle(slug: string): string {

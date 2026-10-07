@@ -42,12 +42,8 @@ export default function App() {
           />
         </Routes>
       </BrowserRouter>
-<<<<<<< Updated upstream
       <Toaster richColors position="top-center" expand />
-=======
-      <Toaster richColors position="top-center" />
       </TooltipProvider>
->>>>>>> Stashed changes
       </QueryProvider>
     </ErrorBoundary>
   )

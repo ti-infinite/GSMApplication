@@ -1,5 +1,3 @@
-"use client";
-
 import { useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { Pencil, Trash2 } from "lucide-react";
@@ -96,10 +94,10 @@ function EditPopover<Row>({
     }
     return initial;
   });
-  const [saving, setSaving] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   async function save() {
-    setSaving(true);
+    setIsSaving(true);
     try {
       const values: Record<string, number | null> = {};
       for (const f of editableFields) {
@@ -113,7 +111,7 @@ function EditPopover<Row>({
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to update.");
     } finally {
-      setSaving(false);
+      setIsSaving(false);
     }
   }
 
@@ -137,8 +135,8 @@ function EditPopover<Row>({
             </div>
           ))}
         </div>
-        <Button size="sm" onClick={save} disabled={saving} className="w-full">
-          {saving ? "Saving…" : "Save"}
+        <Button size="sm" onClick={save} disabled={isSaving} className="w-full">
+          {isSaving ? "Saving…" : "Save"}
         </Button>
       </PopoverContent>
     </Popover>
@@ -159,10 +157,10 @@ function DeleteButton<Row>({
   onDeleted: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [deleting, setDeleting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   async function confirmDelete() {
-    setDeleting(true);
+    setIsDeleting(true);
     try {
       await onDelete(rowId(row));
       toast.success("Deleted.");
@@ -171,7 +169,7 @@ function DeleteButton<Row>({
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to delete.");
     } finally {
-      setDeleting(false);
+      setIsDeleting(false);
     }
   }
 
@@ -191,9 +189,9 @@ function DeleteButton<Row>({
           <AlertDialogDescription>{deleteWarning(row)}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={deleting}>No, keep it</AlertDialogCancel>
-          <Button variant="destructive" onClick={confirmDelete} disabled={deleting}>
-            {deleting ? "Deleting…" : "Yes, delete"}
+          <AlertDialogCancel disabled={isDeleting}>No, keep it</AlertDialogCancel>
+          <Button variant="destructive" onClick={confirmDelete} disabled={isDeleting}>
+            {isDeleting ? "Deleting…" : "Yes, delete"}
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>

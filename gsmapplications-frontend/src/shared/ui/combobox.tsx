@@ -183,15 +183,10 @@ export function Combobox({
                   <div className="min-w-0 flex-1">
                     {renderOption ? renderOption(opt) : (
                       <>
-<<<<<<< Updated upstream
                         {/* El popover mide lo mismo que el combo (ancho fijo del filtro) — un
-                            label largo no lo agranda, se envuelve a 2 líneas en vez de truncar. */}
-                        <p className="font-medium">{opt.label}</p>
-                        {opt.description && <p className="text-xs text-muted-foreground">{opt.description}</p>}
-=======
+                            label largo no lo agranda, se envuelve en vez de truncar. */}
                         <p className="whitespace-normal break-words font-medium">{opt.label}</p>
                         {opt.description && <p className="whitespace-normal break-words text-xs text-muted-foreground">{opt.description}</p>}
->>>>>>> Stashed changes
                       </>
                     )}
                   </div>

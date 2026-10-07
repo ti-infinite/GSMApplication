@@ -1,5 +1,3 @@
-"use client";
-
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { Upload } from "lucide-react";
@@ -15,8 +13,8 @@ import {
   DialogFooter,
   DialogClose,
 } from "@/shared/ui/dialog";
-import { getReferenceSchema, type ReferenceTableSchema } from "@/shared/lib/reference-schemas";
-import { parseReferenceUpload } from "@/shared/lib/excel-parse";
+import { getReferenceSchema, type ReferenceTableSchema } from "@/shared/lib/referenceSchemas";
+import { parseReferenceUpload } from "@/shared/lib/excelParse";
 import { grossMarginFetch as relayFetch } from "@/shared/lib/ihAgent";
 import { formatCurrency } from "@/shared/lib/format";
 
@@ -77,8 +75,8 @@ function ActionBadge({ action }: { action: PlanRow["action"] }) {
 export function ReferenceBulkUpload({ resourceId, onApplied }: { resourceId: string; onApplied: () => void }) {
   const schema = getReferenceSchema(resourceId);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [previewing, setPreviewing] = useState(false);
-  const [committing, setCommitting] = useState(false);
+  const [isPreviewing, setIsPreviewing] = useState(false);
+  const [isCommitting, setIsCommitting] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [plan, setPlan] = useState<PlanRow[] | null>(null);
   const [results, setResults] = useState<ResultRow[] | null>(null);
@@ -93,7 +91,7 @@ export function ReferenceBulkUpload({ resourceId, onApplied }: { resourceId: str
     e.target.value = ""; // allow re-selecting the same file next time
     if (!file) return;
 
-    setPreviewing(true);
+    setIsPreviewing(true);
     setResults(null);
     setTopLevelError(null);
     try {
@@ -127,7 +125,7 @@ export function ReferenceBulkUpload({ resourceId, onApplied }: { resourceId: str
       setTopLevelError("Failed to reach the server. Try again.");
       setDialogOpen(true);
     } finally {
-      setPreviewing(false);
+      setIsPreviewing(false);
     }
   }
 
@@ -141,7 +139,7 @@ export function ReferenceBulkUpload({ resourceId, onApplied }: { resourceId: str
       return;
     }
 
-    setCommitting(true);
+    setIsCommitting(true);
     try {
       const res = await relayFetch(`/bulk/${resourceId}/commit`, {
         method: "POST",
@@ -161,7 +159,7 @@ export function ReferenceBulkUpload({ resourceId, onApplied }: { resourceId: str
     } catch {
       toast.error("Failed to reach the server. Try again.");
     } finally {
-      setCommitting(false);
+      setIsCommitting(false);
     }
   }
 
@@ -180,9 +178,9 @@ export function ReferenceBulkUpload({ resourceId, onApplied }: { resourceId: str
   return (
     <div className="flex items-center gap-2">
       <input ref={fileInputRef} type="file" accept=".xlsx" className="hidden" onChange={handleFileSelected} />
-      <Button variant="outline" size="sm" onClick={pickFile} disabled={previewing}>
+      <Button variant="outline" size="sm" onClick={pickFile} disabled={isPreviewing}>
         <Upload className="size-3.5" aria-hidden="true" />
-        {previewing ? "Reading…" : "Upload Excel"}
+        {isPreviewing ? "Reading…" : "Upload Excel"}
       </Button>
       <button
         type="button"
@@ -279,12 +277,12 @@ export function ReferenceBulkUpload({ resourceId, onApplied }: { resourceId: str
               <Button onClick={closeDialog}>Done</Button>
             ) : (
               <>
-                <DialogClose disabled={committing} onClick={closeDialog}>
+                <DialogClose disabled={isCommitting} onClick={closeDialog}>
                   Cancel
                 </DialogClose>
                 {!topLevelError && validCount > 0 && (
-                  <Button onClick={handleCommit} disabled={committing}>
-                    {committing ? "Uploading…" : `Confirm & Upload (${validCount})`}
+                  <Button onClick={handleCommit} disabled={isCommitting}>
+                    {isCommitting ? "Uploading…" : `Confirm & Upload (${validCount})`}
                   </Button>
                 )}
               </>

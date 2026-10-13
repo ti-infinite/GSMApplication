@@ -54,7 +54,7 @@ export function VarietyDesegregationCard({ rows, onApplied }: { rows: SalesRow[]
 
     await submit(
       () =>
-        relayFetch("/varietyDesegregation", {
+        relayFetch("/variety-desegregation", {
           method: "POST",
           body: JSON.stringify({ parentVariety: selectedParent, childVariety: selectedChild, quantity, factor }),
         }),

@@ -92,7 +92,7 @@ export function QuoteSimulatorSaveReferenceBanner({
         if (skuBuilder.builtSku) costReferenceBody.calculatedSku = skuBuilder.builtSku;
         tasks.push({
           label: "Cost Reference",
-          promise: relayFetch("/costReference", {
+          promise: relayFetch("/cost-reference", {
             method: "POST",
             body: JSON.stringify(costReferenceBody),
           }),

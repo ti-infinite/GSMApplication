@@ -89,7 +89,7 @@ export function TransportCostCard({ rows, onApplied }: { rows: SalesRow[]; onApp
 
     await submit(
       () =>
-        relayFetch("/transportCost", {
+        relayFetch("/transport-cost", {
           method: "POST",
           body: JSON.stringify(body),
         }),

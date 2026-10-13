@@ -59,7 +59,7 @@ export function ExtraCostCard({ rows, onApplied }: { rows: SalesRow[]; onApplied
 
     await submit(
       () =>
-        relayFetch("/extraCost", {
+        relayFetch("/extra-cost", {
           method: "POST",
           body: JSON.stringify(body),
         }),

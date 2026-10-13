@@ -23,4 +23,4 @@ export const transportCostApi = makeResourceClient<
     packQty?: number;
   },
   { qty: number; boxesXPallet?: number; palletCost?: number }
->("/transportCost");
+>("/transport-cost");

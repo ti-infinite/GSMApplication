@@ -50,7 +50,7 @@ export function CostReferenceCard({ rows, onApplied }: { rows: SalesRow[]; onApp
 
     await submit(
       () =>
-        relayFetch("/costReference", {
+        relayFetch("/cost-reference", {
           method: "POST",
           body: JSON.stringify(body),
         }),

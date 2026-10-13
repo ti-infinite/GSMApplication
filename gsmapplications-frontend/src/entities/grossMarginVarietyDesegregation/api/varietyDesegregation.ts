@@ -7,4 +7,4 @@ export const varietyDesegregationApi = makeResourceClient<
   // only set for a percentage-based blend like Poultry (e.g. 1/3).
   { parentVariety: string; childVariety: string; quantity: number; factor?: number },
   { quantity: number; factor?: number }
->("/varietyDesegregation");
+>("/variety-desegregation");

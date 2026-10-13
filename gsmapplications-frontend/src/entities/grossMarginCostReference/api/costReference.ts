@@ -26,4 +26,4 @@ export const costReferenceApi = makeResourceClient<
     labourRepack?: number;
     labourAssembler?: number;
   }
->("/costReference");
+>("/cost-reference");

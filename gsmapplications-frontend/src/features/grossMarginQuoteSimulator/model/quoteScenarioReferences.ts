@@ -12,8 +12,10 @@ import type { SalesRow } from "@/entities/grossMarginSalesRow";
 import type { TransportCostRow } from "@/entities/grossMarginTransportCost";
 import type { RecomputeInputs } from "./recompute";
 
+// REWRITE (2026-10-08): Commission matches on Customer only now, same as
+// Rebate -- see entities/grossMarginCommission/model/types.ts's own rewrite note.
 export function findCommissionForRow(commissions: CommissionRow[], row: SalesRow): CommissionRow | null {
-  return commissions.find((c) => c.Customer === row.Customer && c.Variety === row.Variety) ?? null;
+  return commissions.find((c) => c.Customer === row.Customer) ?? null;
 }
 
 export function findRebateForRow(rebates: RebateRow[], row: SalesRow): RebateRow | null {

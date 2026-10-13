@@ -119,7 +119,7 @@ export function ReferenceDataTabs({ rows, refreshSales }: { rows: SalesRow[]; re
           </div>
 
           <TabsContent value="commissions" className="mt-6 space-y-6">
-            <CommissionCard rows={rows} onApplied={handleChanged} />
+            <CommissionCard rows={rows} commissions={commissions} onApplied={handleChanged} />
             <CommissionLogTable rows={commissions} onChanged={handleChanged} />
           </TabsContent>
 

@@ -4,7 +4,6 @@ import { Card, CardAction, CardContent, CardHeader, CardTitle, CardDescription }
 import { ReferenceBulkUpload } from "@/shared/ui/reference-bulk-upload";
 import { Input } from "@/shared/ui/input";
 import { Button } from "@/shared/ui/button";
-import { Checkbox } from "@/shared/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -12,139 +11,94 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/shared/ui/select";
-import { formatCurrency } from "@/shared/lib/format";
+import { formatCurrency, formatPercent } from "@/shared/lib/format";
+import { upsertCommission } from "../api/upsertCommission";
+import type { CommissionRow } from "@/entities/grossMarginCommission";
 import type { SalesRow } from "@/entities/grossMarginSalesRow";
 import { cn } from "@/shared/lib/utils";
-import { useReferenceSearch } from "@/shared/lib/useReferenceSearch";
-import { useSubmitWithConflict } from "@/shared/lib/useSubmitWithConflict";
-import { grossMarginFetch as relayFetch } from "@/shared/lib/ihAgent";
 
-// "Applies to all" is just "every variety checked" -- no separate code path,
-// so partially-deselecting after picking "all" behaves exactly as expected
-// with no extra state to keep in sync.
-export function CommissionCard({ rows, onApplied }: { rows: SalesRow[]; onApplied: () => void }) {
-  const { search: customerSearch, setSearch: setCustomerSearch, filtered: filteredCustomers } = useReferenceSearch(
-    rows,
-    (r) => r.Customer
-  );
-  // "" (never null/undefined) so the Select stays controlled across its
-  // whole lifetime -- Base UI (like React) warns/misbehaves if a Select
-  // switches from uncontrolled (undefined) to controlled after mount.
-  const [selectedCustomer, setSelectedCustomer] = useState<string>("");
-  const [selectedVarieties, setSelectedVarieties] = useState<Set<string>>(new Set());
+// REWRITE (2026-10-08): Commission moved from db_ai.CustomerCommission to
+// db_ms.Clients/ClientAttributes -- same mechanism as Rebate, applies per
+// Customer only now (never per Variety), so this card drops the whole
+// variety-selection step the old version needed and becomes a "pick a
+// customer, set a type + amount" upsert, structurally identical to
+// RebateCard's own shape (see features/grossMarginManageRebate/ui/RebateCard.tsx).
+export function CommissionCard({
+  rows,
+  commissions,
+  onApplied,
+}: {
+  rows: SalesRow[];
+  commissions: CommissionRow[];
+  onApplied: () => void;
+}) {
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [selectedCustomer, setSelectedCustomer] = useState("");
+  const [mode, setMode] = useState<"percent" | "value">("percent");
   const [percentText, setPercentText] = useState("");
   const [valueText, setValueText] = useState("");
-  const [lastEdited, setLastEdited] = useState<"percent" | "value">("percent");
-  const { isSubmitting, conflictError, setConflictError, submit } = useSubmitWithConflict();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const varietiesForCustomer = useMemo(() => {
-    if (!selectedCustomer) return [];
-    return Array.from(new Set(rows.filter((r) => r.Customer === selectedCustomer).map((r) => r.Variety))).sort();
-  }, [rows, selectedCustomer]);
+  const customers = useMemo(() => Array.from(new Set(rows.map((r) => r.Customer))).sort(), [rows]);
+  const filteredCustomers = useMemo(
+    () => customers.filter((c) => c.toLowerCase().includes(customerSearch.toLowerCase())),
+    [customers, customerSearch]
+  );
 
-  const avgPriceByVariety = useMemo(() => {
-    const map = new Map<string, number>();
-    if (!selectedCustomer) return map;
-    const sums = new Map<string, { total: number; count: number }>();
-    for (const r of rows) {
-      if (r.Customer !== selectedCustomer || r.AvgUnitPrice === null) continue;
-      const entry = sums.get(r.Variety) ?? { total: 0, count: 0 };
-      entry.total += r.AvgUnitPrice;
-      entry.count += 1;
-      sums.set(r.Variety, entry);
-    }
-    for (const [variety, { total, count }] of sums) map.set(variety, total / count);
-    return map;
-  }, [rows, selectedCustomer]);
-
-  const allSelected = varietiesForCustomer.length > 0 && selectedVarieties.size === varietiesForCustomer.length;
+  const currentCommission = useMemo(
+    () => commissions.find((c) => c.Customer === selectedCustomer) ?? null,
+    [commissions, selectedCustomer]
+  );
 
   function selectCustomer(customer: string) {
     setSelectedCustomer(customer);
-    setSelectedVarieties(new Set());
-    setConflictError(null);
+    setPercentText("");
+    setValueText("");
   }
-
-  function toggleVariety(variety: string, checked: boolean) {
-    setConflictError(null);
-    setSelectedVarieties((prev) => {
-      const next = new Set(prev);
-      if (checked) next.add(variety);
-      else next.delete(variety);
-      return next;
-    });
-  }
-
-  function toggleSelectAll(checked: boolean) {
-    setConflictError(null);
-    setSelectedVarieties(checked ? new Set(varietiesForCustomer) : new Set());
-  }
-
-  const percentNum = percentText === "" ? null : Number(percentText);
-  const valueNum = valueText === "" ? null : Number(valueText);
-  const singleVarietySelected = selectedVarieties.size === 1 ? [...selectedVarieties][0] : null;
-
-  // The $ field only makes sense for exactly one variety -- a flat dollar
-  // amount doesn't generalize across varieties with different prices, per
-  // the confirmed multi-variety behavior (one shared %, computed per-variety).
-  const valueFieldEnabled = singleVarietySelected !== null;
 
   async function handleApply() {
-    if (!selectedCustomer || selectedVarieties.size === 0) {
-      toast.error("Pick a customer and at least one variety first.");
+    if (!selectedCustomer) {
+      toast.error("Pick a customer first.");
       return;
     }
-    if (lastEdited === "percent" && (percentNum === null || Number.isNaN(percentNum))) {
-      toast.error("Enter a commission percentage.");
-      return;
-    }
-    if (lastEdited === "value" && (valueNum === null || Number.isNaN(valueNum))) {
-      toast.error("Enter a commission value.");
+    const amountText = mode === "percent" ? percentText : valueText;
+    const amountNum = Number(amountText);
+    if (amountText === "" || Number.isNaN(amountNum) || amountNum < 0) {
+      toast.error(mode === "percent" ? "Enter a commission percentage." : "Enter a commission value.");
       return;
     }
 
-    await submit(
-      () =>
-        relayFetch("/commission", {
-          method: "POST",
-          body: JSON.stringify({
-            customer: selectedCustomer,
-            varieties: Array.from(selectedVarieties),
-            commissionType: lastEdited,
-            ...(lastEdited === "percent"
-              ? { commissionPercent: percentNum! / 100 }
-              : { commissionValue: valueNum! }),
-          }),
-        }),
-      {
-        conflictMessage: "Commission already exists for one or more varieties — see below.",
-        defaultErrorMessage: "Failed to apply commission.",
-        onSuccess: () => {
-          toast.success(
-            `Commission applied to ${selectedVarieties.size} variet${selectedVarieties.size === 1 ? "y" : "ies"} for ${selectedCustomer}.`
-          );
-          setSelectedVarieties(new Set());
-          setPercentText("");
-          setValueText("");
-          onApplied();
-        },
-      }
-    );
+    setIsSubmitting(true);
+    try {
+      const commissionAmount = mode === "percent" ? amountNum / 100 : amountNum;
+      await upsertCommission(selectedCustomer, mode, commissionAmount);
+      toast.success(
+        `Commission set to ${mode === "percent" ? formatPercent(commissionAmount) : formatCurrency(commissionAmount)} for ${selectedCustomer}.`
+      );
+      setPercentText("");
+      setValueText("");
+      onApplied();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to update commission.");
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Commissions</CardTitle>
+        <CardTitle>Commission</CardTitle>
         <CardDescription>
-          Set a per-customer, per-variety commission — a percentage or flat dollar amount
-          subtracted from Avg Unit Sale Price.
+          A percentage or flat dollar amount subtracted from Avg Unit Sale Price, per customer —
+          sourced from db_ms.Clients (shared ERP data), written directly since it's the same row
+          db_ai.GMSales already reads.
         </CardDescription>
         <CardAction>
-          <ReferenceBulkUpload resourceId="commissions" onApplied={onApplied} />
+          <ReferenceBulkUpload resourceId="commission" onApplied={onApplied} />
         </CardAction>
       </CardHeader>
-      <CardContent className="space-y-5">
+      <CardContent className="space-y-4">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground">Customer</label>
@@ -154,10 +108,7 @@ export function CommissionCard({ rows, onApplied }: { rows: SalesRow[]; onApplie
               onChange={(e) => setCustomerSearch(e.target.value)}
               className="mb-1.5"
             />
-            <Select
-              value={selectedCustomer}
-              onValueChange={(v) => v && selectCustomer(v)}
-            >
+            <Select value={selectedCustomer} onValueChange={(v) => v && selectCustomer(v)}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Select a customer…" />
               </SelectTrigger>
@@ -169,117 +120,57 @@ export function CommissionCard({ rows, onApplied }: { rows: SalesRow[]; onApplie
                 ))}
               </SelectContent>
             </Select>
+            {selectedCustomer && (
+              <p className="text-xs text-muted-foreground">
+                Current commission:{" "}
+                {currentCommission
+                  ? currentCommission.CommissionType === "percent"
+                    ? formatPercent(currentCommission.CommissionAmount)
+                    : formatCurrency(currentCommission.CommissionAmount)
+                  : "none set"}
+              </p>
+            )}
           </div>
-        </div>
-
-        {selectedCustomer && (
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-medium text-muted-foreground">
-                Varieties sold to {selectedCustomer}
-              </label>
-              <label className="flex items-center gap-1.5 text-xs font-medium">
-                <Checkbox checked={allSelected} onCheckedChange={(c) => toggleSelectAll(!!c)} />
-                Applies to all
-              </label>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">New commission</label>
+            <div className="flex gap-2 pb-1 text-xs">
+              <button
+                type="button"
+                className={cn(mode === "percent" ? "font-semibold text-primary" : "text-muted-foreground")}
+                onClick={() => setMode("percent")}
+              >
+                % percent
+              </button>
+              <span className="text-muted-foreground">/</span>
+              <button
+                type="button"
+                className={cn(mode === "value" ? "font-semibold text-primary" : "text-muted-foreground")}
+                onClick={() => setMode("value")}
+              >
+                $ flat value
+              </button>
             </div>
-            <div className="max-h-48 overflow-y-auto rounded-lg border p-2">
-              {varietiesForCustomer.length === 0 ? (
-                <p className="p-2 text-sm text-muted-foreground">No varieties found for this customer.</p>
-              ) : (
-                <div className="space-y-1">
-                  {varietiesForCustomer.map((v) => (
-                    <label key={v} className="flex items-center gap-2 rounded px-1.5 py-1 text-sm hover:bg-muted">
-                      <Checkbox
-                        checked={selectedVarieties.has(v)}
-                        onCheckedChange={(c) => toggleVariety(v, !!c)}
-                      />
-                      <span className="flex-1">{v}</span>
-                      <span className="font-mono text-xs text-muted-foreground">
-                        {formatCurrency(avgPriceByVariety.get(v) ?? null)}
-                      </span>
-                    </label>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {selectedVarieties.size > 0 && (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Commission %</label>
+            {mode === "percent" ? (
               <Input
                 type="number"
                 step="0.01"
                 placeholder="e.g. 10"
                 value={percentText}
-                onChange={(e) => {
-                  setPercentText(e.target.value);
-                  setLastEdited("percent");
-                }}
-                className={cn(lastEdited !== "percent" && "text-muted-foreground")}
+                onChange={(e) => setPercentText(e.target.value)}
               />
-              {lastEdited === "percent" && percentNum !== null && !Number.isNaN(percentNum) && (
-                <div className="space-y-0.5 pt-0.5 text-xs text-muted-foreground">
-                  {Array.from(selectedVarieties).map((v) => {
-                    const base = avgPriceByVariety.get(v);
-                    const computed = base !== undefined ? base * (percentNum / 100) : null;
-                    return (
-                      <p key={v}>
-                        {v}: {formatCurrency(computed)}
-                      </p>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">
-                Commission $ {!valueFieldEnabled && "(select exactly one variety)"}
-              </label>
+            ) : (
               <Input
                 type="number"
                 step="0.0001"
-                placeholder={valueFieldEnabled ? "e.g. 0.15" : "—"}
+                placeholder="e.g. 0.15"
                 value={valueText}
-                disabled={!valueFieldEnabled}
-                onChange={(e) => {
-                  setValueText(e.target.value);
-                  setLastEdited("value");
-                }}
-                className={cn(lastEdited !== "value" && "text-muted-foreground")}
+                onChange={(e) => setValueText(e.target.value)}
               />
-              {lastEdited === "value" &&
-                valueFieldEnabled &&
-                valueNum !== null &&
-                !Number.isNaN(valueNum) &&
-                (() => {
-                  const base = avgPriceByVariety.get(singleVarietySelected!);
-                  const computedPercent = base ? (valueNum / base) * 100 : null;
-                  return (
-                    <p className="pt-0.5 text-xs text-muted-foreground">
-                      {computedPercent !== null
-                        ? `≈ ${computedPercent.toFixed(2)}% of ${formatCurrency(base ?? null)}`
-                        : "No price data for this variety"}
-                    </p>
-                  );
-                })()}
-            </div>
+            )}
           </div>
-        )}
+        </div>
 
-        {conflictError && (
-          <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
-            {conflictError}
-          </div>
-        )}
-
-        <Button
-          onClick={handleApply}
-          disabled={isSubmitting || !selectedCustomer || selectedVarieties.size === 0}
-        >
+        <Button onClick={handleApply} disabled={isSubmitting || !selectedCustomer}>
           {isSubmitting ? "Applying…" : "Apply Commission"}
         </Button>
       </CardContent>

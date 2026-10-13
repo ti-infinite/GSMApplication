@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { toast } from "sonner";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, RotateCcw } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -22,46 +22,35 @@ import {
   AlertDialogCancel,
 } from "@/shared/ui/alert-dialog";
 import { formatCurrency, formatPercent } from "@/shared/lib/format";
+import { upsertCommission } from "../api/upsertCommission";
 import type { CommissionRow } from "@/entities/grossMarginCommission";
-import { grossMarginFetch as relayFetch } from "@/shared/lib/ihAgent";
+import { cn } from "@/shared/lib/utils";
 
 function EditPopover({ row, onSaved }: { row: CommissionRow; onSaved: () => void }) {
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<"percent" | "value">(row.CommissionType);
   const [percentText, setPercentText] = useState(
-    row.CommissionPercent !== null ? String(row.CommissionPercent * 100) : ""
+    row.CommissionType === "percent" ? String(row.CommissionAmount * 100) : ""
   );
-  const [valueText, setValueText] = useState(row.CommissionValue !== null ? String(row.CommissionValue) : "");
+  const [valueText, setValueText] = useState(row.CommissionType === "value" ? String(row.CommissionAmount) : "");
   const [isSaving, setIsSaving] = useState(false);
 
   async function save() {
-    const text = mode === "percent" ? percentText : valueText;
-    const value = Number(text);
-    if (text.trim() === "" || Number.isNaN(value)) {
+    const amountText = mode === "percent" ? percentText : valueText;
+    const amountNum = Number(amountText);
+    if (amountText === "" || Number.isNaN(amountNum) || amountNum < 0) {
       toast.error(mode === "percent" ? "Enter a commission percentage." : "Enter a commission value.");
       return;
     }
-
     setIsSaving(true);
     try {
-      const body =
-        mode === "percent"
-          ? { commissionType: "percent", commissionPercent: value / 100 }
-          : { commissionType: "value", commissionValue: value };
-      const res = await relayFetch(`/commission/${row.Id}`, {
-        method: "PUT",
-        body: JSON.stringify(body),
-      });
-      const json = await res.json();
-      if (!res.ok) {
-        toast.error(json.detail ?? "Failed to update commission.");
-        return;
-      }
-      toast.success(`Updated commission for ${row.Customer} / ${row.Variety}.`);
+      const commissionAmount = mode === "percent" ? amountNum / 100 : amountNum;
+      await upsertCommission(row.Customer, mode, commissionAmount);
+      toast.success(`Commission updated for ${row.Customer}.`);
       setOpen(false);
       onSaved();
-    } catch {
-      toast.error("Failed to reach the server. Try again.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to update commission.");
     } finally {
       setIsSaving(false);
     }
@@ -73,19 +62,19 @@ function EditPopover({ row, onSaved }: { row: CommissionRow; onSaved: () => void
         <Pencil className="size-3.5" aria-hidden="true" />
       </PopoverTrigger>
       <PopoverContent className="w-72 space-y-3">
-        <p className="text-sm font-semibold">
-          {row.Customer} · {row.Variety}
-        </p>
+        <p className="text-sm font-semibold">{row.Customer}</p>
         <div className="flex gap-2 text-xs">
           <button
-            className={mode === "percent" ? "font-semibold text-primary" : "text-muted-foreground"}
+            type="button"
+            className={cn(mode === "percent" ? "font-semibold text-primary" : "text-muted-foreground")}
             onClick={() => setMode("percent")}
           >
             % percent
           </button>
           <span className="text-muted-foreground">/</span>
           <button
-            className={mode === "value" ? "font-semibold text-primary" : "text-muted-foreground"}
+            type="button"
+            className={cn(mode === "value" ? "font-semibold text-primary" : "text-muted-foreground")}
             onClick={() => setMode("value")}
           >
             $ flat value
@@ -108,11 +97,6 @@ function EditPopover({ row, onSaved }: { row: CommissionRow; onSaved: () => void
             placeholder="e.g. 0.15"
           />
         )}
-        {row.BaseUnitPrice !== null && (
-          <p className="text-xs text-muted-foreground">
-            Base price: {formatCurrency(row.BaseUnitPrice)}
-          </p>
-        )}
         <Button size="sm" onClick={save} disabled={isSaving} className="w-full">
           {isSaving ? "Saving…" : "Save"}
         </Button>
@@ -121,31 +105,26 @@ function EditPopover({ row, onSaved }: { row: CommissionRow; onSaved: () => void
   );
 }
 
-// Deleting is a full revert, not a soft-delete: the relay's DELETE endpoint
-// removes the row from db_ai.CustomerCommission AND immediately re-runs the
-// SQL pipeline, so AvgUnitPrice/GrossMargin/CommissionApplied on the
-// affected Sales row(s) fall back to their pre-commission values on their
-// own -- nothing left over in the database once this completes.
-function DeleteButton({ row, onDeleted }: { row: CommissionRow; onDeleted: () => void }) {
+// REWRITE (2026-10-08): "Reset" not "delete" -- nothing is removed from
+// db_ms.ClientAttributes, the row always exists once created; this just
+// writes it back to 0 (same convention as RebateLogTable's reset button --
+// the dashboard never issues a true DELETE against shared ERP data). Keeps
+// the row's current CommissionType, zeroes the amount.
+function ResetButton({ row, onReset }: { row: CommissionRow; onReset: () => void }) {
   const [open, setOpen] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
 
-  async function confirmDelete() {
-    setIsDeleting(true);
+  async function confirmReset() {
+    setIsResetting(true);
     try {
-      const res = await relayFetch(`/commission/${row.Id}`, { method: "DELETE" });
-      const json = await res.json();
-      if (!res.ok) {
-        toast.error(json.detail ?? "Failed to delete commission.");
-        return;
-      }
-      toast.success(`Commission removed for ${row.Customer} / ${row.Variety}. Sales prices reverted.`);
+      await upsertCommission(row.Customer, row.CommissionType, 0);
+      toast.success(`Commission reset for ${row.Customer}.`);
       setOpen(false);
-      onDeleted();
-    } catch {
-      toast.error("Failed to reach the server. Try again.");
+      onReset();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to reset commission.");
     } finally {
-      setIsDeleting(false);
+      setIsResetting(false);
     }
   }
 
@@ -154,24 +133,23 @@ function DeleteButton({ row, onDeleted }: { row: CommissionRow; onDeleted: () =>
       <Button
         variant="ghost"
         size="icon-sm"
-        className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+        className="text-muted-foreground hover:bg-muted hover:text-foreground"
         onClick={() => setOpen(true)}
       >
-        <Trash2 className="size-3.5" aria-hidden="true" />
+        <RotateCcw className="size-3.5" aria-hidden="true" />
       </Button>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Delete this commission?</AlertDialogTitle>
+          <AlertDialogTitle>Reset this commission?</AlertDialogTitle>
           <AlertDialogDescription>
-            This removes the commission for <strong>{row.Customer}</strong> /{" "}
-            <strong>{row.Variety}</strong> and reverts the affected price(s) in Sales Explorer back
-            to what they were before it was applied.
+            Reset {row.Customer}&apos;s commission back to 0? This affects their Avg Unit Price across
+            every variety they buy.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={isDeleting}>No, keep it</AlertDialogCancel>
-          <Button variant="destructive" onClick={confirmDelete} disabled={isDeleting}>
-            {isDeleting ? "Deleting…" : "Yes, delete"}
+          <AlertDialogCancel disabled={isResetting}>No, keep it</AlertDialogCancel>
+          <Button variant="destructive" onClick={confirmReset} disabled={isResetting}>
+            {isResetting ? "Resetting…" : "Yes, reset to 0"}
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>
@@ -180,47 +158,43 @@ function DeleteButton({ row, onDeleted }: { row: CommissionRow; onDeleted: () =>
 }
 
 export function CommissionLogTable({ rows, onChanged }: { rows: CommissionRow[]; onChanged: () => void }) {
+  const active = rows.filter((r) => r.CommissionAmount !== 0);
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>Commission log</CardTitle>
-        <CardDescription>
-          Every customer × variety commission currently applied — one row per combination.
-        </CardDescription>
+        <CardDescription>Every customer with a non-zero commission currently applied.</CardDescription>
       </CardHeader>
       <CardContent>
-        {rows.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">No commissions applied yet.</p>
+        {active.length === 0 ? (
+          <p className="py-8 text-center text-sm text-muted-foreground">
+            No commissions applied yet.
+          </p>
         ) : (
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Customer</TableHead>
-                <TableHead>Variety</TableHead>
-                <TableHead className="text-right">Percent</TableHead>
-                <TableHead className="text-right">Value</TableHead>
-                <TableHead className="text-right">Updated</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead className="text-right">Amount</TableHead>
                 <TableHead className="w-16" />
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.map((row) => (
-                <TableRow key={row.Id}>
+              {active.map((row) => (
+                <TableRow key={row.Customer}>
                   <TableCell>{row.Customer}</TableCell>
-                  <TableCell className="max-w-64 whitespace-normal">{row.Variety}</TableCell>
+                  <TableCell className="capitalize text-muted-foreground">{row.CommissionType}</TableCell>
                   <TableCell className="text-right font-mono tabular-nums">
-                    {formatPercent(row.CommissionPercent)}
-                  </TableCell>
-                  <TableCell className="text-right font-mono tabular-nums">
-                    {formatCurrency(row.CommissionValue)}
-                  </TableCell>
-                  <TableCell className="text-right text-xs text-muted-foreground">
-                    {new Date(row.UpdatedAt).toLocaleString()}
+                    {row.CommissionType === "percent"
+                      ? formatPercent(row.CommissionAmount)
+                      : formatCurrency(row.CommissionAmount)}
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-0.5">
                       <EditPopover row={row} onSaved={onChanged} />
-                      <DeleteButton row={row} onDeleted={onChanged} />
+                      <ResetButton row={row} onReset={onChanged} />
                     </div>
                   </TableCell>
                 </TableRow>

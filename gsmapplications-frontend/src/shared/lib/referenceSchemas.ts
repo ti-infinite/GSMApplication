@@ -72,63 +72,48 @@ export interface ReferenceTableSchema {
 
 const COMMISSION_TYPE_OPTIONS = ["percent", "value"] as const;
 
+// REWRITE (2026-10-08): Commission moved from db_ai.CustomerCommission to
+// db_ms.Clients/ClientAttributes -- same mechanism as Rebate (see
+// rebateSchema below), applies per Customer only now, never per Variety.
+// upsertOnly: true for the same reason as Rebate -- there's no natural-key
+// conflict to detect, every upload always sets/replaces the customer's row.
 export const commissionSchema: ReferenceTableSchema = {
-  resourceId: "commissions",
+  resourceId: "commission",
   sheetName: "Commission",
   label: "Commission",
   description:
-    "One row per Customer + Variety. Commission Type is exactly \"percent\" or \"value\" -- fill in the matching column only.",
-  naturalKeyColumns: ["customer", "variety"],
+    "A percentage or flat dollar amount subtracted from Avg Unit Sale Price, per customer. Commission Type is exactly \"percent\" or \"value\". Uploading always sets/replaces the value for that customer -- there's no separate create step.",
+  naturalKeyColumns: [],
+  upsertOnly: true,
   columns: [
     { key: "customer", header: "Customer", type: "string", required: true, example: "WAL-MART ARCADIA" },
-    { key: "variety", header: "Variety", type: "string", required: true, example: "BASIL - CLAMSHELL 0.5 OZ 6 PK Conventional" },
     { key: "commissionType", header: "Commission Type", type: "enum", required: true, example: "percent", enumOptions: COMMISSION_TYPE_OPTIONS },
-    { key: "commissionPercent", header: "Commission Percent (e.g. 10 = 10%)", type: "number", required: false, example: 10, isPercent: true },
-    { key: "commissionValue", header: "Commission Value ($)", type: "number", required: false, example: "" },
+    { key: "commissionAmount", header: "Commission Amount (percent as 10 = 10%, value as a plain dollar number)", type: "number", required: true, example: 10 },
   ],
   exampleRow: {
     Customer: "WAL-MART ARCADIA",
-    Variety: "BASIL - CLAMSHELL 0.5 OZ 6 PK Conventional",
     "Commission Type": "percent",
-    "Commission Percent (e.g. 10 = 10%)": 10,
-    "Commission Value ($)": "",
+    "Commission Amount (percent as 10 = 10%, value as a plain dollar number)": 10,
   },
   parseRow(cells) {
     const errors: string[] = [];
     const customer = cellToText(cells["Customer"]);
-    const variety = cellToText(cells["Variety"]);
     const commissionType = cellToText(cells["Commission Type"]).toLowerCase();
+    const amountRaw = cellToNumber(cells["Commission Amount (percent as 10 = 10%, value as a plain dollar number)"]);
 
     if (!customer) errors.push("Customer is required.");
-    if (!variety) errors.push("Variety is required.");
     if (commissionType !== "percent" && commissionType !== "value") {
       errors.push('Commission Type must be exactly "percent" or "value".');
     }
-
-    const percentRaw = cellToNumber(cells["Commission Percent (e.g. 10 = 10%)"]);
-    const valueRaw = cellToNumber(cells["Commission Value ($)"]);
-
-    let commissionPercent: number | undefined;
-    let commissionValue: number | undefined;
-    if (commissionType === "percent") {
-      if (percentRaw === null || Number.isNaN(percentRaw)) {
-        errors.push("Commission Percent is required and must be a number when Commission Type is \"percent\".");
-      } else {
-        commissionPercent = percentRaw / 100;
-      }
-    } else if (commissionType === "value") {
-      if (valueRaw === null || Number.isNaN(valueRaw)) {
-        errors.push("Commission Value is required and must be a number when Commission Type is \"value\".");
-      } else {
-        commissionValue = valueRaw;
-      }
+    if (amountRaw === null || Number.isNaN(amountRaw)) {
+      errors.push("Commission Amount is required and must be a number.");
+    } else if (amountRaw < 0) {
+      errors.push("Commission Amount must be 0 or more.");
     }
 
     if (errors.length > 0) return { data: null, errors };
-    return {
-      data: { customer, variety, commissionType, commissionPercent, commissionValue },
-      errors: [],
-    };
+    const commissionAmount = commissionType === "percent" ? (amountRaw as number) / 100 : (amountRaw as number);
+    return { data: { customer, commissionType, commissionAmount }, errors: [] };
   },
 };
 

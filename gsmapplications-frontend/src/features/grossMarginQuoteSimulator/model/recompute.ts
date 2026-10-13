@@ -96,10 +96,10 @@ function reconstructAvgUnitPriceBase(
   // was subtracted from the Rebate-adjusted price, so undo Commission first.
   let afterRebate = baseline.AvgUnitPrice;
   if (commission) {
-    if (commission.CommissionType === "value" && commission.CommissionValue !== null) {
-      afterRebate = baseline.AvgUnitPrice + commission.CommissionValue;
-    } else if (commission.CommissionType === "percent" && commission.CommissionPercent !== null) {
-      const denom = 1 - commission.CommissionPercent;
+    if (commission.CommissionType === "value") {
+      afterRebate = baseline.AvgUnitPrice + commission.CommissionAmount;
+    } else if (commission.CommissionType === "percent") {
+      const denom = 1 - commission.CommissionAmount;
       afterRebate = denom !== 0 ? baseline.AvgUnitPrice / denom : baseline.AvgUnitPrice;
     }
   }
@@ -133,11 +133,11 @@ function recomputeAvgUnitPrice(
         : null);
 
   if (commissionType === "value") {
-    const commissionValue = overrides.commissionValueOverride ?? commission?.CommissionValue ?? 0;
+    const commissionValue = overrides.commissionValueOverride ?? (commission?.CommissionType === "value" ? commission.CommissionAmount : undefined) ?? 0;
     return afterRebate - commissionValue;
   }
   if (commissionType === "percent") {
-    const commissionPercent = overrides.commissionPercentOverride ?? commission?.CommissionPercent ?? 0;
+    const commissionPercent = overrides.commissionPercentOverride ?? (commission?.CommissionType === "percent" ? commission.CommissionAmount : undefined) ?? 0;
     return afterRebate - afterRebate * commissionPercent;
   }
   return afterRebate;
@@ -394,9 +394,9 @@ export function getCurrentFieldValue(
     case "rebateOverride":
       return rebate?.Rebate ?? 0;
     case "commissionPercentOverride":
-      return commission?.CommissionPercent ?? 0;
+      return commission?.CommissionType === "percent" ? commission.CommissionAmount : 0;
     case "commissionValueOverride":
-      return commission?.CommissionValue ?? 0;
+      return commission?.CommissionType === "value" ? commission.CommissionAmount : 0;
     case "purchaseCostOverride":
       return baseline.PurchaseCost;
     case "yieldOverride":

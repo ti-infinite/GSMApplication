@@ -28,16 +28,6 @@ import { useSalesExport } from "./useGrossMarginSalesExport";
 
 type ColKind = "currency" | "percent" | "number" | "flag";
 
-function numberFilterFn(min: string, max: string) {
-  return (row: SalesRow, key: keyof SalesRow) => {
-    const value = row[key] as number | null;
-    if (value === null) return false;
-    if (min !== "" && value < Number(min)) return false;
-    if (max !== "" && value > Number(max)) return false;
-    return true;
-  };
-}
-
 // "core" columns are what Sales Explorer shows by default -- the numbers
 // most relevant to margin at a glance. "Full Breakdown" reveals every
 // remaining column in db_ai.Sales (21 total), for when someone needs to
@@ -85,6 +75,13 @@ const TEXT_COLUMNS: { key: keyof SalesRow; label: string; core: boolean }[] = [
   { key: "SKUMeasure", label: "SKU (Measure)", core: false },
 ];
 
+// The only filters Sales Explorer exposes (2026-10-08, user instruction).
+// SKU and the numeric min/max ranges were removed because users weren't
+// applying them correctly; the columns themselves are still shown.
+const FILTER_COLUMNS = TEXT_COLUMNS.filter((col) =>
+  (["Customer", "Variety", "Warehouse"] as (keyof SalesRow)[]).includes(col.key)
+);
+
 function formatCell(value: number | null, kind: ColKind) {
   if (kind === "flag") {
     if (value === null) return <span className="text-muted-foreground">—</span>;
@@ -99,26 +96,11 @@ function formatCell(value: number | null, kind: ColKind) {
   return formatNumber(value, value !== null && Number.isInteger(value) ? 0 : 2);
 }
 
-function describeFilters(
-  textFilters: Record<string, string>,
-  numericFilters: Record<string, { min: string; max: string }>
-): string[] {
+function describeFilters(textFilters: Record<string, string>): string[] {
   const lines: string[] = [];
-  for (const { key, label } of TEXT_COLUMNS) {
+  for (const { key, label } of FILTER_COLUMNS) {
     const value = textFilters[key];
     if (value) lines.push(`${label} contains "${value}"`);
-  }
-  for (const { key, label, kind } of NUMERIC_COLUMNS) {
-    if (kind === "flag") continue;
-    const range = numericFilters[key];
-    if (!range || (range.min === "" && range.max === "")) continue;
-    if (range.min !== "" && range.max !== "") {
-      lines.push(`${label} between ${range.min} and ${range.max}`);
-    } else if (range.min !== "") {
-      lines.push(`${label} ≥ ${range.min}`);
-    } else {
-      lines.push(`${label} ≤ ${range.max}`);
-    }
   }
   return lines;
 }
@@ -130,7 +112,6 @@ export function SalesTable({ rows }: { rows: SalesRow[] }) {
     { id: "AvgUnitPrice", desc: true },
   ]);
   const [textFilters, setTextFilters] = useState<Record<string, string>>({});
-  const [numericFilters, setNumericFilters] = useState<Record<string, { min: string; max: string }>>({});
 
   const visibleTextColumns = useMemo(
     () => (isFullBreakdown ? TEXT_COLUMNS : TEXT_COLUMNS.filter((c) => c.core)),
@@ -143,23 +124,16 @@ export function SalesTable({ rows }: { rows: SalesRow[] }) {
 
   const filteredRows = useMemo(() => {
     return rows.filter((row) => {
-      for (const { key } of TEXT_COLUMNS) {
+      for (const { key } of FILTER_COLUMNS) {
         const filterValue = textFilters[key];
         if (filterValue) {
           const cell = String(row[key] ?? "").toLowerCase();
           if (!cell.includes(filterValue.toLowerCase())) return false;
         }
       }
-      for (const { key, kind } of NUMERIC_COLUMNS) {
-        if (kind === "flag") continue;
-        const range = numericFilters[key];
-        if (range && (range.min !== "" || range.max !== "")) {
-          if (!numberFilterFn(range.min, range.max)(row, key)) return false;
-        }
-      }
       return true;
     });
-  }, [rows, textFilters, numericFilters]);
+  }, [rows, textFilters]);
 
   const columns = useMemo<ColumnDef<SalesRow>[]>(
     () => [
@@ -247,7 +221,7 @@ export function SalesTable({ rows }: { rows: SalesRow[] }) {
     // filteredRows order, so the workbook matches what's visible.
     const exportRows = table.getRowModel().rows.map((r) => r.original);
     await exportToExcel(exportRows, {
-      lines: describeFilters(textFilters, numericFilters),
+      lines: describeFilters(textFilters),
       filteredCount: exportRows.length,
       totalCount: rows.length,
     });
@@ -280,11 +254,12 @@ export function SalesTable({ rows }: { rows: SalesRow[] }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        {visibleTextColumns.map((col) => (
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        {FILTER_COLUMNS.map((col) => (
           <Input
             key={col.key}
             placeholder={`Filter ${col.label}…`}
+            aria-label={`Filter ${col.label}`}
             value={textFilters[col.key] ?? ""}
             onChange={(e) =>
               setTextFilters((f) => ({ ...f, [col.key]: e.target.value }))
@@ -292,39 +267,6 @@ export function SalesTable({ rows }: { rows: SalesRow[] }) {
             className="h-8 text-sm"
           />
         ))}
-      </div>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        {visibleNumericColumns
-          .filter((col) => col.kind !== "flag")
-          .map((col) => (
-            <div key={col.key} className="flex items-center gap-1">
-              <Input
-                placeholder="min"
-                type="number"
-                value={numericFilters[col.key]?.min ?? ""}
-                onChange={(e) =>
-                  setNumericFilters((f) => ({
-                    ...f,
-                    [col.key]: { min: e.target.value, max: f[col.key]?.max ?? "" },
-                  }))
-                }
-                className="h-8 text-sm"
-              />
-              <span className="text-xs whitespace-nowrap text-muted-foreground">{col.label}</span>
-              <Input
-                placeholder="max"
-                type="number"
-                value={numericFilters[col.key]?.max ?? ""}
-                onChange={(e) =>
-                  setNumericFilters((f) => ({
-                    ...f,
-                    [col.key]: { min: f[col.key]?.min ?? "", max: e.target.value },
-                  }))
-                }
-                className="h-8 text-sm"
-              />
-            </div>
-          ))}
       </div>
 
       <p className="text-xs text-muted-foreground">

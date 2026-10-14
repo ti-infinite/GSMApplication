@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { SearchCheck } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/shared/ui/card";
 import { Input } from "@/shared/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
+import { Combobox } from "@/shared/ui/combobox";
 import type { SalesRow } from "@/entities/grossMarginSalesRow";
 import { StepLabel } from "./StepLabel";
 
@@ -95,53 +95,37 @@ export function QuoteSimulatorRowPicker({
           <div className="space-y-1.5">
             <StepLabel step={1} text="Variety" active={!!selectedVariety} />
             <Input
-              placeholder="Search varieties…"
+              placeholder="Filter varieties…"
               value={varietySearch}
               onChange={(e) => setVarietySearch(e.target.value)}
               className="mb-1.5"
             />
-            <Select value={selectedVariety} onValueChange={(v) => v && handleVariety(v)}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select a variety…" />
-              </SelectTrigger>
-              <SelectContent>
-                {filteredVarieties.map((v) => (
-                  <SelectItem key={v} value={v}>
-                    {v}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Combobox
+              value={selectedVariety}
+              onChange={(v) => v && handleVariety(v)}
+              options={filteredVarieties.map((v) => ({ value: v, label: v }))}
+              placeholder="Select a variety…"
+            />
           </div>
           <div className="space-y-1.5">
             <StepLabel step={2} text="Customer" active={!!selectedCustomer} />
-            <Select value={selectedCustomer} onValueChange={(v) => v && handleCustomer(v)} disabled={!selectedVariety}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder={selectedVariety ? "Select a customer…" : "Pick a variety first"} />
-              </SelectTrigger>
-              <SelectContent>
-                {customersForVariety.map((c) => (
-                  <SelectItem key={c} value={c}>
-                    {c}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Combobox
+              value={selectedCustomer}
+              onChange={(v) => v && handleCustomer(v)}
+              disabled={!selectedVariety}
+              options={customersForVariety.map((c) => ({ value: c, label: c }))}
+              placeholder={selectedVariety ? "Select a customer…" : "Pick a variety first"}
+            />
           </div>
           <div className="space-y-1.5">
             <StepLabel step={3} text="Warehouse" active={!!selectedWarehouse} />
-            <Select value={selectedWarehouse} onValueChange={(v) => v && handleWarehouse(v)} disabled={!selectedCustomer}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder={selectedCustomer ? "Select a warehouse…" : "Pick a customer first"} />
-              </SelectTrigger>
-              <SelectContent>
-                {warehousesForSelection.map((w) => (
-                  <SelectItem key={w} value={w}>
-                    {w}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Combobox
+              value={selectedWarehouse}
+              onChange={(v) => v && handleWarehouse(v)}
+              disabled={!selectedCustomer}
+              options={warehousesForSelection.map((w) => ({ value: w, label: w }))}
+              placeholder={selectedCustomer ? "Select a warehouse…" : "Pick a customer first"}
+            />
           </div>
         </div>
       </CardContent>

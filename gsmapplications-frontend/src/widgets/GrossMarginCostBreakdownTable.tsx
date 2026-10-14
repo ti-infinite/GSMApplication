@@ -9,21 +9,17 @@ import {
   TableRow,
 } from "@/shared/ui/table";
 import { Input } from "@/shared/ui/input";
-import { ScrollArea } from "@/shared/ui/scroll-area";
 import { Button } from "@/shared/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/shared/ui/select";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui/tooltip";
+import { Combobox } from "@/shared/ui/combobox";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/shared/ui/dropdown-menu";
 import { computeCostBreakdown, type Zone } from "@/entities/grossMarginSalesRow";
 import { formatCurrency, formatPercent } from "@/shared/lib/format";
+import { EMPTY_CELL_CLASSES } from "@/shared/lib/emptyCellStyles";
 import type { SalesRow } from "@/entities/grossMarginSalesRow";
 import { cn } from "@/shared/lib/utils";
-import { X } from "lucide-react";
+import { X, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
+
+const PAGE_SIZE_OPTIONS = [25, 50, 100, 200];
 
 const ZONE_OPTIONS: { value: Zone | "any"; label: string }[] = [
   { value: "any", label: "Any zone" },
@@ -39,7 +35,7 @@ const ZONE_CELL_CLASSES: Record<Zone, string> = {
   green: "bg-success/15 text-success",
   yellow: "bg-warning/15 text-warning",
   red: "bg-destructive/15 text-destructive",
-  unknown: "bg-muted text-muted-foreground",
+  unknown: "border border-border bg-muted text-muted-foreground",
 };
 
 function ZoneCell({
@@ -58,19 +54,15 @@ function ZoneCell({
     : `Threshold: ${formatPercent(threshold)} maximum`;
 
   return (
-    <Tooltip>
-      <TooltipTrigger
-        className={cn(
-          "flex w-full items-center justify-center rounded-md px-2 py-1.5 font-mono text-sm tabular-nums font-medium cursor-default",
-          ZONE_CELL_CLASSES[zone]
-        )}
-      >
-        {formatPercent(value)}
-      </TooltipTrigger>
-      <TooltipContent>
-        {value === null ? "No data available" : comparison}
-      </TooltipContent>
-    </Tooltip>
+    <div
+      title={value === null ? "No data available" : comparison}
+      className={cn(
+        "flex w-full items-center justify-center rounded-md px-2 py-1.5 font-mono text-sm tabular-nums font-medium cursor-default",
+        ZONE_CELL_CLASSES[zone]
+      )}
+    >
+      {formatPercent(value)}
+    </div>
   );
 }
 
@@ -79,6 +71,8 @@ export function CostBreakdownTable({ rows }: { rows: SalesRow[] }) {
   const [varietyFilter, setVarietyFilter] = useState("");
   const [customerFilter, setCustomerFilter] = useState("");
   const [warehouseFilter, setWarehouseFilter] = useState("all");
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(PAGE_SIZE_OPTIONS[0]);
 
   const warehouses = useMemo(
     () => Array.from(new Set(rows.map((r) => r.Warehouse))).sort(),
@@ -113,6 +107,13 @@ export function CostBreakdownTable({ rows }: { rows: SalesRow[] }) {
 
   const categoryLabels = enriched[0]?.breakdown.map((c) => c.label) ?? [];
 
+  // Paginated, not virtualized -- consistent with Sales Explorer, this
+  // caps how much the table ever mounts at once instead of relying on
+  // windowed scroll.
+  const pageCount = Math.max(1, Math.ceil(filtered.length / rowsPerPage));
+  const safePage = Math.min(page, pageCount - 1);
+  const paged = filtered.slice(safePage * rowsPerPage, safePage * rowsPerPage + rowsPerPage);
+
   const summary = useMemo(() => {
     let redRows = 0;
     let yellowOnly = 0;
@@ -136,42 +137,36 @@ export function CostBreakdownTable({ rows }: { rows: SalesRow[] }) {
         </CardTitle>
         <div className="flex flex-wrap gap-2">
           <Input
-            placeholder="Filter Variety…"
+            placeholder="Filter varieties…"
             value={varietyFilter}
             onChange={(e) => setVarietyFilter(e.target.value)}
             className="h-8 w-full text-sm sm:w-44"
           />
           <Input
-            placeholder="Filter Customer…"
+            placeholder="Filter customers…"
             value={customerFilter}
             onChange={(e) => setCustomerFilter(e.target.value)}
             className="h-8 w-full text-sm sm:w-44"
           />
-          <Select value={warehouseFilter} onValueChange={(v) => setWarehouseFilter(v ?? "all")}>
-            <SelectTrigger className="h-8 w-full text-sm sm:w-36">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All warehouses</SelectItem>
-              {warehouses.map((w) => (
-                <SelectItem key={w} value={w}>
-                  {w}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={zoneFilter} onValueChange={(v) => setZoneFilter((v ?? "any") as Zone | "any")}>
-            <SelectTrigger className="h-8 w-full text-sm sm:w-56">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {ZONE_OPTIONS.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="w-full sm:w-36">
+            <Combobox
+              size="sm"
+              value={warehouseFilter}
+              onChange={(v) => setWarehouseFilter(v || "all")}
+              options={[
+                { value: "all", label: "All warehouses" },
+                ...warehouses.map((w) => ({ value: w, label: w })),
+              ]}
+            />
+          </div>
+          <div className="w-full sm:w-56">
+            <Combobox
+              size="sm"
+              value={zoneFilter}
+              onChange={(v) => setZoneFilter((v || "any") as Zone | "any")}
+              options={ZONE_OPTIONS.map((opt) => ({ value: opt.value, label: opt.label }))}
+            />
+          </div>
           {hasActiveFilters && (
             <Button
               variant="ghost"
@@ -223,10 +218,10 @@ export function CostBreakdownTable({ rows }: { rows: SalesRow[] }) {
             No rows match the current filters.
           </p>
         ) : (
-          <div className="rounded-lg border">
-            <ScrollArea className="h-[600px]">
+          <div className="overflow-hidden rounded-lg border">
+            <div className="overflow-x-auto">
               <Table>
-                <TableHeader className="sticky top-0 z-10 bg-card">
+                <TableHeader className="bg-card">
                   <TableRow>
                     <TableHead className="whitespace-nowrap">Variety</TableHead>
                     <TableHead className="whitespace-nowrap">Customer</TableHead>
@@ -240,13 +235,15 @@ export function CostBreakdownTable({ rows }: { rows: SalesRow[] }) {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filtered.map(({ row, breakdown }, i) => (
+                  {paged.map(({ row, breakdown }, i) => (
                     <TableRow key={i}>
                       <TableCell className="max-w-64 whitespace-normal">{row.Variety}</TableCell>
                       <TableCell className="whitespace-nowrap">{row.Customer}</TableCell>
                       <TableCell className="whitespace-nowrap">{row.Warehouse}</TableCell>
                       <TableCell className="whitespace-nowrap text-right font-mono tabular-nums">
-                        {formatCurrency(row.AvgUnitPrice)}
+                        <span className={cn(row.AvgUnitPrice === null && EMPTY_CELL_CLASSES)}>
+                          {formatCurrency(row.AvgUnitPrice)}
+                        </span>
                       </TableCell>
                       {breakdown.map((cat) => (
                         <TableCell key={cat.key} className="p-1">
@@ -262,7 +259,58 @@ export function CostBreakdownTable({ rows }: { rows: SalesRow[] }) {
                   ))}
                 </TableBody>
               </Table>
-            </ScrollArea>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-card px-4 py-1 text-sm">
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <span>Rows per page</span>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      className="flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-sm text-foreground hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring"
+                    >
+                      {rowsPerPage} <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="min-w-20">
+                    {PAGE_SIZE_OPTIONS.map((n) => (
+                      <DropdownMenuItem key={n} onSelect={() => { setRowsPerPage(n); setPage(0); }}>
+                        {n}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-muted-foreground">
+                  {safePage * rowsPerPage + 1}–{Math.min(filtered.length, (safePage + 1) * rowsPerPage)} / {filtered.length}
+                </span>
+                {pageCount > 1 && (
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      disabled={safePage === 0}
+                      onClick={() => setPage(safePage - 1)}
+                      aria-label="Previous"
+                      className="rounded-md p-1 text-muted-foreground hover:bg-muted disabled:opacity-40"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </button>
+                    <span className="px-1 text-muted-foreground">{safePage + 1} / {pageCount}</span>
+                    <button
+                      type="button"
+                      disabled={safePage >= pageCount - 1}
+                      onClick={() => setPage(safePage + 1)}
+                      aria-label="Next"
+                      className="rounded-md p-1 text-muted-foreground hover:bg-muted disabled:opacity-40"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         )}
       </CardContent>

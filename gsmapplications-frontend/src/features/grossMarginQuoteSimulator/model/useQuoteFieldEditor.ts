@@ -2,15 +2,8 @@ import { useState } from "react";
 import type { QuoteOverrides, RecomputeInputs } from "./recompute";
 import { decimalPlaces, validateFieldValue, type QuoteFieldMeta } from "./quoteFields";
 
-// Owns the Inputs Panel's editing state -- what's typed, what's invalid,
-// which fields are currently viewed whole-pack vs per-unit -- separate from
-// the panel's own field-definition/rendering concerns (which price/cost
-// fields exist for this mode, the Pallet Cost special case, the JSX itself).
-// REFACTOR_PLAN.md phase 02: "Editing + field definitions + the Pallet Cost
-// special case, tangled." The Pallet Cost block was never actually a
-// separate concern from ordinary field editing -- it's just another
-// consumer of this same setField/resetField/stepValue/displayValue API --
-// so extracting this out is what detangles it, no special-casing needed here.
+// Owns the Inputs Panel's editing state (typed values, validity, whole-pack
+// vs per-unit view), separate from field-definition/rendering concerns.
 export function useQuoteFieldEditor({
   inputs,
   overrides,
@@ -24,10 +17,8 @@ export function useQuoteFieldEditor({
 }) {
   const [texts, setTexts] = useState<Record<string, string>>({});
   const [errors, setErrors] = useState<Record<string, string | null>>({});
-  // Which fields the user has toggled to "I have a whole-pack cost" entry --
-  // purely a display/entry convenience. QuoteOverrides itself always stores
-  // the per-unit value (see setField below); this map never leaves this hook.
-  // Only meaningful for fields with supportsWholePackEntry.
+  // Which fields the user toggled to "whole-pack cost" entry -- purely a
+  // display convenience; QuoteOverrides itself always stores per-unit.
   const [wholePackFields, setWholePackFields] = useState<Record<string, boolean>>({});
 
   const packQty = inputs.baseline.PackQty && inputs.baseline.PackQty > 0 ? inputs.baseline.PackQty : null;
@@ -38,13 +29,9 @@ export function useQuoteFieldEditor({
   }
 
   // Prefer whatever the user is actively typing; otherwise fall back to
-  // reflecting `overrides` directly. Without the fallback, a value set from
-  // OUTSIDE this hook's own inputs -- the target-margin solver's "Apply", or
-  // loading a saved scenario -- would silently fail to show up in the field
-  // even though it's already affecting every number on the page, which reads
-  // as "my apply/load didn't work" when it actually did. When `field`
-  // supports whole-pack entry and that toggle is on, the stored (per-unit)
-  // override is scaled up to whole-pack terms for display.
+  // `overrides` directly, so a value set from outside this hook (solver
+  // "Apply", loading a scenario) still shows up in the field. Scales the
+  // stored per-unit value up to whole-pack terms when that toggle is on.
   function displayValue(key: string, field?: QuoteFieldMeta): string {
     if (texts[key] !== undefined) return texts[key];
     const v = (overrides as Record<string, number | undefined>)[key];
@@ -53,10 +40,8 @@ export function useQuoteFieldEditor({
     return String(v);
   }
 
-  // `field` present + whole-pack toggle on -> `text` is in whole-pack terms
-  // and gets divided by packQty before ever reaching QuoteOverrides, which
-  // always stores per-unit regardless of how the user is currently viewing
-  // the field. This is the one place that conversion happens.
+  // When whole-pack entry is on, `text` is divided by packQty here before
+  // reaching QuoteOverrides, which always stores per-unit.
   function setField(key: string, text: string, field?: QuoteFieldMeta) {
     setTexts((t) => ({ ...t, [key]: text }));
     if (text === "") {
@@ -93,9 +78,8 @@ export function useQuoteFieldEditor({
   }
 
   // Flips a field between per-unit and whole-pack entry, converting whatever
-  // is currently displayed (typed or from overrides) in place so nothing is
-  // lost -- and re-derives the per-unit override to match the new reading,
-  // since setField's own conversion only fires on the NEXT edit otherwise.
+  // is currently displayed in place, and re-derives the per-unit override
+  // immediately rather than waiting for the next edit.
   function toggleWholePack(f: QuoteFieldMeta) {
     if (!packQty) return;
     const goingWholePack = !wholePackFields[f.key];
@@ -105,17 +89,13 @@ export function useQuoteFieldEditor({
     const num = Number(current);
     const converted = roundTo(goingWholePack ? num * packQty : num / packQty, f.step);
     setTexts((t) => ({ ...t, [f.key]: String(converted) }));
-    // `num` (read via the OLD wholePackFields state above) is already
-    // per-unit when we were per-unit and are now going whole-pack; when
-    // leaving whole-pack mode, `converted` (num / packQty) is the per-unit
-    // value. Either way QuoteOverrides ends up holding per-unit.
+    // `num` is already per-unit when going whole-pack; `converted` is
+    // per-unit when leaving it. Either way QuoteOverrides gets per-unit.
     onChange({ ...overrides, [f.key]: goingWholePack ? num : converted } as QuoteOverrides);
   }
 
-  // Steps from whatever's already in the field, or the real baseline if it's
-  // still empty -- never from 0, which is what the native browser spinner
-  // does on an empty input and is exactly the bug this replaces. Steps in
-  // whichever unit (per-unit or whole-pack) is currently displayed.
+  // Steps from whatever's in the field, or the real baseline if empty --
+  // never from 0 like the native browser spinner does.
   function stepValue(f: QuoteFieldMeta, base: number | null, direction: 1 | -1) {
     const isWholePack = !!(f.supportsWholePackEntry && wholePackFields[f.key] && packQty);
     const displayBase = isWholePack && base !== null ? base * packQty! : base;

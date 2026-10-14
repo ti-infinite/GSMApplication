@@ -29,18 +29,11 @@ function sumOrNull(...vals: (number | null)[]): number | null {
 }
 
 // UNKNOWN whenever an input is missing -- never silently reads as "ok" just
-// because a null happened to not exceed a threshold. Mirrors the SQL
-// pipeline's own never-guess precedent (see gross-margin-pipeline/README.md).
-// BUG FIX (2026-07-17, caught by the user): Transport is defined in the SQL
-// as EXACTLY 0.13 * AvgUnitPrice, so Transport/AvgUnitPrice should always
-// land precisely on the 13% boundary, never over it. It was reading "alarm"
-// on 22/150 rows anyway -- confirmed via direct SQL (0 rows exceed 0.13
-// there, since DECIMAL arithmetic is exact) that this was JS floating-point
-// representation error, not real data: e.g. 0.20908333333333334 /
-// 1.6083333333333332 evaluates to 0.13000000000000003 in IEEE-754 double
-// precision, ~3e-17 off from the true 0.13, which a strict `>` treats as a
-// breach. EPSILON absorbs float noise at that scale while still catching any
-// real difference (anything more than a millionth over the threshold).
+// because a null happened to not exceed a threshold.
+// EPSILON absorbs IEEE-754 float noise: Transport is exactly 0.13 *
+// AvgUnitPrice under SQL's exact DECIMAL arithmetic, but the same division
+// in JS float can land ~1e-17 past the boundary, which a strict `>` would
+// wrongly flag as a breach.
 const EPSILON = 1e-9;
 
 function evalMax(

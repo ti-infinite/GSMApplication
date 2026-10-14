@@ -10,17 +10,8 @@ interface FilterInfo {
 }
 
 // Downloads the Sales Explorer's current on-screen rows as an Excel
-// workbook. Deliberately decoupled from column definitions/filter state --
-// the caller decides which rows and how the active filters are described;
-// this hook only knows how to talk to the export endpoint and trigger the
-// download. REFACTOR_PLAN.md phase 02: extracted out of sales-table.tsx,
-// which tangled this with column, filtering, and alarm logic.
-//
-// Next.js -> Vite conversion: used to POST to this app's own /api/sales/
-// export Next.js route (ExcelJS, server-side). That workbook builder moved
-// to the relay (Python/openpyxl, gross-margin-relay/bulk_export.py) -- this
-// now calls it directly via the public Caddy proxy, same as every other
-// relay call.
+// workbook, built server-side by the Python relay -- decoupled from
+// column/filter state so the caller decides what gets exported.
 export function useSalesExport() {
   const [isExporting, setIsExporting] = useState(false);
 

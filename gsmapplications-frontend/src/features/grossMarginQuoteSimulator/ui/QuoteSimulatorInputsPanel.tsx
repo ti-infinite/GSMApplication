@@ -16,20 +16,16 @@ import { formatCurrency } from "@/shared/lib/format";
 import { cn } from "@/shared/lib/utils";
 import { useQuoteFieldEditor } from "../model/useQuoteFieldEditor";
 
-// The real baseline number for a field -- shown as the input's placeholder
-// (formatted) so an empty (un-overridden) field reads as "$0.675", not the
-// bare word "baseline", AND used as the anchor the custom stepper below
-// steps from. Always resolved with an empty overrides object so it's the
-// true baseline even while OTHER fields on the row are edited.
+// The real baseline for a field, shown as the input's placeholder and used
+// as the anchor the stepper below steps from. Always resolved with an empty
+// overrides object so it stays the true baseline while other fields are edited.
 function baselineValue(key: string, inputs: RecomputeInputs, avgUnitPriceBase: number | null): number | null {
   return getCurrentFieldValue(key, inputs, {}, avgUnitPriceBase);
 }
 
 // Hides the browser's own spin buttons -- their built-in stepping treats an
-// empty field as starting from 0, which is exactly the "why did clicking up
-// once turn Box into $0.001 instead of $1.631" bug being fixed here. The
-// chevrons rendered alongside replace them with stepping logic that's aware
-// of the real baseline shown in the placeholder.
+// empty field as starting from 0 rather than the real baseline. The chevrons
+// rendered alongside replace them with baseline-aware stepping logic.
 const HIDE_NATIVE_SPINNER = "[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none";
 
 function Stepper({
@@ -84,11 +80,9 @@ export function QuoteSimulatorInputsPanel({
   avgUnitPriceBase: number | null;
   transportMode: "direct" | "pallet";
   onTransportModeChange: (mode: "direct" | "pallet") => void;
-  // Lets a "none" row (no matched purchase cost at all -- either a real row
-  // missing a Cost Reference/Yield, or a manually-started quote for a
-  // product with no data yet) pick a hypothetical sourcing basis so cost
-  // fields become enterable. Purely local simulator state -- never writes
-  // back to the real Flag on any actual db_ai.Sales row.
+  // Lets a "none" row pick a hypothetical sourcing basis so cost fields
+  // become enterable. Purely local simulator state -- never writes back to
+  // the real Flag on any actual db_ai.Sales row.
   onModeSelect?: (mode: "A" | "B") => void;
 }) {
   const { packQty, errors, wholePackFields, displayValue, setField, resetField, resetAll, toggleWholePack, stepValue } =

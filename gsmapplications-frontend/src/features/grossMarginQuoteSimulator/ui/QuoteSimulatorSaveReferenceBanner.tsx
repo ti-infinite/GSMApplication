@@ -9,11 +9,9 @@ import { useSkuBuilder } from "../model/useSkuBuilder";
 import { QuoteSimulatorSkuBuilder } from "./QuoteSimulatorSkuBuilder";
 import { grossMarginFetch as relayFetch } from "@/shared/lib/ihAgent";
 
-// Same override-key -> db_ai.CostReference column mapping quote-fields.ts's
-// getCostFields already encodes implicitly -- purchaseCostOverride is
-// deliberately excluded, CostReference has no purchase-cost column at all
-// (Flag/PurchaseCost come from a real supplier match, not this table), so
-// that number is necessarily a one-off estimate for this quote only.
+// purchaseCostOverride is deliberately excluded -- CostReference has no
+// purchase-cost column (Flag/PurchaseCost come from a real supplier match),
+// so that number stays a one-off estimate for this quote only.
 const COST_REFERENCE_FIELD_MAP: Record<string, string> = {
   packingOverride: "packing",
   stickerOverride: "sticker",
@@ -24,12 +22,10 @@ const COST_REFERENCE_FIELD_MAP: Record<string, string> = {
 };
 
 // Offers to persist the packaging/labor/yield numbers typed into a "no cost
-// basis yet" quote (see quote-simulator-inputs-panel.tsx's mode-"none"
-// toggle) as real db_ai.CostReference/db_ai.Yields rows, so the NEXT quote
-// for this Variety+Warehouse starts from real data instead of blank fields.
-// Transport Cost is deliberately NOT offered here -- db_ai.DivisionTransportCost
-// requires Type/Packaging values this flow has no source for, and guessing
-// them would fabricate categorical data this project treats as off-limits.
+// basis yet" quote as real CostReference/Yields rows, so the next quote for
+// this Variety+Warehouse starts from real data. Transport Cost is not
+// offered here -- DivisionTransportCost requires Type/Packaging values this
+// flow has no source for, and guessing them would fabricate categorical data.
 export function QuoteSimulatorSaveReferenceBanner({
   mode,
   variety,
@@ -50,22 +46,17 @@ export function QuoteSimulatorSaveReferenceBanner({
   onSaved: () => void;
 }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  // SKU builder -- Cost-Reference-only: never sent to /api/yields -- a wrong
-  // guess there could silently orphan a Yield row or collide with a
-  // different real product's SKU, since CalculatedSKU is Yields' primary
-  // key. See README.md §12.
+  // SKU builder -- Cost-Reference-only: never sent to /api/yields, since a
+  // wrong guess could orphan a Yield row or collide with a real product's
+  // SKU (CalculatedSKU is Yields' primary key).
   const skuBuilder = useSkuBuilder(rows);
 
   if (mode !== "A" && mode !== "B") return null;
 
   // Box is the one exception to "CostReference columns are per-unit": SQL
-  // reads CostReference.Box as a WHOLE-PACK number and divides it by
-  // PackQty at query time (sql/15_sales.sql), while every other column here
-  // (Packing/Sticker/LabourProd/LabourRepack/LabourAssembler) is read as-is,
-  // already per-unit. boxOverride is per-unit (recompute.ts's own
-  // convention, matches every other override), so it has to be multiplied
-  // back up before it's saved -- otherwise the next quote for this product
-  // would divide it by PackQty a second time. Found and confirmed 2026-09-11.
+  // reads CostReference.Box as a whole-pack number and divides by PackQty
+  // at query time, so the per-unit boxOverride must be multiplied back up
+  // before saving, or the next quote would divide it by PackQty twice.
   const packQty = inputs.baseline.PackQty && inputs.baseline.PackQty > 0 ? inputs.baseline.PackQty : 1;
   const costBody: Record<string, number> = {};
   for (const [overrideKey, field] of Object.entries(COST_REFERENCE_FIELD_MAP)) {
@@ -81,11 +72,8 @@ export function QuoteSimulatorSaveReferenceBanner({
     setIsSubmitting(true);
     try {
       // Named, not a flat array -- Cost Reference and Yield can genuinely
-      // fail independently (e.g. a brand-new product with no
-      // db_ms.MasterVarieties row yet: Yields requires a resolvable
-      // CalculatedSKU and correctly rejects it, while Cost Reference treats
-      // the SKU as informational-only and still saves) -- reporting this as
-      // one flat "failed" would hide a real partial success.
+      // fail independently, so reporting this as one flat "failed" would
+      // hide a real partial success.
       const tasks: { label: string; promise: Promise<Response> }[] = [];
       if (Object.keys(costBody).length > 0) {
         const costReferenceBody: Record<string, unknown> = { variety, warehouse, ...costBody };
@@ -116,11 +104,8 @@ export function QuoteSimulatorSaveReferenceBanner({
             label: t.label,
             ok: res.ok,
             status: res.status,
-            // Now calling the relay directly (relayFetch), not this app's
-            // old Next.js route -- that route used to translate the
-            // relay's own {detail} error shape into {error} via
-            // errorResponse(); no translation layer anymore, so this reads
-            // the relay's real shape directly.
+            // Reads the relay's own error shape directly (relayFetch calls
+            // it with no translation layer in between).
             error: json.detail as string | undefined,
             info: json.info as string | undefined,
           };

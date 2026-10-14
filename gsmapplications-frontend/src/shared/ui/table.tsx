@@ -13,9 +13,8 @@ function Table({
   containerClassName?: string
   // False when an ancestor (e.g. a ScrollArea configured for both axes)
   // already owns horizontal scrolling -- two nested overflow-x containers
-  // makes position:sticky columns unreliable (sticky resolves against the
-  // nearest scrolling ancestor, and with two candidates that's ambiguous
-  // across browsers) and hides the scrollbar somewhere non-obvious.
+  // make position:sticky columns unreliable (ambiguous "nearest scrolling
+  // ancestor") and hide the scrollbar unpredictably.
   scrollContainer?: boolean
 }) {
   return (
@@ -65,9 +64,10 @@ function TableFooter({ className, ...props }: React.ComponentProps<"tfoot">) {
   )
 }
 
-function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
-  return (
+const TableRow = React.forwardRef<HTMLTableRowElement, React.ComponentProps<"tr">>(
+  ({ className, ...props }, ref) => (
     <tr
+      ref={ref}
       data-slot="table-row"
       className={cn(
         "border-b transition-colors hover:bg-muted/50 has-aria-expanded:bg-muted/50 data-[state=selected]:bg-muted",
@@ -76,7 +76,8 @@ function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
       {...props}
     />
   )
-}
+)
+TableRow.displayName = "TableRow"
 
 function TableHead({ className, ...props }: React.ComponentProps<"th">) {
   return (

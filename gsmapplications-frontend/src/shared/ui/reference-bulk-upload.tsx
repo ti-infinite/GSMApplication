@@ -95,9 +95,8 @@ export function ReferenceBulkUpload({ resourceId, onApplied }: { resourceId: str
     setResults(null);
     setTopLevelError(null);
     try {
-      // Next.js -> Vite conversion: parsing+structural validation now
-      // happens right here in the browser (this same schema's parseRow),
-      // not server-side -- only the already-parsed rows go to the relay,
+      // Parsing + structural validation happens here in the browser (this
+      // schema's parseRow) -- only the already-parsed rows go to the relay,
       // which does just the semantic step (does this Variety/Customer/etc.
       // actually exist, create vs. update).
       const buffer = await file.arrayBuffer();

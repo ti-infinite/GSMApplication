@@ -7,24 +7,21 @@ import { Input } from "@/shared/ui/input";
 import { Button } from "@/shared/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/shared/ui/popover";
 import {
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogHeader,
-  AlertDialogFooter,
-  AlertDialogTitle,
-  AlertDialogDescription,
-  AlertDialogCancel,
-} from "@/shared/ui/alert-dialog";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogFooter,
+  DialogTitle,
+  DialogDescription,
+  DialogClose,
+} from "@/shared/ui/dialog";
 import { formatNumber } from "@/shared/lib/format";
 
 // Shared by all 4 editable reference tables (Yields/CostReference/
-// ExtraCost/TransportCost) -- the listing + pencil-edit + trash-delete
-// shape is identical across them; only the identity columns and the set of
-// editable numeric fields differ, both supplied as config. The "Add a new
-// row" form is deliberately NOT generic here (see each table's own *-card.tsx)
-// -- the identity pickers differ too much per table (free text vs. single
-// select vs. two selects vs. a derived-server-side value) to force into one
-// shape without becoming a leaky abstraction.
+// ExtraCost/TransportCost) -- only the identity columns and editable
+// fields differ, supplied as config. The "Add a new row" form stays
+// per-table (*-card.tsx): the identity pickers differ too much to
+// generalize without becoming a leaky abstraction.
 
 export interface ReferenceEditableField {
   key: string;
@@ -64,7 +61,6 @@ export interface ReferenceLogTableProps<Row> {
 // `onDelete`/`onChanged`, which are runtime wiring the consuming tab still
 // owns (what data is loaded, how to persist, when to refresh). Each entity
 // exports one of these from its own ui/log-table-config.ts.
-// REFACTOR_PLAN.md phase 03.
 export type ReferenceLogTableConfig<Row> = Omit<
   ReferenceLogTableProps<Row>,
   "rows" | "onUpdate" | "onDelete" | "onChanged"
@@ -174,7 +170,7 @@ function DeleteButton<Row>({
   }
 
   return (
-    <AlertDialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={setOpen}>
       <Button
         variant="ghost"
         size="icon-sm"
@@ -183,19 +179,21 @@ function DeleteButton<Row>({
       >
         <Trash2 className="size-3.5" aria-hidden="true" />
       </Button>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Delete this row?</AlertDialogTitle>
-          <AlertDialogDescription>{deleteWarning(row)}</AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={isDeleting}>No, keep it</AlertDialogCancel>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Delete this row?</DialogTitle>
+          <DialogDescription>{deleteWarning(row)}</DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button variant="outline" disabled={isDeleting}>No, keep it</Button>
+          </DialogClose>
           <Button variant="destructive" onClick={confirmDelete} disabled={isDeleting}>
             {isDeleting ? "Deleting…" : "Yes, delete"}
           </Button>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

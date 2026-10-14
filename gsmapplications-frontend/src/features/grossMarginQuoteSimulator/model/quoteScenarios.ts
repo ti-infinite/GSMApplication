@@ -1,23 +1,16 @@
 import type { SalesRow } from "@/entities/grossMarginSalesRow";
 import type { QuoteOverrides } from "./recompute";
 
-// Local-only scenario persistence for the Quote Simulator -- explicitly
-// NOT written to NHUBEX/any database (user's 2026-07-27 instruction: real
-// negotiating what-ifs shouldn't touch production tables). Pure
-// localStorage, no React, no server calls.
+// Local-only scenario persistence for the Quote Simulator -- explicitly not
+// written to NHUBEX/any database, since negotiating what-ifs shouldn't touch
+// production tables. Pure localStorage, no React, no server calls.
 
 const STORAGE_KEY = "quoteSimulator:scenarios:v1";
 const MAX_SCENARIOS = 100;
 
 export interface QuoteScenario {
-  // v2 (2026-09-11) added packQuantity, captured from the Pack Pricing
-  // card's quantity at save time -- needed so the Excel export's "Final
-  // Price" can be a real whole-pack/case total, not an arbitrary default.
-  // v1 records already in someone's browser localStorage have no
-  // packQuantity at all; readAll() below still accepts them (schemaVersion
-  // 1 or 2), and every consumer falls back to defaultPackQuantity(row) when
-  // it's missing -- same default logic quote-simulator-tab.tsx already
-  // uses for a freshly-selected row.
+  // v1 records have no packQuantity; readAll() still accepts both versions,
+  // and every consumer falls back to defaultPackQuantity(row) when it's missing.
   schemaVersion: 1 | 2;
   id: string;
   name: string;

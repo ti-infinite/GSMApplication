@@ -103,7 +103,7 @@ export function CommissionCard({
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground">Customer</label>
             <Input
-              placeholder="Search customers…"
+              placeholder="Filter customers…"
               value={customerSearch}
               onChange={(e) => setCustomerSearch(e.target.value)}
               className="mb-1.5"

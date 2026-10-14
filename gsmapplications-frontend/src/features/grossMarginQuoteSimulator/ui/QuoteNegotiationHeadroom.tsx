@@ -55,17 +55,14 @@ function HeadroomRow({ r }: { r: HeadroomResult }) {
             </>
           )}
         </div>
-        <span className={cn("whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium", meta.classes)}>{meta.label}</span>
+        <span className={cn("whitespace-nowrap rounded-md px-2.5 py-1 text-xs font-medium", meta.classes)}>{meta.label}</span>
       </div>
     </div>
   );
 }
 
-// Replaces the ±% sensitivity tornado with something a purchasing/sales
-// conversation can actually use: not "how many margin points does this move
-// per 5%" but "what's the real $/lb or $ number I can concede before we
-// breach our own floor" -- directly answers "how much room do I have to
-// negotiate this."
+// Answers "how much room do I have to negotiate this" directly: the real
+// $/lb or $ number each lever can concede before breaching the margin floor.
 export function QuoteNegotiationHeadroom({
   mode,
   commissionType,

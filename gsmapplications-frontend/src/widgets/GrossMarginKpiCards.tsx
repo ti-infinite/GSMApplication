@@ -113,7 +113,7 @@ function RankedList({
 }
 
 export function KpiCards({ rows }: { rows: SalesRow[] }) {
-  const stats = computeOverviewStats(rows);
+  const stats = useMemo(() => computeOverviewStats(rows), [rows]);
   const healthyPct =
     stats.totalRows > 0
       ? ((stats.totalRows - stats.rowsInAnyAlarm) / stats.totalRows)

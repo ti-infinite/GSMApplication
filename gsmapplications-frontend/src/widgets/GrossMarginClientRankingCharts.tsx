@@ -1,13 +1,8 @@
 import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/ui/tabs";
 import { Input } from "@/shared/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/shared/ui/select";
+import { Combobox } from "@/shared/ui/combobox";
 import { RankedBarChart, type RankedBarDatum } from "@/shared/ui/ranked-bar-chart";
 import { StatChips } from "@/shared/ui/stat-chips";
 import { aggregateByCustomer, type SalesRow } from "@/entities/grossMarginSalesRow";
@@ -40,8 +35,8 @@ export function ClientRankingCharts({ rows }: { rows: SalesRow[] }) {
     return all.filter((a) => a.key.toLowerCase().includes(search.toLowerCase()));
   }, [rows, warehouse, search]);
 
-  const costRatioData = toBarData(aggs, "costRatio", "asc");
-  const marginData = toBarData(aggs, "grossMargin", "desc");
+  const costRatioData = useMemo(() => toBarData(aggs, "costRatio", "asc"), [aggs]);
+  const marginData = useMemo(() => toBarData(aggs, "grossMargin", "desc"), [aggs]);
 
   return (
     <div className="space-y-6">
@@ -52,56 +47,47 @@ export function ClientRankingCharts({ rows }: { rows: SalesRow[] }) {
             aria-hidden="true"
           />
           <Input
-            placeholder="Filter by customer…"
+            placeholder="Filter customers…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="h-9 pl-8"
           />
         </div>
-        <Select value={warehouse} onValueChange={(v) => setWarehouse(v ?? "all")}>
-          <SelectTrigger className="h-9 w-full sm:w-48">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All warehouses</SelectItem>
-            {warehouses.map((w) => (
-              <SelectItem key={w} value={w}>
-                {w}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="w-full sm:w-48">
+          <Combobox
+            value={warehouse}
+            onChange={(v) => setWarehouse(v || "all")}
+            options={[
+              { value: "all", label: "All warehouses" },
+              ...warehouses.map((w) => ({ value: w, label: w })),
+            ]}
+          />
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Card>
+      <Card>
+        <Tabs defaultValue="cost-ratio">
           <CardHeader>
-            <CardTitle className="text-base">Clients ranked by Cost Ratio (lowest first)</CardTitle>
+            <TabsList>
+              <TabsTrigger value="cost-ratio">Cost Ratio</TabsTrigger>
+              <TabsTrigger value="margin">Gross Margin</TabsTrigger>
+            </TabsList>
           </CardHeader>
           <CardContent>
-            <StatChips data={costRatioData} />
-            <RankedBarChart
-              data={costRatioData}
-              valueType="percent"
-              barColor="var(--color-chart-2)"
-            />
-          </CardContent>
-        </Card>
+            <TabsContent value="cost-ratio" className="mt-0">
+              <CardTitle className="mb-4 text-base">Clients ranked by Cost Ratio (lowest first)</CardTitle>
+              <StatChips data={costRatioData} />
+              <RankedBarChart data={costRatioData} valueType="percent" barColor="var(--color-chart-2)" />
+            </TabsContent>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Clients ranked by Gross Margin (highest first)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <StatChips data={marginData} />
-            <RankedBarChart
-              data={marginData}
-              valueType="percent"
-              barColor="var(--color-success)"
-            />
+            <TabsContent value="margin" className="mt-0">
+              <CardTitle className="mb-4 text-base">Clients ranked by Gross Margin (highest first)</CardTitle>
+              <StatChips data={marginData} />
+              <RankedBarChart data={marginData} valueType="percent" barColor="var(--color-success)" />
+            </TabsContent>
           </CardContent>
-        </Card>
-      </div>
+        </Tabs>
+      </Card>
     </div>
   );
 }

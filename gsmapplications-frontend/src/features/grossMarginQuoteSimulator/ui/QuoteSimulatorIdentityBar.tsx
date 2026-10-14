@@ -4,12 +4,8 @@ import type { SalesRowMode } from "../model/recompute";
 import { MODE_COPY } from "../model/quoteModeCopy";
 import { cn } from "@/shared/lib/utils";
 
-// The single most common complaint about a simulator like this: the user
-// picks a row, scrolls down, and two screens later has forgotten which
-// Variety/Customer/Warehouse the numbers below even belong to. This bar
-// stays pinned right under the picker for the whole session so "Baseline"
-// never means just a bare word again -- it's always paired with the exact
-// real-world thing it describes.
+// Stays pinned under the picker for the whole session so the numbers below
+// are always paired with which Variety/Customer/Warehouse they describe.
 export function QuoteSimulatorIdentityBar({
   row,
   mode,
@@ -42,7 +38,7 @@ export function QuoteSimulatorIdentityBar({
           <p className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
             {isNewCustomerQuote ? "You're quoting a new customer" : "You're modeling"}
             {isNewCustomerQuote && (
-              <span className="rounded-full bg-[var(--chart-2)]/15 px-2 py-0.5 text-[0.65rem] font-semibold text-[var(--chart-2)]">
+              <span className="rounded-md bg-[var(--chart-2)]/15 px-2 py-0.5 text-[0.65rem] font-semibold text-[var(--chart-2)]">
                 New customer
               </span>
             )}

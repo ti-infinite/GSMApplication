@@ -4,12 +4,9 @@ import { grossMarginCellZone, type Zone } from "@/entities/grossMarginSalesRow";
 import type { SalesRow } from "@/entities/grossMarginSalesRow";
 import { cn } from "@/shared/lib/utils";
 
-// The signature element of the redesign: one glance answers "did this
-// scenario help or hurt?" -- Baseline (what actually happened, primary
-// blue) and Scenario (what this hypothetical would do, chart-2 orange)
-// sit side by side with the same zone coloring (green/yellow/red) already
-// used everywhere else in the dashboard, so a user landing here for the
-// first time reads it the same way they'd read the Sales Explorer.
+// One glance answers "did this scenario help or hurt?" -- Baseline and
+// Scenario sit side by side using the same zone coloring (green/yellow/red)
+// as the rest of the dashboard.
 const ZONE_META: Record<Zone, { label: string; icon: typeof CheckCircle2; classes: string }> = {
   green: { label: "Healthy", icon: CheckCircle2, classes: "bg-success/10 text-success" },
   yellow: { label: "Watch", icon: AlertTriangle, classes: "bg-warning/10 text-warning" },
@@ -37,7 +34,7 @@ function MarginBlock({
       <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
       <p className={cn("font-mono text-5xl font-bold tabular-nums", toneClasses)}>{formatPercent(value)}</p>
       <p className="text-xs text-muted-foreground">{sublabel}</p>
-      <span className={cn("mt-1 flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium", meta.classes)}>
+      <span className={cn("mt-1 flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium", meta.classes)}>
         <ZoneIcon className="size-3.5" aria-hidden="true" />
         {meta.label}
       </span>
@@ -79,7 +76,7 @@ export function QuoteSimulatorHeadline({
           {d !== null && (
             <span
               className={cn(
-                "flex items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-1 font-mono text-xs font-semibold tabular-nums",
+                "flex items-center gap-1 whitespace-nowrap rounded-md px-2.5 py-1 font-mono text-xs font-semibold tabular-nums",
                 improved && "bg-success/10 text-success",
                 worsened && "bg-destructive/10 text-destructive",
                 !improved && !worsened && "bg-muted text-muted-foreground"

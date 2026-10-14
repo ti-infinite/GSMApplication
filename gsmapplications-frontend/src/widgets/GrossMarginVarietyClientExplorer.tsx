@@ -1,13 +1,7 @@
 import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Input } from "@/shared/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/shared/ui/select";
+import { Combobox } from "@/shared/ui/combobox";
 import { Tabs, TabsList, TabsTrigger } from "@/shared/ui/tabs";
 import { RankedBarChart, type RankedBarDatum } from "@/shared/ui/ranked-bar-chart";
 import { StatChips } from "@/shared/ui/stat-chips";
@@ -69,34 +63,25 @@ export function VarietyClientExplorer({ rows }: { rows: SalesRow[] }) {
           </Tabs>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <Select value={metric} onValueChange={(v) => setMetric(v as RankMetric)}>
-            <SelectTrigger className="w-full sm:w-44">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {METRICS.map((m) => (
-                <SelectItem key={m.value} value={m.value}>
-                  {m.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="w-full sm:w-44">
+            <Combobox
+              value={metric}
+              onChange={(v) => setMetric(v as RankMetric)}
+              options={METRICS.map((m) => ({ value: m.value, label: m.label }))}
+            />
+          </div>
           {view === "bar" && (
-            <Select
-              value={selectedVariety}
-              onValueChange={(v) => setSelectedVariety(v ?? "")}
-            >
-              <SelectTrigger className="w-full sm:w-72">
-                <SelectValue placeholder="Select a variety" />
-              </SelectTrigger>
-              <SelectContent>
-                {varieties.map((v) => (
-                  <SelectItem key={v} value={v}>
-                    {v} ({varietyCounts.get(v)})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="w-full sm:w-72">
+              <Combobox
+                value={selectedVariety}
+                onChange={(v) => setSelectedVariety(v ?? "")}
+                options={varieties.map((v) => ({
+                  value: v,
+                  label: `${v} (${varietyCounts.get(v)})`,
+                }))}
+                placeholder="Select a variety"
+              />
+            </div>
           )}
           <div className="relative w-full sm:w-auto">
             <Search

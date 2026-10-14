@@ -5,13 +5,9 @@ import type { SalesRow } from "@/entities/grossMarginSalesRow";
 export const SKU_NOT_LISTED = "__not_listed__";
 const HERB_CODE_PATTERN = /^[A-Z]{4}$/;
 
-// Collapsed-by-default SKU builder for the "save as Cost Reference" banner --
-// most saves just work off the relay's own live NHUBEX lookup; this is only
-// for the case where the person already knows the code for a product that
-// isn't registered there yet. REFACTOR_PLAN.md phase 02: extracted out of
-// `quote-simulator-save-reference-banner.tsx` (which nearly doubled in size
-// when this was added inline) so the banner stays focused on the save flow
-// itself; `quote-simulator-sku-builder.tsx` is this hook's paired view.
+// Collapsed-by-default SKU builder for the "save as Cost Reference" banner
+// -- a fallback for when the relay's live NHUBEX lookup doesn't have the
+// product's code yet. Paired view: quote-simulator-sku-builder.tsx.
 export function useSkuBuilder(rows: SalesRow[]) {
   const [isSkuExpanded, setIsSkuExpanded] = useState(false);
   const [skuClass, setSkuClass] = useState(SKU_CLASSES[0].code);

@@ -1,27 +1,12 @@
 // Single source of truth for the 7 reference-table Excel templates/uploads
 // (see shared/ui/reference-bulk-upload.tsx, shared/lib/excel-parse.ts).
-// Pure and isomorphic -- no relay/fetch import, no entity import either --
-// since this same metadata drives both the browser-side upload-parsing
-// code AND the preview table's column labels.
+// Pure and isomorphic -- drives both the browser-side parsing and the
+// preview table's column labels, with no relay/entity import.
 //
-// REFACTOR_PLAN.md phase 06 (develop/develop2 reconciliation): this used to
-// be split as one schema object per entity, living alongside that entity's
-// own BulkUpsertAdapter in entities/<name>/api/bulk.ts, then consolidated
-// (still in TypeScript) into features/bulk-upload-reference-data/. The
-// Next.js -> Vite conversion moved that adapter half again -- this time to
-// Python, as gross-margin-relay/bulk_export.py's bulk_preview/bulk_commit
-// endpoints, since it's the one piece that genuinely needs live Sales data
-// and there's no server of this app's own left to run it. This file never
-// needed to move either time: it's pure structural metadata, consumed
-// identically by the browser before that change and after it.
-//
-// parseRow() here only does STRUCTURAL validation (required fields present,
-// values parse as the declared type, static enums like Transport's Type/
-// Packaging match). It deliberately does NOT check a value against LIVE
-// data (e.g. "is this a real Variety/Warehouse/Customer we actually sell")
-// -- this module has no access to SalesRow data and never will, by design.
-// That semantic layer lives entirely in the relay now, which runs with
-// real Sales data in hand.
+// parseRow() only does STRUCTURAL validation (required fields, declared
+// types, static enums) -- it deliberately has no access to live Sales data,
+// so it never checks "is this a real Variety/Customer we sell". That
+// semantic check lives in the relay instead.
 
 import { cellToText, cellToNumber } from "./cellParse";
 

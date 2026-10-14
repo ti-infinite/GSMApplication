@@ -6,11 +6,9 @@ export interface StepLabelProps {
   active: boolean;
 }
 
-// Shared by every Quote Simulator picker with a genuinely sequential flow
-// (Customer options depend on the chosen Variety, Warehouse depends on
-// both, etc.) -- numbered steps encode a real constraint there, not
-// decoration. Deduped from 3 byte-identical copies (row-picker,
-// new-customer-picker, new-variety-picker) -- REFACTOR_PLAN.md phase 01.
+// Shared by every sequential Quote Simulator picker (Customer depends on
+// Variety, Warehouse depends on both) -- numbered steps encode a real
+// constraint here, not decoration.
 export function StepLabel({ step, text, active }: StepLabelProps) {
   return (
     <label className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">

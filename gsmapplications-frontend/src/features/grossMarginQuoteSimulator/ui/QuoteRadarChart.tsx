@@ -36,21 +36,10 @@ export function QuoteRadarChart({ actual, simulated }: { actual: SalesRow; simul
     target: targetByKey[cat.key] * 100,
   }));
 
-  // Recharts always draws later JSX elements on top -- Simulated used to be
-  // drawn after Actual, so whenever the two coincide (no overrides active
-  // yet, or overrides that happen to net to zero) its more-opaque blue fill
-  // completely hid Actual's gray trace underneath, while still LOOKING like
-  // a distinct scenario was active even though nothing had changed. Fixed
-  // two ways: Actual now draws last so its outline is always visible, and
-  // the Simulated layer is only rendered at all once it genuinely differs.
-  //
-  // Rounded to 0.01 percentage points (not a raw !== compare) because
-  // recomputeSalesRow({}) independently re-derives every field in JS from
-  // the same baseline inputs the SQL pipeline used -- mathematically
-  // identical, but floating-point operations aren't associative across two
-  // different runtimes doing the same division/multiplication in a possibly
-  // different order, so a sub-cent discrepancy between the two is expected
-  // even with zero overrides, not a sign anything actually changed.
+  // Recharts draws later JSX elements on top, so Actual draws last and
+  // Simulated only renders once it genuinely differs. Rounded to 0.01
+  // points, not a raw !== compare, since floating-point re-derivation isn't
+  // associative across runtimes.
   const round = (v: number) => Math.round(v * 100) / 100;
   const hasChanges = data.some((d) => round(d.actual) !== round(d.simulated));
 
@@ -73,12 +62,8 @@ export function QuoteRadarChart({ actual, simulated }: { actual: SalesRow; simul
               tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }}
               tickFormatter={(v) => `${v}%`}
             />
-            {/* isAnimationActive=false: recharts otherwise tweens the polygon
-                from whatever it drew last, so switching rows (or resetting
-                overrides) could briefly -- or on a slow render, not-so-briefly
-                -- show a shape that's mid-transition from the PREVIOUS row's
-                data, not the current one. Instant redraw removes that class
-                of "why is this stale" bug entirely. */}
+            {/* isAnimationActive=false: otherwise recharts tweens from the
+                previous row's shape, briefly showing stale data on switch. */}
             {hasChanges && (
               <Radar name="Simulated" dataKey="simulated" stroke="var(--color-primary)" fill="var(--color-primary)" fillOpacity={0.3} isAnimationActive={false} />
             )}

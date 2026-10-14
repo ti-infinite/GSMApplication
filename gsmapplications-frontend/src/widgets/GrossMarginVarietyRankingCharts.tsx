@@ -1,13 +1,8 @@
 import { useMemo, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/ui/tabs";
 import { Input } from "@/shared/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/shared/ui/select";
+import { Combobox } from "@/shared/ui/combobox";
 import { RankedBarChart, type RankedBarDatum } from "@/shared/ui/ranked-bar-chart";
 import { StatChips } from "@/shared/ui/stat-chips";
 import { aggregateByVariety, type SalesRow } from "@/entities/grossMarginSalesRow";
@@ -44,12 +39,10 @@ export function VarietyRankingCharts({ rows }: { rows: SalesRow[] }) {
     return all.filter((a) => a.key.toLowerCase().includes(search.toLowerCase()));
   }, [filteredRows, search]);
 
-  // Mixed Herb blends are priced as whole-pack totals ($20-30), not
-  // per-unit like every other variety ($0.5-$1.6, see IsMixedHerbWholePack
-  // on SalesRow) -- comparing them on one linear price axis squashed the
-  // other 20 varieties into an unreadable sliver. Split into two charts,
-  // each on its own natural scale, instead of normalizing the whole-pack
-  // price away -- it's the real figure for these, not an artifact.
+  // Mixed Herb blends are priced as whole-pack totals, not per-unit like
+  // every other variety (see IsMixedHerbWholePack on SalesRow) --
+  // comparing them on one linear price axis squashed the rest into an
+  // unreadable sliver, so they get their own chart on their own scale.
   const singleUnitPriceData = useMemo(() => {
     const singleUnitAggs = aggregateByVariety(
       filteredRows.filter((r) => r.IsMixedHerbWholePack !== 1)
@@ -64,8 +57,8 @@ export function VarietyRankingCharts({ rows }: { rows: SalesRow[] }) {
     return toBarData(mixedHerbAggs, "avgUnitPrice", "desc");
   }, [filteredRows, search]);
 
-  const costRatioData = toBarData(aggs, "costRatio", "asc");
-  const marginData = toBarData(aggs, "grossMargin", "desc");
+  const costRatioData = useMemo(() => toBarData(aggs, "costRatio", "asc"), [aggs]);
+  const marginData = useMemo(() => toBarData(aggs, "grossMargin", "desc"), [aggs]);
 
   return (
     <div className="space-y-6">
@@ -76,90 +69,77 @@ export function VarietyRankingCharts({ rows }: { rows: SalesRow[] }) {
             aria-hidden="true"
           />
           <Input
-            placeholder="Filter by variety…"
+            placeholder="Filter varieties…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="h-9 pl-8"
           />
         </div>
-        <Select value={warehouse} onValueChange={(v) => setWarehouse(v ?? "all")}>
-          <SelectTrigger className="h-9 w-full sm:w-48">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All warehouses</SelectItem>
-            {warehouses.map((w) => (
-              <SelectItem key={w} value={w}>
-                {w}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="w-full sm:w-48">
+          <Combobox
+            value={warehouse}
+            onChange={(v) => setWarehouse(v || "all")}
+            options={[
+              { value: "all", label: "All warehouses" },
+              ...warehouses.map((w) => ({ value: w, label: w })),
+            ]}
+          />
+        </div>
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base">
-            Most expensive → least expensive variety (Avg Unit Price)
-          </CardTitle>
-          {mixedHerbPriceData.length > 0 && (
-            <CardDescription>
-              Single-unit varieties only — Mixed Herb blends are priced by the whole pack, not per
-              unit, so they&apos;re shown separately below.
-            </CardDescription>
-          )}
-        </CardHeader>
-        <CardContent>
-          <StatChips data={singleUnitPriceData} valueType="currency" unit="varieties" />
-          <RankedBarChart data={singleUnitPriceData} valueType="currency" />
-        </CardContent>
+        <Tabs defaultValue="price">
+          <CardHeader>
+            <TabsList>
+              <TabsTrigger value="price">Price</TabsTrigger>
+              {mixedHerbPriceData.length > 0 && (
+                <TabsTrigger value="mixed-herb">Mixed Herb Price</TabsTrigger>
+              )}
+              <TabsTrigger value="cost-ratio">Cost Ratio</TabsTrigger>
+              <TabsTrigger value="margin">Gross Margin</TabsTrigger>
+            </TabsList>
+          </CardHeader>
+          <CardContent>
+            <TabsContent value="price" className="mt-0">
+              <CardTitle className="mb-1 text-base">
+                Most expensive → least expensive variety (Avg Unit Price)
+              </CardTitle>
+              {mixedHerbPriceData.length > 0 && (
+                <CardDescription className="mb-4">
+                  Single-unit varieties only — Mixed Herb blends are priced by the whole pack, not
+                  per unit, so they&apos;re shown on their own tab.
+                </CardDescription>
+              )}
+              <StatChips data={singleUnitPriceData} valueType="currency" unit="varieties" />
+              <RankedBarChart data={singleUnitPriceData} valueType="currency" />
+            </TabsContent>
+
+            {mixedHerbPriceData.length > 0 && (
+              <TabsContent value="mixed-herb" className="mt-0">
+                <CardTitle className="mb-1 text-base">Mixed Herb blends — whole-pack price</CardTitle>
+                <CardDescription className="mb-4">
+                  These varieties are priced as a whole pack (e.g. a 32 CT blend), not per single
+                  herb unit, so they don&apos;t belong on the same scale as the Price tab.
+                </CardDescription>
+                <StatChips data={mixedHerbPriceData} valueType="currency" unit="blends" />
+                <RankedBarChart data={mixedHerbPriceData} valueType="currency" />
+              </TabsContent>
+            )}
+
+            <TabsContent value="cost-ratio" className="mt-0">
+              <CardTitle className="mb-4 text-base">Best Cost Ratio by variety (lowest first)</CardTitle>
+              <StatChips data={costRatioData} valueType="percent" unit="varieties" />
+              <RankedBarChart data={costRatioData} valueType="percent" barColor="var(--color-chart-2)" />
+            </TabsContent>
+
+            <TabsContent value="margin" className="mt-0">
+              <CardTitle className="mb-4 text-base">Best Gross Margin by variety (highest first)</CardTitle>
+              <StatChips data={marginData} valueType="percent" unit="varieties" />
+              <RankedBarChart data={marginData} valueType="percent" barColor="var(--color-success)" />
+            </TabsContent>
+          </CardContent>
+        </Tabs>
       </Card>
-
-      {mixedHerbPriceData.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Mixed Herb blends — whole-pack price</CardTitle>
-            <CardDescription>
-              These varieties are priced as a whole pack (e.g. a 32 CT blend), not per single herb
-              unit, so they don&apos;t belong on the same scale as the single-unit chart above.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <StatChips data={mixedHerbPriceData} valueType="currency" unit="blends" />
-            <RankedBarChart data={mixedHerbPriceData} valueType="currency" />
-          </CardContent>
-        </Card>
-      )}
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Best Cost Ratio by variety (lowest first)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <StatChips data={costRatioData} valueType="percent" unit="varieties" />
-            <RankedBarChart
-              data={costRatioData}
-              valueType="percent"
-              barColor="var(--color-chart-2)"
-            />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Best Gross Margin by variety (highest first)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <StatChips data={marginData} valueType="percent" unit="varieties" />
-            <RankedBarChart
-              data={marginData}
-              valueType="percent"
-              barColor="var(--color-success)"
-            />
-          </CardContent>
-        </Card>
-      </div>
     </div>
   );
 }

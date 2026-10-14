@@ -7,10 +7,8 @@ import { buildDriverImpacts, type QuoteOverrides, type RecomputeInputs, type Sal
 import { useQuoteFields } from "../model/useQuoteFields";
 import { cn } from "@/shared/lib/utils";
 
-// Replaces the old order-dependent waterfall: each active override's OWN
-// effect on Gross Margin, isolated from the others, so "what's moving my
-// margin" reads as a flat ranked list instead of a floating-bar chart that
-// needed a disclaimer about step order.
+// Each active override's own effect on Gross Margin, isolated from the
+// others, so "what's moving my margin" reads as a flat ranked list.
 export function QuoteDriverImpact({
   mode,
   commissionType,

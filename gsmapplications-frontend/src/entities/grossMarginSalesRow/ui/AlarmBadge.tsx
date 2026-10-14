@@ -57,7 +57,7 @@ export function AlarmBadge({
   const config = STATE_CONFIG[state];
   const Icon = config.icon;
   const badgeClassName = cn(
-    "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium",
+    "inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium",
     config.className,
     className
   );
@@ -78,8 +78,8 @@ export function AlarmBadge({
 
   return (
     <Popover>
-      {/* PopoverTrigger renders its own <button> (Base UI, not Radix -- no
-          asChild here), so the badge styling is applied directly to it. */}
+      {/* No asChild -- PopoverTrigger renders its own <button>, so the
+          badge styling is applied directly to it. */}
       <PopoverTrigger className={cn(badgeClassName, "cursor-pointer")}>
         <Icon className="size-3.5" aria-hidden="true" />
         {config.label}

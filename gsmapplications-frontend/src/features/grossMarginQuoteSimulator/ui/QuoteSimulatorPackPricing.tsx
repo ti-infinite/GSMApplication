@@ -5,13 +5,10 @@ import { formatCurrency, formatPercent } from "@/shared/lib/format";
 import type { SalesRow } from "@/entities/grossMarginSalesRow";
 import type { SalesRowMode } from "../model/recompute";
 
-// The rest of the simulator (Adjust the inputs, Negotiation Headroom, the
-// solver) all stays in per-unit terms deliberately -- that's the unit you
-// actually negotiate with a supplier over. This card answers a different
-// question a supplier negotiation never asks: "what do we invoice THIS
-// CUSTOMER for a case?" Mode A/B rows are stored per single unit, so the
-// case total is a straight multiply; Mode C (mixed-herb) rows are already
-// whole-pack totals, so "quantity" there means "how many cases," not units.
+// The rest of the simulator stays in per-unit terms (the unit you negotiate
+// with a supplier over); this card answers "what do we invoice THIS
+// CUSTOMER for a case?" Mode C (mixed-herb) rows are already whole-pack
+// totals, so "quantity" there means "how many cases," not units.
 export function QuoteSimulatorPackPricing({
   actual,
   simulated,

@@ -16,12 +16,9 @@ import { formatPercent } from "@/shared/lib/format";
 import { grossMarginFetch as relayFetch } from "@/shared/lib/ihAgent";
 
 // Local-only (browser storage) scenario save/load -- explicitly not written
-// to NHUBEX. See lib/quote-scenarios.ts for the schema and the "why local"
-// rationale. The Excel export is the one place these saved scenarios leave
-// the browser -- each is resolved back into a full RecomputeResult
-// (matching the same Commission/Rebate/TransportCost lookups the live
-// simulator uses) right before it's sent to the server to become a
-// workbook row.
+// to NHUBEX. The Excel export is the one place these leave the browser:
+// each is resolved back into a full RecomputeResult right before being
+// sent to the server to become a workbook row.
 export function QuoteSimulatorScenarioManager({
   baseline,
   overrides,

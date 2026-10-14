@@ -10,13 +10,10 @@ import { THRESHOLDS } from "@/shared/lib/thresholds";
 import { useQuoteFields } from "../model/useQuoteFields";
 import { cn } from "@/shared/lib/utils";
 
-// A separate, standalone tool from "Adjust the inputs" -- that card answers
-// "what happens if I change X"; this one answers the reverse question,
-// "what would I have to change to hit a margin I want." Every suggestion is
-// a single independent lever (see buildTargetMarginSuggestions' own doc
-// comment for why not a joint optimizer), so the user picks whichever is
-// the most realistic ask for THIS negotiation, not an algorithmically
-// optimal blend of six simultaneous ones.
+// Answers the reverse of "Adjust the inputs": not "what happens if I change
+// X" but "what would I have to change to hit a margin I want." Every
+// suggestion is a single independent lever (see buildTargetMarginSuggestions),
+// so the user picks the most realistic single ask for this negotiation.
 export function QuoteSimulatorTargetSolver({
   mode,
   commissionType,
@@ -36,9 +33,8 @@ export function QuoteSimulatorTargetSolver({
   transportCost: TransportCostRow | null;
   currentGrossMargin: number | null;
 }) {
-  // Defaults to 25% -- a UI starting point per the team's request, NOT
-  // reused from THRESHOLDS.MIN_GROSS_MARGIN (that's the unrelated 20%
-  // company alarm floor used elsewhere). Fully editable.
+  // Defaults to 25%, NOT reused from THRESHOLDS.MIN_GROSS_MARGIN (the
+  // unrelated 20% company alarm floor used elsewhere). Fully editable.
   const [targetText, setTargetText] = useState("25");
 
   const canNegotiatePallet =
@@ -52,11 +48,9 @@ export function QuoteSimulatorTargetSolver({
   const targetValue = targetText === "" ? null : Number(targetText) / 100;
   const targetValid = targetValue !== null && Number.isFinite(targetValue);
 
-  // Rounded to each field's own step precision -- the bisection search that
-  // produces suggestedValue converges to ~15 floating-point digits, which is
-  // both unreadable and, if applied verbatim, harder to then hand-edit than
-  // a number a person would actually type (e.g. "$1.020", not
-  // "$1.019814622076165").
+  // Rounded to each field's own step precision -- the bisection search
+  // converges to ~15 floating-point digits, unreadable and hard to hand-edit
+  // if applied verbatim.
   const suggestions = useMemo(() => {
     if (!targetValid) return [];
     const raw = buildTargetMarginSuggestions(inputs, overrides, fields, targetValue!);
@@ -72,13 +66,10 @@ export function QuoteSimulatorTargetSolver({
   const alreadyThere =
     targetValid && currentGrossMargin !== null && Math.abs(currentGrossMargin - targetValue!) < 0.0005;
 
-  // For a brand-new manual quote, GrossMargin is null until BOTH price and
-  // cost exist -- there's no "current" state for the normal multi-lever
-  // solver to search from. If the cost side IS already known, bootstrap a
-  // single starting List Price suggestion instead of just saying "fix that
-  // first." Once applied (or the user types any price by hand), GrossMargin
-  // becomes non-null on the next render and the normal solver below takes
-  // over automatically -- no separate handoff state needed.
+  // For a brand-new manual quote, GrossMargin is null until both price and
+  // cost exist. If cost is already known, bootstrap a starting List Price
+  // suggestion instead; once applied, GrossMargin becomes non-null and the
+  // normal solver below takes over automatically.
   const bootstrap = useMemo(() => {
     if (!targetValid || currentGrossMargin !== null) return null;
     return buildBootstrapPriceSuggestion(inputs, overrides, targetValue!);

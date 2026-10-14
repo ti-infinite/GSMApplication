@@ -6,11 +6,9 @@ import type { SalesRow } from "@/entities/grossMarginSalesRow";
 import type { SalesRowMode } from "../model/recompute";
 import { cn } from "@/shared/lib/utils";
 
-// Plain-language "how we got this number" walkthrough -- lets the user
-// verify the simulator's math against the real formula, per the spec's
-// "Calculation Details" requirement. Mode-aware: shows exactly the terms
-// that actually apply to this row, in the same order lib/recompute.ts and
-// sql/15_sales.sql sum them in.
+// Plain-language "how we got this number" walkthrough, mode-aware: shows
+// exactly the terms that apply to this row, in the same order recompute.ts
+// and sql/15_sales.sql sum them in.
 export function QuoteSimulatorTransparencyPanel({
   row,
   mode,

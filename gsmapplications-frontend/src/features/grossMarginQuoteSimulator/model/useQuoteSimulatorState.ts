@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { fetchCommissions, type CommissionRow } from "@/entities/grossMarginCommission";
-import { costReferenceApi, type CostReferenceRow } from "@/entities/grossMarginCostReference";
-import { fetchRebates, type RebateRow } from "@/entities/grossMarginRebate";
+import { GROSS_MARGIN_REF_QUERY_KEY } from "@/shared/lib/grossMarginReferenceQueryKeys";
+import { useCommissions } from "@/entities/grossMarginCommission";
+import { useCostReferences } from "@/entities/grossMarginCostReference";
+import { useRebates } from "@/entities/grossMarginRebate";
 import type { SalesRow } from "@/entities/grossMarginSalesRow";
-import { transportCostApi, type TransportCostRow } from "@/entities/grossMarginTransportCost";
-import { varietyDesegregationApi, type VarietyDesegregationRow } from "@/entities/grossMarginVarietyDesegregation";
-import { yieldsApi, type YieldRow } from "@/entities/grossMarginYield";
+import { useTransportCosts, type TransportCostRow } from "@/entities/grossMarginTransportCost";
+import { useVarietyDesegregations } from "@/entities/grossMarginVarietyDesegregation";
+import { useYields } from "@/entities/grossMarginYield";
 import { recomputeSalesRow, type QuoteOverrides } from "./recompute";
 import type { QuoteScenario } from "./quoteScenarios";
 import { buildSyntheticBaseline, buildManualBaseline } from "./quoteSyntheticRow";
@@ -20,15 +22,9 @@ import type { NewVarietyShape } from "../ui/QuoteSimulatorNewCustomerPicker";
 
 export type QuoteFlow = "existing" | "new-customer" | "new-variety";
 
-// Replaces what used to be 3 separately-synced pieces of state
-// (isNewCustomerQuote/isManualEntry/syntheticTransportCost, with every
-// handler below setting all 3 by hand) with one value whose shape makes
-// invalid combinations unrepresentable -- e.g. "manual entry with a
-// synthetic transport cost" could never be constructed by accident.
-// REFACTOR_PLAN.md phase 02, items 1+2 -- done together, since the
-// discriminated union IS the shape the extracted state model needed;
-// extracting the old hand-synced booleans first would mean rewriting this
-// again immediately after.
+// A discriminated union replacing what used to be 3 separately-synced
+// booleans -- its shape makes invalid combinations (e.g. "manual entry
+// with a synthetic transport cost") unrepresentable.
 type QuoteEntry =
   | { kind: "existing"; row: SalesRow }
   | { kind: "new-customer-synthetic"; row: SalesRow; transportCost: TransportCostRow | null }
@@ -48,84 +44,54 @@ function isNewCustomerEntry(entry: QuoteEntry): boolean {
 }
 
 export function useQuoteSimulatorState(rows: SalesRow[], refreshKey?: number | string) {
-  const [isLoading, setIsLoading] = useState(true);
-  const [commissions, setCommissions] = useState<CommissionRow[]>([]);
-  const [rebates, setRebates] = useState<RebateRow[]>([]);
-  const [transportCosts, setTransportCosts] = useState<TransportCostRow[]>([]);
-  const [varietyDesegregation, setVarietyDesegregation] = useState<VarietyDesegregationRow[]>([]);
-  const [costReferences, setCostReferences] = useState<CostReferenceRow[]>([]);
-  const [yields, setYields] = useState<YieldRow[]>([]);
+  const queryClient = useQueryClient();
+  const { commissions, isLoading: commissionsLoading } = useCommissions();
+  const { rebates, isLoading: rebatesLoading } = useRebates();
+  const { transportCosts, isLoading: transportCostsLoading } = useTransportCosts();
+  const { varietyDesegregations: varietyDesegregation, isLoading: varietyDesegregationLoading } = useVarietyDesegregations();
+  const { costReferences, isLoading: costReferencesLoading } = useCostReferences();
+  const { yields, isLoading: yieldsLoading } = useYields();
+  // True only on a genuine cold load -- once any one of these has cached
+  // data they all do (same navigation lifecycle), so this never re-blanks
+  // the UI on an ordinary background revalidation.
+  const isLoading =
+    commissionsLoading && rebatesLoading && transportCostsLoading && varietyDesegregationLoading && costReferencesLoading && yieldsLoading;
 
   const [selectedEntry, setSelectedEntry] = useState<QuoteEntry | null>(null);
   const [overrides, setOverrides] = useState<QuoteOverrides>({});
-  // Bumped every time `overrides` is reset below (row switch, scenario load,
-  // new-customer quote) and used as the Inputs Panel's React `key` -- forces
-  // a fresh remount so its own local `texts`/`errors` state (leftover typed
-  // text from whatever was previously selected) can't keep shadowing the
-  // newly-reset `overrides`/baseline. Previously this required manually
-  // clicking "Reset all" to see correct values after switching rows.
+  // Bumped on every overrides reset and used as the Inputs Panel's React
+  // `key`, forcing a fresh remount so its local `texts`/`errors` state can't
+  // keep shadowing the newly-reset overrides/baseline.
   const [selectionGeneration, setSelectionGeneration] = useState(0);
-  // Lifted (not local to the inputs panel) so the target-margin solver can
-  // offer/apply exactly the same transport lever the inputs panel is
-  // currently showing -- Pallet Cost when negotiating a pallet rate, direct
-  // Transport $ otherwise, never a field the user can't also see toggled.
+  // Lifted (not local to the inputs panel) so the target-margin solver offers
+  // exactly the same transport lever the inputs panel is currently showing.
   const [transportMode, setTransportMode] = useState<"direct" | "pallet">("direct");
-  // Quantity for the "what do we charge the customer" pack-pricing card --
-  // defaults to the row's own real case size for regular herbs, or 1 (one
-  // whole blend case) for mixed-herb rows, which are already whole-pack
-  // priced. See defaultPackQuantity below.
+  // Quantity for the pack-pricing card -- defaults to the row's real case
+  // size, or 1 for mixed-herb rows (already whole-pack priced).
   const [packQuantity, setPackQuantity] = useState(1);
   const [quoteFlow, setQuoteFlow] = useState<QuoteFlow>("existing");
 
   const selectedRow = selectedEntry?.row ?? null;
   const isNewCustomerQuote = selectedEntry ? isNewCustomerEntry(selectedEntry) : false;
 
-  // Extracted (not just a one-shot mount effect) so a successful save from
-  // the new "save this as a Cost Reference" flow can trigger the exact same
-  // refetch afterward -- the picker/lookups need to see the newly-created
-  // row immediately, not just on next page load.
-  const loadReferenceData = useCallback(async () => {
-    try {
-      const [c, r, t, vd, cr, y] = await Promise.all([
-        fetchCommissions(),
-        fetchRebates(),
-        transportCostApi.list(),
-        varietyDesegregationApi.list(),
-        costReferenceApi.list(),
-        yieldsApi.list(),
-      ]);
-      setCommissions(c);
-      setRebates(r);
-      setTransportCosts(t);
-      setVarietyDesegregation(vd);
-      setCostReferences(cr);
-      setYields(y);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to load reference data.");
-    }
-  }, []);
+  // Kept as `loadReferenceData` (same name/shape the UI already calls as
+  // `onSaved` after "save as Cost Reference") -- now an invalidation instead
+  // of a manual refetch, since the 6 resources above are React Query-backed.
+  const loadReferenceData = useCallback(() => {
+    return queryClient.invalidateQueries({ queryKey: GROSS_MARGIN_REF_QUERY_KEY });
+  }, [queryClient]);
 
+  // Compares the actual value, not a "have we rendered yet" boolean flag --
+  // a boolean ref survives React StrictMode's double-invocation of this
+  // effect in dev (the ref isn't reset between the two simulated passes),
+  // so it would read as "no longer first render" on the second pass and
+  // invalidate immediately on every real mount too. Comparing refreshKey
+  // itself is immune: both StrictMode passes see the same value, so neither
+  // looks like a genuine change.
+  const previousRefreshKey = useRef(refreshKey);
   useEffect(() => {
-    let cancelled = false;
-    setIsLoading(true);
-    loadReferenceData().finally(() => {
-      if (!cancelled) setIsLoading(false);
-    });
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only;
-    // refreshKey changes are handled by the separate effect below, which
-    // deliberately does NOT toggle `isLoading` (that would blank the whole
-    // simulator behind a skeleton mid-use every time someone hits Refresh).
-  }, []);
-
-  const isFirstRender = useRef(true);
-  useEffect(() => {
-    if (isFirstRender.current) {
-      isFirstRender.current = false;
-      return;
-    }
+    if (previousRefreshKey.current === refreshKey) return;
+    previousRefreshKey.current = refreshKey;
     loadReferenceData();
   }, [refreshKey, loadReferenceData]);
 
@@ -136,11 +102,9 @@ export function useQuoteSimulatorState(rows: SalesRow[], refreshKey?: number | s
   const rebate = useMemo(() => (selectedRow ? findRebateForRow(rebates, selectedRow) : null), [rebates, selectedRow]);
   const transportCost = useMemo(() => {
     if (!selectedEntry) return null;
-    // A new customer's name will never match a real DivisionTransportCost
-    // row (it isn't real yet) -- use the synthetic estimate built alongside
-    // the synthetic baseline instead of the always-empty real lookup. An
-    // existing customer picked from the New Variety tab is NOT forced onto
-    // this path -- see handleCreateNewVarietyQuote below.
+    // A new customer's name never matches a real DivisionTransportCost row,
+    // so use the synthetic estimate built alongside the synthetic baseline
+    // instead of the always-empty real lookup.
     if (selectedEntry.kind === "new-customer-synthetic") return selectedEntry.transportCost;
     if (isNewCustomerEntry(selectedEntry)) return null;
     return findTransportCostForRow(transportCosts, selectedEntry.row);
@@ -219,12 +183,9 @@ export function useQuoteSimulatorState(rows: SalesRow[], refreshKey?: number | s
         return;
       }
 
-      // No existing rows for this exact Variety+Warehouse (an existing
-      // Variety just missing this warehouse) -- fall through to a manual
+      // No rows for this exact Variety+Warehouse -- fall through to a manual
       // starting point, borrowing the package size from wherever else this
-      // Variety already ships, since that's a property of the product, not
-      // the warehouse. A genuinely new Variety never reaches this tab
-      // anymore -- see quote-simulator-new-variety-picker.tsx.
+      // Variety ships, since that's a property of the product, not the warehouse.
       const anyRowForVariety = rows.find((r) => r.Variety === variety && r.MeasurementUnitValue !== null);
       if (!anyRowForVariety || anyRowForVariety.MeasurementUnitValue === null) {
         toast.error(`No data found for "${variety}" anywhere — can't determine its package size.`);
@@ -244,13 +205,10 @@ export function useQuoteSimulatorState(rows: SalesRow[], refreshKey?: number | s
     [rows, transportCosts]
   );
 
-  // The "New Variety" tab -- a genuinely brand-new product, never sold
-  // anywhere. Always manual (there's nothing to average from), but unlike
-  // the "new customer" flow above, the customer picked here might be an
-  // EXISTING one -- so `transportCost`'s own useMemo should be allowed to
-  // try the real lookup for them, not forced onto the always-null synthetic
-  // path. Only a genuinely new customer name forces that path (see
-  // isNewCustomerEntry above), same reasoning as handleCreateNewCustomerQuote.
+  // The "New Variety" tab -- a brand-new product, never sold anywhere.
+  // Always manual, but unlike the "new customer" flow above, the customer
+  // picked here might be an EXISTING one, so `transportCost`'s useMemo can
+  // still try the real lookup (see isNewCustomerEntry above).
   const handleCreateNewVarietyQuote = useCallback(
     (variety: string, warehouse: string, customerName: string, isExistingCustomer: boolean, shape: NewVarietyShape) => {
       const manualRow = buildManualBaseline(variety, warehouse, customerName, shape);
@@ -263,12 +221,9 @@ export function useQuoteSimulatorState(rows: SalesRow[], refreshKey?: number | s
     []
   );
 
-  // Lets a "none"-mode row (no matched purchase cost) pick a hypothetical
-  // sourcing basis so the Inputs Panel's cost fields become enterable --
-  // purely local state, never sent anywhere; only Packing/Sticker/etc.
-  // values the user explicitly saves via the save-reference flow touch the
-  // server. Also bumps selectionGeneration since this effectively resets
-  // what fields are relevant, same as a fresh row/scenario selection.
+  // Lets a "none"-mode row pick a hypothetical sourcing basis so the Inputs
+  // Panel's cost fields become enterable -- purely local state, never sent
+  // anywhere. Bumps selectionGeneration since this resets which fields apply.
   const handleModeSelect = useCallback((newMode: "A" | "B") => {
     setSelectedEntry((entry) => (entry ? { ...entry, row: { ...entry.row, Flag: newMode === "A" ? 1 : 0 } } : entry));
     setSelectionGeneration((g) => g + 1);

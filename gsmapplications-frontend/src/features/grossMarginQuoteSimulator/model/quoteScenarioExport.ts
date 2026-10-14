@@ -1,14 +1,7 @@
-// Next.js -> Vite conversion: the actual branded workbook builder
-// (buildQuotesSheet/buildQuoteScenarioExportWorkbook, ExcelJS) moved to the
-// relay (Python/openpyxl, gross-margin-relay/bulk_export.py's
-// export_quote_scenarios) -- there's no server of this app's own left to
-// run it. What's left here is the one piece that's genuinely client-side
-// business logic: resolving each saved scenario's "current effective
-// value" per column, matching the HEB/North Center reference "QUOTE"
-// sheet's column layout the team already works from. The caller
-// (quote-simulator-scenario-manager.tsx) sends the resolved values array
-// straight to the relay -- no ExcelJS/workbook-building code needs to ship
-// to the browser at all anymore.
+// The actual workbook building happens server-side (relay, bulk_export.py).
+// This resolves each saved scenario's "current effective value" per column,
+// matching the reference "QUOTE" sheet's column layout, and the caller
+// sends the resolved values array straight to the relay.
 
 import type { SalesRow } from "@/entities/grossMarginSalesRow";
 import type { QuoteOverrides, RecomputeInputs, SalesRowMode } from "./recompute";

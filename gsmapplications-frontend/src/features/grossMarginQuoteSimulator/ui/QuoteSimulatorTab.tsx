@@ -24,12 +24,9 @@ export function QuoteSimulatorTab({
   refreshKey,
 }: {
   rows: SalesRow[];
-  // Bumps (e.g. a fresh timestamp) whenever the page's sales data refetches
-  // (useSalesData polls and refetches on focus) -- that only re-fetches
-  // db_ai.Sales, never Commission/Rebate/TransportCost/VarietyDesegregation/
-  // CostReference/Yields, so reference data added elsewhere (this app's own
-  // save banner, or the Updates app in another tab) is reloaded here on the
-  // same beat. Optional so other callers can render this without wiring it up.
+  // Bumps whenever the page's sales data refetches, so reference data added
+  // elsewhere (the save banner, or another tab) reloads on the same beat.
+  // Optional so other callers can render this without wiring it up.
   refreshKey?: number | string;
 }) {
   const {

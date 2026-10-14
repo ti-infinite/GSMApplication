@@ -1,6 +1,6 @@
 // Generic Excel-cell parsing primitives -- no business logic, reusable by
 // any entity's bulk-upload schema (see entities/<name>/api/bulk.ts).
-// REFACTOR_PLAN.md phase 03: extracted out of the old lib/reference-schemas.ts.
+// Extracted out of the old lib/reference-schemas.ts.
 export function cellToText(v: unknown): string {
   if (v === null || v === undefined) return "";
   return String(v).trim();

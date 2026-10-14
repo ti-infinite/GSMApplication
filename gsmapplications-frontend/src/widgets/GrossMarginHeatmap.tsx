@@ -1,7 +1,11 @@
-import { Fragment } from "react";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui/tooltip";
+import { useEffect, useState } from "react";
 import { formatCurrency, formatPercent } from "@/shared/lib/format";
 import { cellKey, type RankMetric } from "@/entities/grossMarginSalesRow";
+import { Button } from "@/shared/ui/button";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/shared/ui/table";
+
+const DEFAULT_VISIBLE = 20;
+const SHOW_MORE_STEP = 20;
 
 // Metric-aware color semantics: GrossMargin/CostRatio have a "good/bad"
 // direction (green=good, red=bad), AvgUnitPrice doesn't (neutral blue scale
@@ -43,10 +47,35 @@ export function Heatmap({
   const max = values.length ? Math.max(...values) : 1;
   const formatValue = metric === "AvgUnitPrice" ? formatCurrency : formatPercent;
 
+  // Only a slice of varieties renders at once -- the full cross product
+  // (241 varieties x 71 customers here) is ~17k cells, enough to freeze the
+  // tab on its own regardless of how many are actually empty. Resets
+  // whenever the caller hands a genuinely different ranking (new metric/filter).
+  const [visibleCount, setVisibleCount] = useState(DEFAULT_VISIBLE);
+  useEffect(() => setVisibleCount(DEFAULT_VISIBLE), [varieties]);
+
   if (varieties.length === 0 || customers.length === 0) {
     return (
       <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
         No data to display.
+      </div>
+    );
+  }
+
+  const visibleVarieties = varieties.slice(0, visibleCount);
+  const remaining = varieties.length - visibleVarieties.length;
+  // Dropping columns with zero data among the varieties actually on screen
+  // shrinks the other axis too, for free -- bounded by visibleVarieties.length
+  // x customers.length (at most ~1.4k checks at the default 20), not the
+  // full matrix.
+  const visibleCustomers = customers.filter((customer) =>
+    visibleVarieties.some((variety) => (cells.get(cellKey(variety, customer)) ?? null) !== null)
+  );
+
+  if (visibleCustomers.length === 0) {
+    return (
+      <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
+        No data for the customers currently shown — try clearing the customer filter.
       </div>
     );
   }
@@ -70,57 +99,74 @@ export function Heatmap({
         <span className="ml-2">({metric === "AvgUnitPrice" ? "price scale" : metric === "CostRatio" ? "green = better (lower)" : "green = better (higher)"})</span>
       </div>
 
-      <div className="overflow-x-auto">
-        <div
-          className="grid gap-px bg-border text-xs"
-          style={{
-            gridTemplateColumns: `200px repeat(${customers.length}, minmax(72px, 1fr))`,
-          }}
-        >
-          <div className="sticky left-0 z-10 bg-card p-2" />
-          {customers.map((customer) => (
-            <div
-              key={customer}
-              className="bg-card p-2 text-center font-medium text-muted-foreground"
-              title={customer}
-            >
-              <span className="line-clamp-2 leading-tight">{customer}</span>
-            </div>
-          ))}
-          {varieties.map((variety) => (
-            <Fragment key={variety}>
-              <div
-                className="sticky left-0 z-10 bg-card p-2 font-medium"
-                title={variety}
-              >
-                <span className="line-clamp-2 leading-tight">{variety}</span>
-              </div>
-              {customers.map((customer) => {
-                const value = cells.get(cellKey(variety, customer)) ?? null;
-                return (
-                  <Tooltip key={`${variety}-${customer}`}>
-                    <TooltipTrigger
-                      className="flex h-12 w-full cursor-default items-center justify-center p-0 font-mono tabular-nums"
-                      style={{ background: cellColor(metric, value, min, max) }}
-                    >
-                      {value !== null ? (
-                        <span className="text-[10px] text-foreground/80">
-                          {metric === "AvgUnitPrice" ? formatCurrency(value) : formatPercent(value)}
-                        </span>
-                      ) : (
-                        <span className="text-[10px] text-muted-foreground">—</span>
-                      )}
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      {variety} × {customer}: {value !== null ? formatValue(value) : "no data"}
-                    </TooltipContent>
-                  </Tooltip>
-                );
-              })}
-            </Fragment>
-          ))}
+      <div className="overflow-hidden rounded-lg border">
+        <div className="overflow-x-auto">
+          {/* A real <table>, not a CSS grid -- position:sticky on a grid
+              item detaches from the viewport past a few hundred px of
+              horizontal scroll (a known Chromium/grid limitation), while
+              sticky table cells (same pattern as Sales Explorer/Cost
+              Breakdown) stay pinned for the full scroll range. */}
+          <Table scrollContainer={false} className="border-separate border-spacing-0 text-xs">
+            <TableHeader className="bg-card">
+              <TableRow>
+                <TableHead className="sticky left-0 z-10 min-w-50 border-r border-b bg-card p-2" />
+                {visibleCustomers.map((customer) => (
+                  <TableHead
+                    key={customer}
+                    className="min-w-18 border-b p-2 text-center font-medium text-muted-foreground"
+                    title={customer}
+                  >
+                    <span className="line-clamp-2 leading-tight whitespace-normal">{customer}</span>
+                  </TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {visibleVarieties.map((variety) => (
+                <TableRow key={variety}>
+                  <TableCell
+                    className="sticky left-0 z-10 min-w-50 border-r bg-card p-2 font-medium whitespace-normal"
+                    title={variety}
+                  >
+                    <span className="line-clamp-2 leading-tight">{variety}</span>
+                  </TableCell>
+                  {visibleCustomers.map((customer) => {
+                    const value = cells.get(cellKey(variety, customer)) ?? null;
+                    return (
+                      <TableCell
+                        key={`${variety}-${customer}`}
+                        title={`${variety} × ${customer}: ${value !== null ? formatValue(value) : "no data"}`}
+                        className="h-12 min-w-18 cursor-default p-0 text-center font-mono tabular-nums"
+                        style={{ background: cellColor(metric, value, min, max) }}
+                      >
+                        {value !== null ? (
+                          <span className="text-[10px] text-foreground/80">
+                            {metric === "AvgUnitPrice" ? formatCurrency(value) : formatPercent(value)}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                    );
+                  })}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </div>
       </div>
+
+      {remaining > 0 && (
+        <div className="flex justify-center">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setVisibleCount((c) => c + SHOW_MORE_STEP)}
+          >
+            Show {Math.min(SHOW_MORE_STEP, remaining)} more ({remaining} left)
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

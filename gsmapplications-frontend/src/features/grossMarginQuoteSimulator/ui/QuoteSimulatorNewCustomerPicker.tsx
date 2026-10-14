@@ -3,6 +3,11 @@ import { UserPlus } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/shared/ui/card";
 import { Input } from "@/shared/ui/input";
 import { Button } from "@/shared/ui/button";
+import { Combobox } from "@/shared/ui/combobox";
+// NOTE: the Warehouse picker below still uses the legacy Select (Base UI)
+// because it groups options into "Ships from already" / "No data yet"
+// sections -- GSM's Combobox has no grouping concept. Flagged for manual
+// review rather than guessed at; see migration report.
 import {
   Select,
   SelectContent,
@@ -24,11 +29,9 @@ export interface NewVarietyShape {
   packQty: number | null;
 }
 
-// Existing-catalog varieties only -- quoting a genuinely brand-new product
-// (never sold anywhere) is the "New Variety" tab's job
-// (quote-simulator-new-variety-picker.tsx), which also supports picking an
-// EXISTING customer for that new product. This tab stays focused on its one
-// axis: a product we already sell, a customer who's new to us.
+// Existing-catalog varieties only -- quoting a brand-new product (never sold
+// anywhere) is the "New Variety" tab's job. This tab stays focused on its
+// one axis: a product we already sell, a customer who's new to us.
 export function QuoteSimulatorNewCustomerPicker({
   rows,
   onCreate,
@@ -46,18 +49,12 @@ export function QuoteSimulatorNewCustomerPicker({
     () => varieties.filter((v) => v.toLowerCase().includes(varietySearch.toLowerCase())),
     [varieties, varietySearch]
   );
-  // Every known warehouse, not filtered by Variety -- lets the user pick a
-  // warehouse this Variety has never shipped from (falls to
-  // buildManualBaseline in the parent), not just ones it already has data
-  // for.
+  // Every known warehouse, not filtered by Variety -- lets the user pick one
+  // this Variety has never shipped from (falls to buildManualBaseline).
   const allWarehouses = useMemo(() => Array.from(new Set(rows.map((r) => r.Warehouse))).sort(), [rows]);
   // Warehouses THIS Variety actually has real data for -- shown first and
-  // auto-selected when there's exactly one, same as the old behavior. Fixed
-  // 2026-09-09: originally allWarehouses was offered flat with no
-  // indication of which ones had data, so picking any warehouse alphabetically
-  // ahead of the real one silently landed on the blank manual-entry path
-  // even for well-established products -- confirmed live, this made nearly
-  // every "quote a new customer" attempt look like "no data anywhere."
+  // grouped separately so picking one with no data isn't mistaken for "no
+  // data anywhere" for a well-established product.
   const warehousesForVariety = useMemo(
     () => Array.from(new Set(rows.filter((r) => r.Variety === selectedVariety).map((r) => r.Warehouse))).sort(),
     [rows, selectedVariety]
@@ -101,7 +98,7 @@ export function QuoteSimulatorNewCustomerPicker({
           <div className="space-y-1.5">
             <StepLabel step={1} text="Variety" active={!!selectedVariety} />
             <Input
-              placeholder="Search varieties…"
+              placeholder="Filter varieties…"
               value={varietySearch}
               onChange={(e) => {
                 setVarietySearch(e.target.value);
@@ -109,18 +106,12 @@ export function QuoteSimulatorNewCustomerPicker({
               }}
               className="mb-1.5"
             />
-            <Select value={selectedVariety} onValueChange={(v) => v && handleVariety(v)}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select a variety…" />
-              </SelectTrigger>
-              <SelectContent>
-                {filteredVarieties.map((v) => (
-                  <SelectItem key={v} value={v}>
-                    {v}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Combobox
+              value={selectedVariety}
+              onChange={(v) => v && handleVariety(v)}
+              options={filteredVarieties.map((v) => ({ value: v, label: v }))}
+              placeholder="Select a variety…"
+            />
           </div>
           <div className="space-y-1.5">
             <StepLabel step={2} text="Warehouse" active={!!selectedWarehouse} />

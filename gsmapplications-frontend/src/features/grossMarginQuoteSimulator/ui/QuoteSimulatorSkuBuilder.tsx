@@ -1,6 +1,6 @@
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { Input } from "@/shared/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
+import { Combobox } from "@/shared/ui/combobox";
 import { SKU_CLASSES, SKU_TYPES, type CodeOption } from "../model/skuVocabulary";
 import { SKU_NOT_LISTED } from "../model/useSkuBuilder";
 import { cn } from "@/shared/lib/utils";
@@ -62,55 +62,37 @@ export function QuoteSimulatorSkuBuilder({
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Class</label>
-              <Select value={skuClass} onValueChange={(v) => v && onSkuClassChange(v)}>
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {SKU_CLASSES.map((c) => (
-                    <SelectItem key={c.code} value={c.code}>
-                      {c.label} ({c.code})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Combobox
+                value={skuClass}
+                onChange={(v) => v && onSkuClassChange(v)}
+                options={SKU_CLASSES.map((c) => ({ value: c.code, label: `${c.label} (${c.code})` }))}
+              />
             </div>
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Type</label>
-              <Select value={skuType} onValueChange={(v) => v && onSkuTypeChange(v)}>
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {SKU_TYPES.map((t) => (
-                    <SelectItem key={t.code} value={t.code}>
-                      {t.label} ({t.code})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Combobox
+                value={skuType}
+                onChange={(v) => v && onSkuTypeChange(v)}
+                options={SKU_TYPES.map((t) => ({ value: t.code, label: `${t.label} (${t.code})` }))}
+              />
             </div>
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Herb</label>
               <Input
-                placeholder="Search…"
+                placeholder="Filter herbs…"
                 value={herbSearch}
                 onChange={(e) => onHerbSearchChange(e.target.value)}
                 className="mb-1"
               />
-              <Select value={selectedHerbCode} onValueChange={(v) => v && onSelectedHerbCodeChange(v)}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select…" />
-                </SelectTrigger>
-                <SelectContent>
-                  {filteredHerbCodes.map((h) => (
-                    <SelectItem key={h.code} value={h.code}>
-                      {h.label} ({h.code})
-                    </SelectItem>
-                  ))}
-                  <SelectItem value={SKU_NOT_LISTED}>Not listed — type a new code</SelectItem>
-                </SelectContent>
-              </Select>
+              <Combobox
+                value={selectedHerbCode}
+                onChange={(v) => v && onSelectedHerbCodeChange(v)}
+                options={[
+                  ...filteredHerbCodes.map((h) => ({ value: h.code, label: `${h.label} (${h.code})` })),
+                  { value: SKU_NOT_LISTED, label: "Not listed — type a new code" },
+                ]}
+                placeholder="Select…"
+              />
             </div>
           </div>
           {usingCustomHerb && (

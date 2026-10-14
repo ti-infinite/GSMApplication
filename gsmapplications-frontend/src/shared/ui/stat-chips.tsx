@@ -8,14 +8,7 @@ export interface StatChipsProps {
 }
 
 // Quick "highest / lowest / average" context row above a ranked bar chart --
-// per the kpi-dashboard-design skill's "show context: comparisons, trends,
-// targets" guidance, a bare ranked bar list reads as vague without a
-// reference point.
-//
-// Deduped from 3 near-identical copies (variety-ranking-charts.tsx,
-// client-ranking-charts.tsx, variety-client-explorer.tsx) -- the latter two
-// always hardcoded percent/"customers"; that's now just the default here
-// rather than separately duplicated. REFACTOR_PLAN.md phase 01.
+// a bare ranked bar list reads as vague without a reference point.
 export function StatChips({ data, valueType = "percent", unit = "customers" }: StatChipsProps) {
   const formatValue = valueType === "percent" ? formatPercent : formatCurrency;
   const values = data.map((d) => d.value).filter((v): v is number => v !== null);

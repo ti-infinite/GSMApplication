@@ -4,13 +4,7 @@ import { Card, CardAction, CardContent, CardHeader, CardTitle, CardDescription }
 import { ReferenceBulkUpload } from "@/shared/ui/reference-bulk-upload";
 import { Input } from "@/shared/ui/input";
 import { Button } from "@/shared/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/shared/ui/select";
+import { Combobox } from "@/shared/ui/combobox";
 import type { SalesRow } from "@/entities/grossMarginSalesRow";
 import { useReferenceSearch } from "@/shared/lib/useReferenceSearch";
 import { useSubmitWithConflict } from "@/shared/lib/useSubmitWithConflict";
@@ -107,23 +101,17 @@ export function ExtraCostCard({ rows, onApplied }: { rows: SalesRow[]; onApplied
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground">SKU</label>
             <Input
-              placeholder="Search SKUs…"
+              placeholder="Filter SKUs…"
               value={skuSearch}
               onChange={(e) => setSkuSearch(e.target.value)}
               className="mb-1.5"
             />
-            <Select value={selectedSku} onValueChange={(v) => v && setSelectedSku(v)}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select a SKU…" />
-              </SelectTrigger>
-              <SelectContent>
-                {filteredSkus.map((s) => (
-                  <SelectItem key={s} value={s}>
-                    {s}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Combobox
+              value={selectedSku}
+              onChange={(v) => v && setSelectedSku(v)}
+              options={filteredSkus.map((s) => ({ value: s, label: s }))}
+              placeholder="Select a SKU…"
+            />
           </div>
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground">Package size</label>

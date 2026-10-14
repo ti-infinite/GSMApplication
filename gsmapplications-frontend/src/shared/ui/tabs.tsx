@@ -1,82 +1,74 @@
-"use client"
+import * as React from 'react'
+import * as TabsPrimitive from '@radix-ui/react-tabs'
+import { cva, type VariantProps } from 'class-variance-authority'
+import { cn } from '@/shared/lib/utils'
 
-import { Tabs as TabsPrimitive } from "@base-ui/react/tabs"
-import { cva, type VariantProps } from "class-variance-authority"
-
-import { cn } from "@/shared/lib/utils"
-
-function Tabs({
-  className,
-  orientation = "horizontal",
-  ...props
-}: TabsPrimitive.Root.Props) {
-  return (
-    <TabsPrimitive.Root
-      data-slot="tabs"
-      data-orientation={orientation}
-      className={cn(
-        "group/tabs flex gap-2 data-horizontal:flex-col",
-        className
-      )}
-      {...props}
-    />
-  )
-}
+const Tabs = TabsPrimitive.Root
 
 const tabsListVariants = cva(
-  "group/tabs-list inline-flex w-fit max-w-full shrink-0 items-center justify-start overflow-x-auto rounded-lg p-[3px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden text-muted-foreground group-data-horizontal/tabs:h-8 group-data-vertical/tabs:h-fit group-data-vertical/tabs:flex-col data-[variant=line]:rounded-none",
+  'relative inline-flex w-fit max-w-full shrink-0 items-center justify-start gap-0.5 overflow-x-auto p-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden text-muted-foreground before:absolute before:inset-x-0 before:bottom-0 before:h-px before:bg-border data-[orientation=horizontal]:h-auto data-[orientation=vertical]:h-fit data-[orientation=vertical]:flex-col data-[variant=line]:rounded-none',
   {
     variants: {
       variant: {
-        default: "bg-muted",
-        line: "gap-1 bg-transparent",
+        // The only variant actually in use (Gross Margin's module/sub-tabs)
+        // -- a "folder tab" look: inactive tabs sit in a bordered bg-muted
+        // box, the active one drops its bottom border and switches to
+        // bg-background so it visually fuses with the panel below it.
+        default: 'bg-transparent',
+        line: 'gap-1 bg-transparent',
       },
     },
     defaultVariants: {
-      variant: "default",
+      variant: 'default',
     },
   }
 )
 
-function TabsList({
-  className,
-  variant = "default",
-  ...props
-}: TabsPrimitive.List.Props & VariantProps<typeof tabsListVariants>) {
-  return (
-    <TabsPrimitive.List
-      data-slot="tabs-list"
-      data-variant={variant}
-      className={cn(tabsListVariants({ variant }), className)}
-      {...props}
-    />
-  )
-}
+const TabsList = React.forwardRef<
+  React.ComponentRef<typeof TabsPrimitive.List>,
+  React.ComponentPropsWithoutRef<typeof TabsPrimitive.List> & VariantProps<typeof tabsListVariants>
+>(({ className, variant = 'default', ...props }, ref) => (
+  <TabsPrimitive.List
+    ref={ref}
+    data-variant={variant}
+    className={cn(tabsListVariants({ variant }), className)}
+    {...props}
+  />
+))
+TabsList.displayName = TabsPrimitive.List.displayName
 
-function TabsTrigger({ className, ...props }: TabsPrimitive.Tab.Props) {
-  return (
-    <TabsPrimitive.Tab
-      data-slot="tabs-trigger"
-      className={cn(
-        "relative inline-flex h-[calc(100%-1px)] flex-1 shrink-0 items-center justify-center gap-1.5 rounded-md border border-transparent px-2 py-0.5 text-sm font-medium whitespace-nowrap text-foreground/60 transition-all group-data-vertical/tabs:w-full group-data-vertical/tabs:justify-start hover:text-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1 focus-visible:outline-ring disabled:pointer-events-none disabled:opacity-50 has-data-[icon=inline-end]:pr-1 has-data-[icon=inline-start]:pl-1 aria-disabled:pointer-events-none aria-disabled:opacity-50 dark:text-muted-foreground dark:hover:text-foreground group-data-[variant=default]/tabs-list:data-active:shadow-sm group-data-[variant=line]/tabs-list:data-active:shadow-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-        "group-data-[variant=line]/tabs-list:bg-transparent group-data-[variant=line]/tabs-list:data-active:bg-transparent dark:group-data-[variant=line]/tabs-list:data-active:border-transparent dark:group-data-[variant=line]/tabs-list:data-active:bg-transparent",
-        "data-active:bg-background data-active:text-foreground dark:data-active:border-input dark:data-active:bg-input/30 dark:data-active:text-foreground",
-        "after:absolute after:bg-foreground after:opacity-0 after:transition-opacity group-data-horizontal/tabs:after:inset-x-0 group-data-horizontal/tabs:after:bottom-[-5px] group-data-horizontal/tabs:after:h-0.5 group-data-vertical/tabs:after:inset-y-0 group-data-vertical/tabs:after:-right-1 group-data-vertical/tabs:after:w-0.5 group-data-[variant=line]/tabs-list:data-active:after:opacity-100",
-        className
-      )}
-      {...props}
-    />
-  )
-}
+const TabsTrigger = React.forwardRef<
+  React.ComponentRef<typeof TabsPrimitive.Trigger>,
+  React.ComponentPropsWithoutRef<typeof TabsPrimitive.Trigger> & { variant?: 'default' | 'line' }
+>(({ className, ...props }, ref) => (
+  <TabsPrimitive.Trigger
+    ref={ref}
+    className={cn(
+      // bg-muted and bg-background sit almost at the same lightness in
+      // GSM's light theme (0.97 vs ~0.994 -- see design-system skill), so
+      // the active/inactive split can't rely on that contrast alone, the
+      // way the reference demo (dark theme) could. A primary-colored top
+      // accent on the active tab is the signal that still reads regardless
+      // -- also what the design system itself calls for ("selected tabs"
+      // use primary).
+      'relative inline-flex shrink-0 items-center justify-center gap-1.5 overflow-hidden rounded-t-md rounded-b-none border-x border-t-2 border-border bg-muted px-3 py-2 text-sm font-medium whitespace-nowrap text-muted-foreground transition-colors data-[orientation=vertical]:w-full data-[orientation=vertical]:justify-start hover:bg-muted/70 hover:text-foreground focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 data-[state=active]:z-10 data-[state=active]:border-t-primary! data-[state=active]:bg-background data-[state=active]:font-semibold data-[state=active]:text-foreground data-[state=active]:shadow-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*="size-"])]:size-4',
+      className
+    )}
+    {...props}
+  />
+))
+TabsTrigger.displayName = TabsPrimitive.Trigger.displayName
 
-function TabsContent({ className, ...props }: TabsPrimitive.Panel.Props) {
-  return (
-    <TabsPrimitive.Panel
-      data-slot="tabs-content"
-      className={cn("flex-1 text-sm outline-none", className)}
-      {...props}
-    />
-  )
-}
+const TabsContent = React.forwardRef<
+  React.ComponentRef<typeof TabsPrimitive.Content>,
+  React.ComponentPropsWithoutRef<typeof TabsPrimitive.Content>
+>(({ className, ...props }, ref) => (
+  <TabsPrimitive.Content
+    ref={ref}
+    className={cn('flex-1 text-sm outline-none', className)}
+    {...props}
+  />
+))
+TabsContent.displayName = TabsPrimitive.Content.displayName
 
 export { Tabs, TabsList, TabsTrigger, TabsContent, tabsListVariants }

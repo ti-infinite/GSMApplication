@@ -20,10 +20,9 @@ export interface CustomerAgg {
   rowCount: number;
 }
 
-// db_ai.Sales carries no quantity/volume column to weight by (removed at
-// the user's request -- see README.md), so avgOf below is an average of
-// the per-row averages, not a volume-weighted one. Labeled as such
-// everywhere it's displayed.
+// db_ai.Sales has no quantity/volume column to weight by, so avgOf below
+// averages the per-row averages, not a volume-weighted average. Labeled
+// as such everywhere it's displayed.
 function groupBy<T>(rows: T[], keyFn: (row: T) => string): Map<string, T[]> {
   const groups = new Map<string, T[]>();
   for (const row of rows) {
@@ -59,10 +58,9 @@ export function aggregateByCustomer(rows: SalesRow[]): CustomerAgg[] {
 }
 
 // For the Variety x Client Explorer: every customer who bought a specific
-// variety, with the raw metric value per row (not re-aggregated -- a given
-// Variety/Customer pair is already close to 1:1 with the underlying grain of
-// db_ai.Sales, since it's keyed on Variety x Warehouse x Customer; where a
-// customer bought from multiple warehouses, this averages just those rows).
+// variety, with the raw per-row metric (not re-aggregated -- a Variety/
+// Customer pair is near 1:1 with db_ai.Sales' grain of Variety x Warehouse
+// x Customer; multi-warehouse customers get averaged across those rows).
 export function customersForVariety(
   rows: SalesRow[],
   variety: string
@@ -92,7 +90,14 @@ export function buildHeatmapData(rows: SalesRow[], metric: RankMetric): HeatmapD
   for (const [key, groupRows] of byVarietyCustomer.entries()) {
     cells.set(key, avgOf(groupRows.map((r) => r[metric])));
   }
-  const varieties = Array.from(new Set(rows.map((r) => r.Variety))).sort();
+  // Busiest varieties first -- the heatmap only renders a slice of these by
+  // default (see Heatmap's "show more"), so the ones worth seeing first are
+  // the ones with the most sales activity, not whichever sorts first alphabetically.
+  const varietyCounts = new Map<string, number>();
+  for (const r of rows) varietyCounts.set(r.Variety, (varietyCounts.get(r.Variety) ?? 0) + 1);
+  const varieties = Array.from(varietyCounts.keys()).sort(
+    (a, b) => varietyCounts.get(b)! - varietyCounts.get(a)! || a.localeCompare(b)
+  );
   const customers = Array.from(new Set(rows.map((r) => r.Customer))).sort();
   return { varieties, customers, cells };
 }

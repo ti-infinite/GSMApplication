@@ -4,13 +4,7 @@ import { Card, CardAction, CardContent, CardHeader, CardTitle, CardDescription }
 import { ReferenceBulkUpload } from "@/shared/ui/reference-bulk-upload";
 import { Input } from "@/shared/ui/input";
 import { Button } from "@/shared/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/shared/ui/select";
+import { Combobox } from "@/shared/ui/combobox";
 import type { SalesRow } from "@/entities/grossMarginSalesRow";
 import { useReferenceSearch } from "@/shared/lib/useReferenceSearch";
 import { useSubmitWithConflict } from "@/shared/lib/useSubmitWithConflict";
@@ -130,39 +124,29 @@ export function TransportCostCard({ rows, onApplied }: { rows: SalesRow[]; onApp
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground">Customer</label>
             <Input
-              placeholder="Search customers…"
+              placeholder="Filter customers…"
               value={divisionSearch}
               onChange={(e) => setDivisionSearch(e.target.value)}
               className="mb-1.5"
             />
-            <Select value={selectedDivision} onValueChange={(v) => v && setSelectedDivision(v)}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select a customer…" />
-              </SelectTrigger>
-              <SelectContent>
-                {filteredDivisions.map((d) => (
-                  <SelectItem key={d} value={d}>
-                    {d}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Combobox
+              value={selectedDivision}
+              onChange={(v) => v && setSelectedDivision(v)}
+              options={filteredDivisions.map((d) => ({ value: d, label: d }))}
+              placeholder="Select a customer…"
+            />
           </div>
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground">Warehouse</label>
-            <Select value={warehouse} onValueChange={(v) => v && setWarehouse(v)}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Any warehouse" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ANY_WAREHOUSE}>Any warehouse</SelectItem>
-                {warehouses.map((w) => (
-                  <SelectItem key={w} value={w}>
-                    {w}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Combobox
+              value={warehouse}
+              onChange={(v) => v && setWarehouse(v)}
+              options={[
+                { value: ANY_WAREHOUSE, label: "Any warehouse" },
+                ...warehouses.map((w) => ({ value: w, label: w })),
+              ]}
+              placeholder="Any warehouse"
+            />
             <p className="text-[11px] text-muted-foreground">
               Only set this if the same customer ships from more than one warehouse at different costs.
             </p>
@@ -195,33 +179,21 @@ export function TransportCostCard({ rows, onApplied }: { rows: SalesRow[]; onApp
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground">Type</label>
-            <Select value={type} onValueChange={(v) => setType(v ?? "")}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="—" />
-              </SelectTrigger>
-              <SelectContent>
-                {TYPE_OPTIONS.map((t) => (
-                  <SelectItem key={t} value={t}>
-                    {t}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Combobox
+              value={type}
+              onChange={(v) => setType(v || "")}
+              options={TYPE_OPTIONS.map((t) => ({ value: t, label: t }))}
+              placeholder="—"
+            />
           </div>
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground">Packaging</label>
-            <Select value={packaging} onValueChange={(v) => setPackaging(v ?? "")}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="—" />
-              </SelectTrigger>
-              <SelectContent>
-                {PACKAGING_OPTIONS.map((p) => (
-                  <SelectItem key={p} value={p}>
-                    {p}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Combobox
+              value={packaging}
+              onChange={(v) => setPackaging(v || "")}
+              options={PACKAGING_OPTIONS.map((p) => ({ value: p, label: p }))}
+              placeholder="—"
+            />
           </div>
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground">Qty</label>

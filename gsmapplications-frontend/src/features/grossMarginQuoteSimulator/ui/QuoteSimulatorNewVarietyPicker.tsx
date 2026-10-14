@@ -3,18 +3,15 @@ import { PackagePlus } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/shared/ui/card";
 import { Input } from "@/shared/ui/input";
 import { Button } from "@/shared/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
+import { Combobox } from "@/shared/ui/combobox";
 import type { SalesRow } from "@/entities/grossMarginSalesRow";
 import { cn } from "@/shared/lib/utils";
 import type { NewVarietyShape } from "./QuoteSimulatorNewCustomerPicker";
 import { StepLabel } from "./StepLabel";
 
-// The one place a genuinely brand-new product (never sold anywhere, not yet
-// in NHUBEX) gets quoted -- unlike quote-simulator-new-customer-picker.tsx,
-// there's no existing data to fall back on for ANY field here, including
-// the customer: this could be a first-ever product for a customer we
-// already sell to, so the customer step supports picking an existing one,
-// not just typing a new one. Every field starts from nothing.
+// The one place a genuinely brand-new product gets quoted -- no existing
+// data to fall back on for ANY field, including the customer (which can
+// still be an existing one), so every field starts from nothing.
 export function QuoteSimulatorNewVarietyPicker({
   rows,
   onCreate,
@@ -97,18 +94,12 @@ export function QuoteSimulatorNewVarietyPicker({
           </div>
           <div className="space-y-1.5">
             <StepLabel step={2} text="Warehouse" active={!!warehouse} />
-            <Select value={warehouse} onValueChange={(v) => v && setWarehouse(v)}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select a warehouse…" />
-              </SelectTrigger>
-              <SelectContent>
-                {allWarehouses.map((w) => (
-                  <SelectItem key={w} value={w}>
-                    {w}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Combobox
+              value={warehouse}
+              onChange={(v) => v && setWarehouse(v)}
+              options={allWarehouses.map((w) => ({ value: w, label: w }))}
+              placeholder="Select a warehouse…"
+            />
           </div>
         </div>
 
@@ -162,18 +153,12 @@ export function QuoteSimulatorNewVarietyPicker({
             </div>
           </div>
           {customerMode === "existing" ? (
-            <Select value={existingCustomer} onValueChange={(v) => v && setExistingCustomer(v)}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select a customer…" />
-              </SelectTrigger>
-              <SelectContent>
-                {knownCustomers.map((c) => (
-                  <SelectItem key={c} value={c}>
-                    {c}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Combobox
+              value={existingCustomer}
+              onChange={(v) => v && setExistingCustomer(v)}
+              options={knownCustomers.map((c) => ({ value: c, label: c }))}
+              placeholder="Select a customer…"
+            />
           ) : (
             <Input
               placeholder="e.g. ACME GROCERY"

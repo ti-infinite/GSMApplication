@@ -9,10 +9,9 @@ export type Zone = "green" | "yellow" | "red" | "unknown";
 const EPSILON = 1e-9;
 
 // A category enters the "approaching threshold" yellow zone once its ratio
-// crosses 90% of the max -- gives an early warning before a row actually
-// breaches a rule. Used by the cost-ratio categories (purchase cost,
-// packing, labour, transport) below; margin uses its own banding --
-// see grossMarginCellZone.
+// crosses 90% of the max -- an early warning before a row actually
+// breaches a rule. Used by the cost-ratio categories below; margin uses
+// its own banding, see grossMarginCellZone.
 const YELLOW_RATIO_OF_MAX = 0.9;
 
 export interface CostCategory {
@@ -36,14 +35,9 @@ export const CATEGORY_SHORT_LABELS: Record<AlarmRuleKey, string> = {
 };
 
 // A missing input counts as $0 rather than poisoning the whole sum to
-// "unknown" -- mirrors the ISNULL(x, 0) treatment sql/15_sales.sql's own
-// FinalUnitCost formula already uses, so a blank reference-data cell (e.g.
-// no Sticker cost recorded for potted herbs) or a deliberately-inapplicable
-// one (e.g. Flag=0 rows never having LabourRepack) reads as $0 here too,
-// consistent with how the real dollar total is computed -- not blanked out
-// to gray "unknown" just because one line item isn't filled in.
-// Exported: also reused by lib/recompute.ts (Quote Simulator), which needs
-// the exact same ISNULL(...,0)/divide-by-null-or-zero semantics.
+// "unknown" -- mirrors the ISNULL(x, 0) treatment sql/15_sales.sql's
+// FinalUnitCost formula uses. Exported: also reused by lib/recompute.ts
+// (Quote Simulator), which needs the exact same semantics.
 export function sumTreatingNullAsZero(...vals: (number | null)[]): number {
   return vals.reduce<number>((a, b) => a + (b ?? 0), 0);
 }
@@ -60,9 +54,9 @@ function zoneForMax(value: number | null, max: number): Zone {
   return "green";
 }
 
-// Gross Margin banding, shared by Sales Explorer's Gross Margin cell AND
-// the Cost Breakdown tab's margin category (2026-07-23, user instruction --
-// see the GROSS_MARGIN_CELL_YELLOW_FLOOR comment in shared/lib/thresholds.ts).
+// Gross Margin banding, shared by Sales Explorer's Gross Margin cell and
+// the Cost Breakdown tab's margin category -- see
+// GROSS_MARGIN_CELL_YELLOW_FLOOR in shared/lib/thresholds.ts.
 export function grossMarginCellZone(value: number | null): Zone {
   if (value === null) return "unknown";
   if (value < THRESHOLDS.GROSS_MARGIN_CELL_YELLOW_FLOOR - EPSILON) return "red";

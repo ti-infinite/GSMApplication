@@ -4,23 +4,16 @@ import { Card, CardAction, CardContent, CardHeader, CardTitle, CardDescription }
 import { ReferenceBulkUpload } from "@/shared/ui/reference-bulk-upload";
 import { Input } from "@/shared/ui/input";
 import { Button } from "@/shared/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/shared/ui/select";
+import { Combobox } from "@/shared/ui/combobox";
 import { formatCurrency } from "@/shared/lib/format";
 import { putRebate } from "../api/putRebate";
 import type { RebateRow } from "@/entities/grossMarginRebate";
 import type { SalesRow } from "@/entities/grossMarginSalesRow";
 
-// Rebate doesn't fit the reference-table Add/Edit/Delete shape (§5 of the
-// plan) -- every in-scope customer already has an implicit $0.00 rebate
+// Rebate doesn't fit the reference-table Add/Edit/Delete shape -- every
+// in-scope customer already has an implicit $0.00 rebate
 // (db_ms.ClientAttributes), so this is a "pick a customer, set a value"
-// upsert, structurally closer to Commission's own card than to
-// yields-card.tsx/etc.
+// upsert, closer to Commission's own card than to yields-card.tsx/etc.
 export function RebateCard({
   rows,
   rebates,
@@ -88,23 +81,17 @@ export function RebateCard({
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground">Customer</label>
             <Input
-              placeholder="Search customers…"
+              placeholder="Filter customers…"
               value={customerSearch}
               onChange={(e) => setCustomerSearch(e.target.value)}
               className="mb-1.5"
             />
-            <Select value={selectedCustomer} onValueChange={(v) => v && setSelectedCustomer(v)}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select a customer…" />
-              </SelectTrigger>
-              <SelectContent>
-                {filteredCustomers.map((c) => (
-                  <SelectItem key={c} value={c}>
-                    {c}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Combobox
+              value={selectedCustomer}
+              onChange={(v) => v && setSelectedCustomer(v)}
+              options={filteredCustomers.map((c) => ({ value: c, label: c }))}
+              placeholder="Select a customer…"
+            />
             {selectedCustomer && (
               <p className="text-xs text-muted-foreground">
                 Current rebate: {formatCurrency(currentRebate)}

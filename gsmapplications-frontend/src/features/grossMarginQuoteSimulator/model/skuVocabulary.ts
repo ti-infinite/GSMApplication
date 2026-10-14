@@ -1,10 +1,9 @@
 import type { SalesRow } from "@/entities/grossMarginSalesRow";
 
-// CalculatedSKU is always exactly Class(1) + Type(1) + Herb(4) -- verified
-// live against all 836 rows in db_ai.Sales at the time (zero exceptions,
-// including mixed-herb blends). Class/Type are a small fixed vocabulary;
-// Herb is a flat ~160-value enum NHUBEX assigns with no predictable naming
-// rule, so it's derived from real data rather than hardcoded here.
+// CalculatedSKU is always exactly Class(1) + Type(1) + Herb(4). Class/Type
+// are a small fixed vocabulary; Herb is a flat enum NHUBEX assigns with no
+// predictable naming rule, so it's derived from real data rather than
+// hardcoded here.
 export interface CodeOption {
   code: string;
   label: string;
@@ -15,8 +14,8 @@ export const SKU_CLASSES: CodeOption[] = [
   { code: "O", label: "Organic" },
 ];
 
-// R is overwhelmingly the common case (regular cut herbs) -- Potted/Specialty
-// are real but minority categories (confirmed live: 738/168/33 split).
+// R (regular cut herbs) is the overwhelmingly common case; Potted/Specialty
+// are real but minority categories.
 export const SKU_TYPES: CodeOption[] = [
   { code: "R", label: "Regular" },
   { code: "P", label: "Potted" },

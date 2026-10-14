@@ -13,14 +13,14 @@ import { Input } from "@/shared/ui/input";
 import { Button } from "@/shared/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/shared/ui/popover";
 import {
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogHeader,
-  AlertDialogFooter,
-  AlertDialogTitle,
-  AlertDialogDescription,
-  AlertDialogCancel,
-} from "@/shared/ui/alert-dialog";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogFooter,
+  DialogTitle,
+  DialogDescription,
+  DialogClose,
+} from "@/shared/ui/dialog";
 import { formatCurrency } from "@/shared/lib/format";
 import { putRebate } from "../api/putRebate";
 import type { RebateRow } from "@/entities/grossMarginRebate";
@@ -72,8 +72,8 @@ function EditPopover({ row, onSaved }: { row: RebateRow; onSaved: () => void }) 
 }
 
 // "Reset" not "delete" -- nothing is removed from db_ms.ClientAttributes,
-// the row always exists; this just writes it back to $0.00 (see §6b of the
-// plan: the dashboard never issues a true DELETE against shared ERP data).
+// the row always exists; this just writes it back to $0.00 (the dashboard
+// never issues a true DELETE against shared ERP data).
 function ResetButton({ row, onReset }: { row: RebateRow; onReset: () => void }) {
   const [open, setOpen] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
@@ -93,7 +93,7 @@ function ResetButton({ row, onReset }: { row: RebateRow; onReset: () => void }) 
   }
 
   return (
-    <AlertDialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={setOpen}>
       <Button
         variant="ghost"
         size="icon-sm"
@@ -102,22 +102,24 @@ function ResetButton({ row, onReset }: { row: RebateRow; onReset: () => void }) 
       >
         <RotateCcw className="size-3.5" aria-hidden="true" />
       </Button>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Reset this rebate?</AlertDialogTitle>
-          <AlertDialogDescription>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Reset this rebate?</DialogTitle>
+          <DialogDescription>
             Reset {row.Customer}&apos;s rebate back to $0.00? This affects their Avg Unit Price
             across every variety they buy.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={isResetting}>No, keep it</AlertDialogCancel>
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button variant="outline" disabled={isResetting}>No, keep it</Button>
+          </DialogClose>
           <Button variant="destructive" onClick={confirmReset} disabled={isResetting}>
             {isResetting ? "Resetting…" : "Yes, reset to $0.00"}
           </Button>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

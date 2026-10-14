@@ -3,9 +3,7 @@ import { formatCurrency, formatPercent, formatNumber } from "@/shared/lib/format
 
 // Single source of truth for which QuoteOverrides fields apply to which
 // SalesRowMode, and how to label/format/step them. Shared by the inputs
-// panel (renders these as editable fields) AND the tornado/sensitivity
-// chart (walks the same list to know what's "a variable" for a given row)
-// -- so the two can never drift out of sync with each other.
+// panel and the tornado/sensitivity chart so they never drift out of sync.
 
 export interface QuoteFieldMeta {
   key: string; // matches a key on QuoteOverrides
@@ -13,24 +11,17 @@ export interface QuoteFieldMeta {
   group: "price" | "cost";
   format: "currency" | "percent" | "number";
   step: string;
-  // Only true for fields that are genuinely per-unit in every mode they
-  // appear in (Mode A/B's Box and Transport) -- lets the inputs panel offer
-  // a "I have a whole-pack cost" toggle that converts on entry, without
-  // ever changing what QuoteOverrides itself stores (always per-unit).
-  // Deliberately NOT set on Mode C's Box/Transport (already whole-pack by
-  // definition -- see their "(whole pack)" labels below) or
-  // palletCostOverride (a different unit entirely, per pallet not per pack).
+  // True only for fields that are per-unit in every mode they appear in
+  // (Mode A/B's Box and Transport) -- lets the inputs panel offer a
+  // "whole-pack cost" entry toggle without QuoteOverrides itself ever
+  // storing anything but per-unit. Not set on Mode C (already whole-pack).
   supportsWholePackEntry?: boolean;
 }
 
-// Price-side fields are universal across every mode -- Rebate and Commission
-// both always appear, even on a row with no RebateRow/CommissionRow on file
-// at all (defaulting to $0/0%), so a user can model "what if we started
-// charging one," not just tune one that already exists. Which Commission
-// field (% vs $) applies follows the matched CommissionRow's own type when
-// there is one; percent is the default shape otherwise -- the vast majority
-// of commissions in this data are percent-based, and a $ override is still
-// reachable by switching commissionType if that ever turns out wrong.
+// Rebate and Commission always appear even with no matching row on file
+// (defaulting to $0/0%), so a user can model "what if we started charging
+// one." Commission field shape (% vs $) follows the matched row's type,
+// defaulting to percent since most commissions in this data are percent-based.
 export function getPriceFields(commissionType: "percent" | "value" | null): QuoteFieldMeta[] {
   const fields: QuoteFieldMeta[] = [
     { key: "avgUnitPriceBaseOverride", label: "List Price (before Rebate/Commission)", group: "price", format: "currency", step: "0.001" },
@@ -44,11 +35,9 @@ export function getPriceFields(commissionType: "percent" | "value" | null): Quot
   return fields;
 }
 
-// How many decimal places a field's own step implies -- e.g. "0.001" -> 3.
-// Shared so the inputs panel's stepper buttons and the target-margin
+// Decimal places a field's step implies (e.g. "0.001" -> 3). Shared so the
 // solver's suggested values round to the same precision a person would
-// actually type, instead of the solver's bisection search leaving 15
-// floating-point digits in an applied override.
+// type, instead of its bisection search leaving 15 floating-point digits.
 export function decimalPlaces(step: string): number {
   const idx = step.indexOf(".");
   return idx === -1 ? 0 : step.length - idx - 1;
@@ -108,9 +97,7 @@ export function getCostFields(mode: SalesRowMode): QuoteFieldMeta[] {
       { key: "packingOverride", label: "Packing", group: "cost", format: "currency", step: "0.001" },
       { key: "stickerOverride", label: "Sticker", group: "cost", format: "currency", step: "0.001" },
       { key: "labourProdOverride", label: "Labour — Production", group: "cost", format: "currency", step: "0.001" },
-      // Added 2026-08-19 alongside recompute.ts's matching fix -- Flag=0
-      // (Mode B) now gets LabourRepack from CostReference too, not just
-      // Flag=1 (Mode A).
+      // Mode B also gets LabourRepack from CostReference, matching recompute.ts.
       { key: "labourRepackOverride", label: "Labour — Repack", group: "cost", format: "currency", step: "0.001" },
       { key: "boxOverride", label: "Box", group: "cost", format: "currency", step: "0.001", supportsWholePackEntry: true },
       { key: "labourAssemblerOverride", label: "Labour — Assembler", group: "cost", format: "currency", step: "0.001" },
@@ -127,11 +114,9 @@ export function getCostFields(mode: SalesRowMode): QuoteFieldMeta[] {
   return [];
 }
 
-// The one piece of getCostFieldsForTransportMode's own filtering that
-// quote-simulator-inputs-panel.tsx also needs directly -- it renders Pallet
-// Cost via its own separate JSX block (with a Qty × Boxes/Pallet note this
-// generic field list doesn't carry), not through the array this function
-// returns, so it wants the same exclusion without the field being appended.
+// Exposes just the transport-exclusion filter: the inputs panel renders
+// Pallet Cost via its own JSX block and needs the exclusion without the
+// field being appended.
 export function excludingPalletNegotiatedTransport(
   fields: QuoteFieldMeta[],
   transportMode: "direct" | "pallet"
@@ -155,10 +140,8 @@ export function getCostFieldsForTransportMode(
   return fields;
 }
 
-// Shared by every consumer of QuoteFieldMeta that renders a value according
-// to its own `format` -- the inputs panel's placeholder, and every chart
-// that labels a field's value (negotiation headroom, driver impact, the
-// target solver). REFACTOR_PLAN.md phase 02.
+// Shared formatter for any QuoteFieldMeta consumer -- the inputs panel's
+// placeholder and every chart label that renders a field's value.
 export function formatByFieldFormat(format: QuoteFieldMeta["format"], value: number | null): string {
   if (format === "percent") return formatPercent(value);
   if (format === "number") return formatNumber(value);

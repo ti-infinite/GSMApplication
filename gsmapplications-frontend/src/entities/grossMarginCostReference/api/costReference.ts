@@ -12,10 +12,9 @@ export const costReferenceApi = makeResourceClient<
     labourProd?: number;
     labourRepack?: number;
     labourAssembler?: number;
-    // Manual override -- used directly instead of the relay's live
-    // NHUBEX-derive attempt when provided. Never validated against NHUBEX;
-    // the caller (the Quote Simulator's SKU builder) is responsible for it
-    // being correct. Added 2026-09-17, see README.md §12.
+    // Manual override -- used instead of the relay's live NHUBEX derivation
+    // when provided. Never validated against NHUBEX; the caller is
+    // responsible for correctness.
     calculatedSku?: string;
   },
   {

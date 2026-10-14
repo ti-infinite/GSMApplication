@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useRef } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Download } from "lucide-react";
 import { Skeleton } from "@/shared/ui/skeleton";
@@ -7,14 +8,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/ui/tabs";
 import { ReferenceLogTable } from "@/shared/ui/reference-log-table";
 import { downloadReferenceTemplate } from "@/shared/ui/reference-bulk-upload";
 import { grossMarginFetch as relayFetch } from "@/shared/lib/ihAgent";
-import { fetchCommissions, type CommissionRow } from "@/entities/grossMarginCommission";
-import { costReferenceApi, type CostReferenceRow } from "@/entities/grossMarginCostReference";
-import { extraCostApi, type ExtraCostRow } from "@/entities/grossMarginExtraCost";
-import { fetchRebates, type RebateRow } from "@/entities/grossMarginRebate";
+import { GROSS_MARGIN_REF_QUERY_KEY } from "@/shared/lib/grossMarginReferenceQueryKeys";
+import { useCommissions, type CommissionRow } from "@/entities/grossMarginCommission";
+import { useCostReferences, type CostReferenceRow } from "@/entities/grossMarginCostReference";
+import { useExtraCosts, type ExtraCostRow } from "@/entities/grossMarginExtraCost";
+import { useRebates, type RebateRow } from "@/entities/grossMarginRebate";
 import type { SalesRow } from "@/entities/grossMarginSalesRow";
-import { transportCostApi, type TransportCostRow } from "@/entities/grossMarginTransportCost";
-import { varietyDesegregationApi, type VarietyDesegregationRow } from "@/entities/grossMarginVarietyDesegregation";
-import { yieldsApi, type YieldRow } from "@/entities/grossMarginYield";
+import { useTransportCosts, type TransportCostRow } from "@/entities/grossMarginTransportCost";
+import { useVarietyDesegregations, type VarietyDesegregationRow } from "@/entities/grossMarginVarietyDesegregation";
+import { useYields, type YieldRow } from "@/entities/grossMarginYield";
 import { CommissionCard, CommissionLogTable } from "@/features/grossMarginManageCommission";
 import { extraCostLogTableConfig, ExtraCostCard } from "@/features/grossMarginManageExtraCost";
 import { transportCostLogTableConfig, TransportCostCard } from "@/features/grossMarginManageTransportCost";
@@ -23,15 +25,14 @@ import { costReferenceLogTableConfig, CostReferenceCard } from "@/features/gross
 import { varietyDesegregationLogTableConfig, VarietyDesegregationCard } from "@/features/grossMarginManageVarietyDesegregation";
 import { RebateCard, RebateLogTable } from "@/features/grossMarginManageRebate";
 
-// No access gate here at all (2026-09-29) -- this app is headed for a real
-// GSM tab, where GSM's own JWT auth gates it before it ever renders. Not
-// re-implemented as a stopgap in the meantime, deliberately -- see
-// src/main.tsx's comment for why.
+// No access gate here -- this app is headed for a real GSM tab, where
+// GSM's own JWT auth gates it before it ever renders. Deliberately not
+// re-implemented as a stopgap in the meantime -- see src/main.tsx's
+// comment for why.
 
-// Next.js -> Vite conversion: onUpdate/onDelete for the 5 ReferenceLogTable-
-// backed tabs below used to go through this app's own /api/<resource>/:id
-// route (a thin proxy). Calls the relay directly now -- same {detail}
-// error-shape read as everywhere else this conversion touched.
+// onUpdate/onDelete for the 5 ReferenceLogTable-backed tabs below call the
+// relay directly, reading the same {detail} error shape used everywhere
+// else in this app.
 async function updateResource(resource: string, id: number, values: Record<string, unknown>) {
   const res = await relayFetch(`/${resource}/${id}`, { method: "PUT", body: JSON.stringify(values) });
   const json = await res.json();
@@ -47,58 +48,45 @@ async function deleteResourceOnRelay(resource: string, id: number) {
 }
 
 export function ReferenceDataTabs({ rows, refreshSales }: { rows: SalesRow[]; refreshSales: () => void }) {
-  const [commissions, setCommissions] = useState<CommissionRow[]>([]);
-  const [yieldsRows, setYieldsRows] = useState<YieldRow[]>([]);
-  const [costReferenceRows, setCostReferenceRows] = useState<CostReferenceRow[]>([]);
-  const [extraCostRows, setExtraCostRows] = useState<ExtraCostRow[]>([]);
-  const [transportCostRows, setTransportCostRows] = useState<TransportCostRow[]>([]);
-  const [rebateRows, setRebateRows] = useState<RebateRow[]>([]);
-  const [varietyDesegregationRows, setVarietyDesegregationRows] = useState<VarietyDesegregationRow[]>([]);
-  const [isDataLoading, setIsDataLoading] = useState(false);
+  const queryClient = useQueryClient();
+  const { commissions, isLoading: commissionsLoading, error: commissionsError } = useCommissions();
+  const { yields: yieldsRows, isLoading: yieldsLoading, error: yieldsError } = useYields();
+  const { costReferences: costReferenceRows, isLoading: costReferenceLoading, error: costReferenceError } = useCostReferences();
+  const { extraCosts: extraCostRows, isLoading: extraCostLoading, error: extraCostError } = useExtraCosts();
+  const { transportCosts: transportCostRows, isLoading: transportCostLoading, error: transportCostError } = useTransportCosts();
+  const { rebates: rebateRows, isLoading: rebatesLoading, error: rebatesError } = useRebates();
+  const { varietyDesegregations: varietyDesegregationRows, isLoading: varietyDesegregationLoading, error: varietyDesegregationError } =
+    useVarietyDesegregations();
 
-  const loadAll = useCallback(async () => {
-    setIsDataLoading(true);
-    try {
-      const [c, y, cr, ec, tc, rb, vd] = await Promise.all([
-        fetchCommissions(),
-        yieldsApi.list(),
-        costReferenceApi.list(),
-        extraCostApi.list(),
-        transportCostApi.list(),
-        fetchRebates(),
-        varietyDesegregationApi.list(),
-      ]);
-      setCommissions(c);
-      setYieldsRows(y);
-      setCostReferenceRows(cr);
-      setExtraCostRows(ec);
-      setTransportCostRows(tc);
-      setRebateRows(rb);
-      setVarietyDesegregationRows(vd);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to load Updates data");
-    } finally {
-      setIsDataLoading(false);
-    }
-  }, []);
+  // Skeleton only on a true cold load -- once any one of these has cached
+  // data, the rest render instantly from cache too (they all mount together).
+  const isDataLoading =
+    commissionsLoading &&
+    yieldsLoading &&
+    costReferenceLoading &&
+    extraCostLoading &&
+    transportCostLoading &&
+    rebatesLoading &&
+    varietyDesegregationLoading;
 
+  const firstError =
+    commissionsError ?? yieldsError ?? costReferenceError ?? extraCostError ?? transportCostError ?? rebatesError ?? varietyDesegregationError;
+  const lastToastedError = useRef<string | null>(null);
   useEffect(() => {
-    loadAll();
-  }, [loadAll]);
+    if (firstError && firstError !== lastToastedError.current) {
+      lastToastedError.current = firstError;
+      toast.error(firstError);
+    }
+  }, [firstError]);
 
   function handleChanged() {
-    loadAll();
+    queryClient.invalidateQueries({ queryKey: GROSS_MARGIN_REF_QUERY_KEY });
     refreshSales();
   }
 
   return (
     <div className="space-y-6">
-      {isDataLoading &&
-      commissions.length === 0 &&
-      yieldsRows.length === 0 &&
-      costReferenceRows.length === 0 &&
-      extraCostRows.length === 0 &&
-      transportCostRows.length === 0 ? (
+      {isDataLoading ? (
         <Skeleton className="h-96 w-full" />
       ) : (
         <Tabs defaultValue="commissions">

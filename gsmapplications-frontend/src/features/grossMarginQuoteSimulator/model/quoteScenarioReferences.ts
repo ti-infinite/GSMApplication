@@ -1,10 +1,7 @@
-// Shared Commission/Rebate/TransportCost matching logic for a real
-// (non-synthetic) SalesRow -- extracted from quote-simulator-tab.tsx so the
-// scenario manager's Excel export can resolve the same RecomputeInputs for
-// a saved scenario without duplicating the lookup rules. New-customer
-// synthetic-transport handling stays in quote-simulator-tab.tsx: a saved
-// scenario's baseline is always a real (or real-shaped) SalesRow by the
-// time it's persisted, so the synthetic branch never applies here.
+// Shared Commission/Rebate/TransportCost matching for a real (non-synthetic)
+// SalesRow, so the scenario manager's Excel export resolves the same
+// RecomputeInputs a saved scenario was built with, without duplicating the
+// lookup rules.
 
 import type { CommissionRow } from "@/entities/grossMarginCommission";
 import type { RebateRow } from "@/entities/grossMarginRebate";
@@ -44,11 +41,8 @@ export function buildRecomputeInputsForRow(
   };
 }
 
-// Mixed-herb rows are already whole-pack priced (1 case), so "quantity"
-// there starts at 1; every other row is priced per single unit, so the
-// natural starting quantity is the variety's own real case size. Shared
-// with quote-simulator-tab.tsx (a fresh row selection) and the scenario
-// manager (a v1 scenario saved before packQuantity existed).
+// Mixed-herb rows are whole-pack priced (1 case), so quantity starts at 1;
+// every other row starts at its own real case size.
 export function defaultPackQuantity(row: SalesRow): number {
   if (row.IsMixedHerbWholePack === 1) return 1;
   return row.PackQty && row.PackQty > 0 ? row.PackQty : 1;

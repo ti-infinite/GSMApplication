@@ -2,12 +2,9 @@ import { useMemo } from "react";
 import type { SalesRowMode } from "./recompute";
 import { getPriceFields, getCostFields, getCostFieldsForTransportMode, type QuoteFieldMeta } from "./quoteFields";
 
-// The repeated "[...price fields, ...cost fields]" construction duplicated
-// across the negotiation-headroom chart, the driver-impact chart, and the
-// target-margin solver -- each walks the exact same combined field list to
-// know what's "a variable" for a given row. `transportOptions` selects the
-// pallet-aware variant (only the target solver needs it); omit it for the
-// plain `getCostFields(mode)` the two charts use. REFACTOR_PLAN.md phase 02.
+// Shared "[...price fields, ...cost fields]" list, used by every chart/solver
+// that needs to know what's "a variable" for a given row. `transportOptions`
+// selects the pallet-aware variant; omit it for the plain `getCostFields(mode)`.
 export function useQuoteFields(
   commissionType: "percent" | "value" | null,
   mode: SalesRowMode,

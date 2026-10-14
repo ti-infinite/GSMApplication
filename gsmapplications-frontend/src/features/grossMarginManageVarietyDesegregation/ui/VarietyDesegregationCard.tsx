@@ -4,13 +4,7 @@ import { Card, CardAction, CardContent, CardHeader, CardTitle, CardDescription }
 import { ReferenceBulkUpload } from "@/shared/ui/reference-bulk-upload";
 import { Input } from "@/shared/ui/input";
 import { Button } from "@/shared/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/shared/ui/select";
+import { Combobox } from "@/shared/ui/combobox";
 import type { SalesRow } from "@/entities/grossMarginSalesRow";
 import { useReferenceSearch } from "@/shared/lib/useReferenceSearch";
 import { useSubmitWithConflict } from "@/shared/lib/useSubmitWithConflict";
@@ -90,44 +84,32 @@ export function VarietyDesegregationCard({ rows, onApplied }: { rows: SalesRow[]
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground">Parent (mixed-herb blend)</label>
             <Input
-              placeholder="Search varieties…"
+              placeholder="Filter varieties…"
               value={parentSearch}
               onChange={(e) => setParentSearch(e.target.value)}
               className="mb-1.5"
             />
-            <Select value={selectedParent} onValueChange={(v) => v && setSelectedParent(v)}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select the blend…" />
-              </SelectTrigger>
-              <SelectContent>
-                {filteredParents.map((v) => (
-                  <SelectItem key={v} value={v}>
-                    {v}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Combobox
+              value={selectedParent}
+              onChange={(v) => v && setSelectedParent(v)}
+              options={filteredParents.map((v) => ({ value: v, label: v }))}
+              placeholder="Select the blend…"
+            />
           </div>
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground">Child (single herb)</label>
             <Input
-              placeholder="Search varieties…"
+              placeholder="Filter varieties…"
               value={childSearch}
               onChange={(e) => setChildSearch(e.target.value)}
               className="mb-1.5"
             />
-            <Select value={selectedChild} onValueChange={(v) => v && setSelectedChild(v)}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select the component herb…" />
-              </SelectTrigger>
-              <SelectContent>
-                {filteredChildren.map((v) => (
-                  <SelectItem key={v} value={v}>
-                    {v}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Combobox
+              value={selectedChild}
+              onChange={(v) => v && setSelectedChild(v)}
+              options={filteredChildren.map((v) => ({ value: v, label: v }))}
+              placeholder="Select the component herb…"
+            />
           </div>
         </div>
 

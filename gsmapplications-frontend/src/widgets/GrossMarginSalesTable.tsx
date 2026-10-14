@@ -72,9 +72,13 @@ const TEXT_COLUMNS: { key: keyof SalesRow; label: string; filterLabel: string; c
   { key: "Variety", label: "Variety", filterLabel: "varieties", core: true },
   { key: "Customer", label: "Customer", filterLabel: "customers", core: true },
   { key: "Warehouse", label: "Warehouse", filterLabel: "warehouses", core: true },
-  { key: "CalculatedSKU", label: "SKU", filterLabel: "SKUs", core: true },
+  { key: "CalculatedSKU", label: "SKU", filterLabel: "SKUs", core: false },
   { key: "SKUMeasure", label: "SKU (Measure)", filterLabel: "SKUs (measure)", core: false },
 ];
+
+// w-px forces these to shrink-to-fit their short currency/percent content
+// instead of stretching with the rest of the table (same trick as Alarms).
+const COMPACT_NUMERIC_KEYS: (keyof SalesRow)[] = ["AvgUnitPrice", "FinalUnitCost", "CostRatio", "GrossMargin"];
 
 // The only filters Sales Explorer exposes (2026-10-08, user instruction).
 // SKU and the numeric min/max ranges were removed because users weren't
@@ -187,11 +191,6 @@ export function SalesTable({ rows }: { rows: SalesRow[] }) {
                   )}
                   {row.original.CommissionApplied === 1 && (
                     <p className="text-[10px] leading-tight text-muted-foreground">Commission applied</p>
-                  )}
-                  {row.original.IsMixedHerbWholePack === 1 && (
-                    <p className="text-[10px] leading-tight text-muted-foreground">
-                      Whole-pack total, not per-unit
-                    </p>
                   )}
                 </div>
               );
@@ -310,7 +309,9 @@ export function SalesTable({ rows }: { rows: SalesRow[] }) {
                         className={cn(
                           header.column.getCanSort() && "cursor-pointer select-none",
                           isFirstColumn && "sticky left-0 z-10 border-r bg-card",
-                          header.column.id === "alarms" && "w-px whitespace-nowrap"
+                          (header.column.id === "alarms" ||
+                            COMPACT_NUMERIC_KEYS.includes(header.column.id as keyof SalesRow)) &&
+                            "w-px whitespace-nowrap"
                         )}
                         onClick={header.column.getToggleSortingHandler()}
                         aria-sort={
@@ -353,7 +354,9 @@ export function SalesTable({ rows }: { rows: SalesRow[] }) {
                         key={cell.id}
                         className={cn(
                           index === 0 && "sticky left-0 z-10 border-r bg-card",
-                          cell.column.id === "alarms" && "w-px whitespace-nowrap"
+                          (cell.column.id === "alarms" ||
+                            COMPACT_NUMERIC_KEYS.includes(cell.column.id as keyof SalesRow)) &&
+                            "w-px whitespace-nowrap"
                         )}
                       >
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}

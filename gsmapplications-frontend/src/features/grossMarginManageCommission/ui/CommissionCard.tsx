@@ -4,13 +4,7 @@ import { Card, CardAction, CardContent, CardHeader, CardTitle, CardDescription }
 import { ReferenceBulkUpload } from "@/shared/ui/reference-bulk-upload";
 import { Input } from "@/shared/ui/input";
 import { Button } from "@/shared/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/shared/ui/select";
+import { Combobox } from "@/shared/ui/combobox";
 import { formatCurrency, formatPercent } from "@/shared/lib/format";
 import { upsertCommission } from "../api/upsertCommission";
 import type { CommissionRow } from "@/entities/grossMarginCommission";
@@ -32,7 +26,6 @@ export function CommissionCard({
   commissions: CommissionRow[];
   onApplied: () => void;
 }) {
-  const [customerSearch, setCustomerSearch] = useState("");
   const [selectedCustomer, setSelectedCustomer] = useState("");
   const [mode, setMode] = useState<"percent" | "value">("percent");
   const [percentText, setPercentText] = useState("");
@@ -40,10 +33,6 @@ export function CommissionCard({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const customers = useMemo(() => Array.from(new Set(rows.map((r) => r.Customer))).sort(), [rows]);
-  const filteredCustomers = useMemo(
-    () => customers.filter((c) => c.toLowerCase().includes(customerSearch.toLowerCase())),
-    [customers, customerSearch]
-  );
 
   const currentCommission = useMemo(
     () => commissions.find((c) => c.Customer === selectedCustomer) ?? null,
@@ -102,24 +91,12 @@ export function CommissionCard({
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground">Customer</label>
-            <Input
-              placeholder="Filter customers…"
-              value={customerSearch}
-              onChange={(e) => setCustomerSearch(e.target.value)}
-              className="mb-1.5"
+            <Combobox
+              value={selectedCustomer}
+              onChange={(v) => v && selectCustomer(v)}
+              options={customers.map((c) => ({ value: c, label: c }))}
+              placeholder="Select a customer…"
             />
-            <Select value={selectedCustomer} onValueChange={(v) => v && selectCustomer(v)}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select a customer…" />
-              </SelectTrigger>
-              <SelectContent>
-                {filteredCustomers.map((c) => (
-                  <SelectItem key={c} value={c}>
-                    {c}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
             {selectedCustomer && (
               <p className="text-xs text-muted-foreground">
                 Current commission:{" "}

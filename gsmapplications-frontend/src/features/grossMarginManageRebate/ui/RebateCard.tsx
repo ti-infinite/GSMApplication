@@ -23,16 +23,11 @@ export function RebateCard({
   rebates: RebateRow[];
   onApplied: () => void;
 }) {
-  const [customerSearch, setCustomerSearch] = useState("");
   const [selectedCustomer, setSelectedCustomer] = useState("");
   const [valueText, setValueText] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const customers = useMemo(() => Array.from(new Set(rows.map((r) => r.Customer))).sort(), [rows]);
-  const filteredCustomers = useMemo(
-    () => customers.filter((c) => c.toLowerCase().includes(customerSearch.toLowerCase())),
-    [customers, customerSearch]
-  );
 
   const currentRebate = useMemo(
     () => rebates.find((r) => r.Customer === selectedCustomer)?.Rebate ?? null,
@@ -80,16 +75,10 @@ export function RebateCard({
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground">Customer</label>
-            <Input
-              placeholder="Filter customers…"
-              value={customerSearch}
-              onChange={(e) => setCustomerSearch(e.target.value)}
-              className="mb-1.5"
-            />
             <Combobox
               value={selectedCustomer}
               onChange={(v) => v && setSelectedCustomer(v)}
-              options={filteredCustomers.map((c) => ({ value: c, label: c }))}
+              options={customers.map((c) => ({ value: c, label: c }))}
               placeholder="Select a customer…"
             />
             {selectedCustomer && (

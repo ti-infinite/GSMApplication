@@ -20,10 +20,7 @@ const FIELDS = [
 ] as const;
 
 export function CostReferenceCard({ rows, onApplied }: { rows: SalesRow[]; onApplied: () => void }) {
-  const { search: varietySearch, setSearch: setVarietySearch, filtered: filteredVarieties } = useReferenceSearch(
-    rows,
-    (r) => r.Variety
-  );
+  const { values: varieties } = useReferenceSearch(rows, (r) => r.Variety);
   const [selectedVariety, setSelectedVariety] = useState("");
   const [selectedWarehouse, setSelectedWarehouse] = useState("");
   const [texts, setTexts] = useState<Record<string, string>>({});
@@ -79,16 +76,10 @@ export function CostReferenceCard({ rows, onApplied }: { rows: SalesRow[]; onApp
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground">Variety</label>
-            <Input
-              placeholder="Filter varieties…"
-              value={varietySearch}
-              onChange={(e) => setVarietySearch(e.target.value)}
-              className="mb-1.5"
-            />
             <Combobox
               value={selectedVariety}
               onChange={(v) => v && setSelectedVariety(v)}
-              options={filteredVarieties.map((v) => ({ value: v, label: v }))}
+              options={varieties.map((v) => ({ value: v, label: v }))}
               placeholder="Select a variety…"
             />
           </div>

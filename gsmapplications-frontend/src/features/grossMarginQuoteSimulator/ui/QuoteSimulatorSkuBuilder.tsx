@@ -14,13 +14,11 @@ export function QuoteSimulatorSkuBuilder({
   onSkuClassChange,
   skuType,
   onSkuTypeChange,
-  herbSearch,
-  onHerbSearchChange,
   selectedHerbCode,
   onSelectedHerbCodeChange,
   customHerbCode,
   onCustomHerbCodeChange,
-  filteredHerbCodes,
+  herbCodes,
   usingCustomHerb,
   herbCodeValid,
   builtSku,
@@ -31,13 +29,11 @@ export function QuoteSimulatorSkuBuilder({
   onSkuClassChange: (value: string) => void;
   skuType: string;
   onSkuTypeChange: (value: string) => void;
-  herbSearch: string;
-  onHerbSearchChange: (value: string) => void;
   selectedHerbCode: string;
   onSelectedHerbCodeChange: (value: string) => void;
   customHerbCode: string;
   onCustomHerbCodeChange: (value: string) => void;
-  filteredHerbCodes: CodeOption[];
+  herbCodes: CodeOption[];
   usingCustomHerb: boolean;
   herbCodeValid: boolean;
   builtSku: string | null;
@@ -66,6 +62,7 @@ export function QuoteSimulatorSkuBuilder({
                 value={skuClass}
                 onChange={(v) => v && onSkuClassChange(v)}
                 options={SKU_CLASSES.map((c) => ({ value: c.code, label: `${c.label} (${c.code})` }))}
+                placeholder="Select a class…"
               />
             </div>
             <div className="space-y-1">
@@ -74,24 +71,19 @@ export function QuoteSimulatorSkuBuilder({
                 value={skuType}
                 onChange={(v) => v && onSkuTypeChange(v)}
                 options={SKU_TYPES.map((t) => ({ value: t.code, label: `${t.label} (${t.code})` }))}
+                placeholder="Select a type…"
               />
             </div>
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Herb</label>
-              <Input
-                placeholder="Filter herbs…"
-                value={herbSearch}
-                onChange={(e) => onHerbSearchChange(e.target.value)}
-                className="mb-1"
-              />
               <Combobox
                 value={selectedHerbCode}
                 onChange={(v) => v && onSelectedHerbCodeChange(v)}
                 options={[
-                  ...filteredHerbCodes.map((h) => ({ value: h.code, label: `${h.label} (${h.code})` })),
+                  ...herbCodes.map((h) => ({ value: h.code, label: `${h.label} (${h.code})` })),
                   { value: SKU_NOT_LISTED, label: "Not listed — type a new code" },
                 ]}
-                placeholder="Select…"
+                placeholder="Select a herb…"
               />
             </div>
           </div>

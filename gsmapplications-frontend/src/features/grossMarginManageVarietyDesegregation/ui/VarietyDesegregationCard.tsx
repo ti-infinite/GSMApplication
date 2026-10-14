@@ -13,15 +13,8 @@ import { grossMarginFetch as relayFetch } from "@/shared/lib/ihAgent";
 export function VarietyDesegregationCard({ rows, onApplied }: { rows: SalesRow[]; onApplied: () => void }) {
   // Both dropdowns source from the same live Variety set -- a "child" is
   // just as much a real Variety as a "parent" is, no separate data source.
-  const { search: parentSearch, setSearch: setParentSearch, filtered: filteredParents } = useReferenceSearch(
-    rows,
-    (r) => r.Variety
-  );
+  const { values: varieties } = useReferenceSearch(rows, (r) => r.Variety);
   const [selectedParent, setSelectedParent] = useState("");
-  const { search: childSearch, setSearch: setChildSearch, filtered: filteredChildren } = useReferenceSearch(
-    rows,
-    (r) => r.Variety
-  );
   const [selectedChild, setSelectedChild] = useState("");
   const [quantityText, setQuantityText] = useState("");
   // Pre-filled "1" -- the common (Mixed Herbs style) case needs no thought;
@@ -83,31 +76,19 @@ export function VarietyDesegregationCard({ rows, onApplied }: { rows: SalesRow[]
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground">Parent (mixed-herb blend)</label>
-            <Input
-              placeholder="Filter varieties…"
-              value={parentSearch}
-              onChange={(e) => setParentSearch(e.target.value)}
-              className="mb-1.5"
-            />
             <Combobox
               value={selectedParent}
               onChange={(v) => v && setSelectedParent(v)}
-              options={filteredParents.map((v) => ({ value: v, label: v }))}
+              options={varieties.map((v) => ({ value: v, label: v }))}
               placeholder="Select the blend…"
             />
           </div>
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground">Child (single herb)</label>
-            <Input
-              placeholder="Filter varieties…"
-              value={childSearch}
-              onChange={(e) => setChildSearch(e.target.value)}
-              className="mb-1.5"
-            />
             <Combobox
               value={selectedChild}
               onChange={(v) => v && setSelectedChild(v)}
-              options={filteredChildren.map((v) => ({ value: v, label: v }))}
+              options={varieties.map((v) => ({ value: v, label: v }))}
               placeholder="Select the component herb…"
             />
           </div>

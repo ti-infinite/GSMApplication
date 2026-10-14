@@ -17,10 +17,7 @@ const WAREHOUSE_FIELDS = ["mia", "bos", "chi", "vin"] as const;
 // there's no live table to validate it against server-side.
 export function ExtraCostCard({ rows, onApplied }: { rows: SalesRow[]; onApplied: () => void }) {
   const [supplier, setSupplier] = useState("");
-  const { search: skuSearch, setSearch: setSkuSearch, filtered: filteredSkus } = useReferenceSearch(
-    rows,
-    (r) => r.CalculatedSKU
-  );
+  const { values: skus } = useReferenceSearch(rows, (r) => r.CalculatedSKU);
   const [selectedSku, setSelectedSku] = useState("");
   const [measureUnitText, setMeasureUnitText] = useState("");
   const [texts, setTexts] = useState<Record<string, string>>({});
@@ -100,16 +97,10 @@ export function ExtraCostCard({ rows, onApplied }: { rows: SalesRow[]; onApplied
           </div>
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground">SKU</label>
-            <Input
-              placeholder="Filter SKUs…"
-              value={skuSearch}
-              onChange={(e) => setSkuSearch(e.target.value)}
-              className="mb-1.5"
-            />
             <Combobox
               value={selectedSku}
               onChange={(v) => v && setSelectedSku(v)}
-              options={filteredSkus.map((s) => ({ value: s, label: s }))}
+              options={skus.map((s) => ({ value: s, label: s }))}
               placeholder="Select a SKU…"
             />
           </div>

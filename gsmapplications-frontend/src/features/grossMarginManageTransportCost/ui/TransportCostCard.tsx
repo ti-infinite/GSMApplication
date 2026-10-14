@@ -19,10 +19,7 @@ const PACKAGING_OPTIONS = ["CLA", "BAG", "BOX"];
 const ANY_WAREHOUSE = "__any__";
 
 export function TransportCostCard({ rows, onApplied }: { rows: SalesRow[]; onApplied: () => void }) {
-  const { search: divisionSearch, setSearch: setDivisionSearch, filtered: filteredDivisions } = useReferenceSearch(
-    rows,
-    (r) => r.Customer
-  );
+  const { values: divisions } = useReferenceSearch(rows, (r) => r.Customer);
   const [selectedDivision, setSelectedDivision] = useState("");
   const [warehouse, setWarehouse] = useState(ANY_WAREHOUSE);
   const [packQtyText, setPackQtyText] = useState("");
@@ -123,16 +120,10 @@ export function TransportCostCard({ rows, onApplied }: { rows: SalesRow[]; onApp
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground">Customer</label>
-            <Input
-              placeholder="Filter customers…"
-              value={divisionSearch}
-              onChange={(e) => setDivisionSearch(e.target.value)}
-              className="mb-1.5"
-            />
             <Combobox
               value={selectedDivision}
               onChange={(v) => v && setSelectedDivision(v)}
-              options={filteredDivisions.map((d) => ({ value: d, label: d }))}
+              options={divisions.map((d) => ({ value: d, label: d }))}
               placeholder="Select a customer…"
             />
           </div>

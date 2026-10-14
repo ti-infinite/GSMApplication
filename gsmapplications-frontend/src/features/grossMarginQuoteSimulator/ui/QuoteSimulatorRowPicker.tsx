@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 import { SearchCheck } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/shared/ui/card";
-import { Input } from "@/shared/ui/input";
 import { Combobox } from "@/shared/ui/combobox";
 import type { SalesRow } from "@/entities/grossMarginSalesRow";
 import { StepLabel } from "./StepLabel";
@@ -18,16 +17,11 @@ export function QuoteSimulatorRowPicker({
   selected: SalesRow | null;
   onSelect: (row: SalesRow) => void;
 }) {
-  const [varietySearch, setVarietySearch] = useState("");
   const [selectedVariety, setSelectedVariety] = useState(selected?.Variety ?? "");
   const [selectedCustomer, setSelectedCustomer] = useState(selected?.Customer ?? "");
   const [selectedWarehouse, setSelectedWarehouse] = useState(selected?.Warehouse ?? "");
 
   const varieties = useMemo(() => Array.from(new Set(rows.map((r) => r.Variety))).sort(), [rows]);
-  const filteredVarieties = useMemo(
-    () => varieties.filter((v) => v.toLowerCase().includes(varietySearch.toLowerCase())),
-    [varieties, varietySearch]
-  );
 
   const customersForVariety = useMemo(
     () =>
@@ -94,16 +88,10 @@ export function QuoteSimulatorRowPicker({
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div className="space-y-1.5">
             <StepLabel step={1} text="Variety" active={!!selectedVariety} />
-            <Input
-              placeholder="Filter varieties…"
-              value={varietySearch}
-              onChange={(e) => setVarietySearch(e.target.value)}
-              className="mb-1.5"
-            />
             <Combobox
               value={selectedVariety}
               onChange={(v) => v && handleVariety(v)}
-              options={filteredVarieties.map((v) => ({ value: v, label: v }))}
+              options={varieties.map((v) => ({ value: v, label: v }))}
               placeholder="Select a variety…"
             />
           </div>

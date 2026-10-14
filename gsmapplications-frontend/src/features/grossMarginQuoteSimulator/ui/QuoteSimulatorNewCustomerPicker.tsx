@@ -39,16 +39,11 @@ export function QuoteSimulatorNewCustomerPicker({
   rows: SalesRow[];
   onCreate: (variety: string, warehouse: string, customerName: string) => void;
 }) {
-  const [varietySearch, setVarietySearch] = useState("");
   const [selectedVariety, setSelectedVariety] = useState("");
   const [selectedWarehouse, setSelectedWarehouse] = useState("");
   const [customerName, setCustomerName] = useState("");
 
   const varieties = useMemo(() => Array.from(new Set(rows.map((r) => r.Variety))).sort(), [rows]);
-  const filteredVarieties = useMemo(
-    () => varieties.filter((v) => v.toLowerCase().includes(varietySearch.toLowerCase())),
-    [varieties, varietySearch]
-  );
   // Every known warehouse, not filtered by Variety -- lets the user pick one
   // this Variety has never shipped from (falls to buildManualBaseline).
   const allWarehouses = useMemo(() => Array.from(new Set(rows.map((r) => r.Warehouse))).sort(), [rows]);
@@ -97,19 +92,10 @@ export function QuoteSimulatorNewCustomerPicker({
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div className="space-y-1.5">
             <StepLabel step={1} text="Variety" active={!!selectedVariety} />
-            <Input
-              placeholder="Filter varieties…"
-              value={varietySearch}
-              onChange={(e) => {
-                setVarietySearch(e.target.value);
-                if (e.target.value.trim() !== selectedVariety) setSelectedVariety("");
-              }}
-              className="mb-1.5"
-            />
             <Combobox
               value={selectedVariety}
               onChange={(v) => v && handleVariety(v)}
-              options={filteredVarieties.map((v) => ({ value: v, label: v }))}
+              options={varieties.map((v) => ({ value: v, label: v }))}
               placeholder="Select a variety…"
             />
           </div>

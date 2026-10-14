@@ -12,15 +12,10 @@ export function useSkuBuilder(rows: SalesRow[]) {
   const [isSkuExpanded, setIsSkuExpanded] = useState(false);
   const [skuClass, setSkuClass] = useState(SKU_CLASSES[0].code);
   const [skuType, setSkuType] = useState(SKU_TYPES[0].code);
-  const [herbSearch, setHerbSearch] = useState("");
   const [selectedHerbCode, setSelectedHerbCode] = useState("");
   const [customHerbCode, setCustomHerbCode] = useState("");
 
-  const knownHerbCodes = useMemo(() => buildKnownHerbCodes(rows), [rows]);
-  const filteredHerbCodes = useMemo(
-    () => knownHerbCodes.filter((h) => h.label.toLowerCase().includes(herbSearch.toLowerCase())),
-    [knownHerbCodes, herbSearch]
-  );
+  const herbCodes = useMemo(() => buildKnownHerbCodes(rows), [rows]);
 
   const usingCustomHerb = selectedHerbCode === SKU_NOT_LISTED;
   const herbCode = usingCustomHerb ? customHerbCode.trim().toUpperCase() : selectedHerbCode;
@@ -34,13 +29,11 @@ export function useSkuBuilder(rows: SalesRow[]) {
     setSkuClass,
     skuType,
     setSkuType,
-    herbSearch,
-    setHerbSearch,
     selectedHerbCode,
     setSelectedHerbCode,
     customHerbCode,
     setCustomHerbCode,
-    filteredHerbCodes,
+    herbCodes,
     usingCustomHerb,
     herbCodeValid,
     builtSku,

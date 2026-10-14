@@ -14,10 +14,7 @@ import { grossMarginFetch as relayFetch } from "@/shared/lib/ihAgent";
 // the relay derives the real SKU code server-side via the same live join
 // sql/16_cost_reference.sql already uses, so nobody ever has to type a SKU.
 export function YieldsCard({ rows, onApplied }: { rows: SalesRow[]; onApplied: () => void }) {
-  const { search: varietySearch, setSearch: setVarietySearch, filtered: filteredVarieties } = useReferenceSearch(
-    rows,
-    (r) => r.Variety
-  );
+  const { values: varieties } = useReferenceSearch(rows, (r) => r.Variety);
   const [selectedVariety, setSelectedVariety] = useState("");
   const [yieldText, setYieldText] = useState("");
   const { isSubmitting, conflictError, submit } = useSubmitWithConflict();
@@ -67,16 +64,10 @@ export function YieldsCard({ rows, onApplied }: { rows: SalesRow[]; onApplied: (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground">Variety</label>
-            <Input
-              placeholder="Filter varieties…"
-              value={varietySearch}
-              onChange={(e) => setVarietySearch(e.target.value)}
-              className="mb-1.5"
-            />
             <Combobox
               value={selectedVariety}
               onChange={(v) => v && setSelectedVariety(v)}
-              options={filteredVarieties.map((v) => ({ value: v, label: v }))}
+              options={varieties.map((v) => ({ value: v, label: v }))}
               placeholder="Select a variety…"
             />
           </div>

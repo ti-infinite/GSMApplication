@@ -164,13 +164,11 @@ export function QuoteSimulatorSaveReferenceBanner({
           onSkuClassChange={skuBuilder.setSkuClass}
           skuType={skuBuilder.skuType}
           onSkuTypeChange={skuBuilder.setSkuType}
-          herbSearch={skuBuilder.herbSearch}
-          onHerbSearchChange={skuBuilder.setHerbSearch}
           selectedHerbCode={skuBuilder.selectedHerbCode}
           onSelectedHerbCodeChange={skuBuilder.setSelectedHerbCode}
           customHerbCode={skuBuilder.customHerbCode}
           onCustomHerbCodeChange={skuBuilder.setCustomHerbCode}
-          filteredHerbCodes={skuBuilder.filteredHerbCodes}
+          herbCodes={skuBuilder.herbCodes}
           usingCustomHerb={skuBuilder.usingCustomHerb}
           herbCodeValid={skuBuilder.herbCodeValid}
           builtSku={skuBuilder.builtSku}

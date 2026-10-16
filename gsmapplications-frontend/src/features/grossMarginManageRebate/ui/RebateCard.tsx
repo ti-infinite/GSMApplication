@@ -1,19 +1,24 @@
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Card, CardAction, CardContent, CardHeader, CardTitle, CardDescription } from "@/shared/ui/card";
 import { ReferenceBulkUpload } from "@/shared/ui/reference-bulk-upload";
 import { Input } from "@/shared/ui/input";
 import { Button } from "@/shared/ui/button";
 import { Combobox } from "@/shared/ui/combobox";
+import { Field } from "@/shared/ui/field";
 import { formatCurrency } from "@/shared/lib/format";
+import { decimalInputProps } from "@/shared/lib/formValidation";
+import { useFieldValidation } from "@/shared/lib/useFieldValidation";
+import { getFieldRules } from "@/shared/lib/referenceSchemas";
 import { putRebate } from "../api/putRebate";
 import type { RebateRow } from "@/entities/grossMarginRebate";
 import type { SalesRow } from "@/entities/grossMarginSalesRow";
 
-// Rebate doesn't fit the reference-table Add/Edit/Delete shape -- every
-// in-scope customer already has an implicit $0.00 rebate
-// (db_ms.ClientAttributes), so this is a "pick a customer, set a value"
-// upsert, closer to Commission's own card than to yields-card.tsx/etc.
+const SPECS = { rebate: getFieldRules("rebate", "rebateValue") };
+
+// Rebate doesn't fit the Add/Edit/Delete shape -- every customer already has
+// an implicit $0.00 rebate, so this is a "pick a customer, set a value" upsert.
 export function RebateCard({
   rows,
   rebates,
@@ -23,6 +28,7 @@ export function RebateCard({
   rebates: RebateRow[];
   onApplied: () => void;
 }) {
+  const { t } = useTranslation();
   const [selectedCustomer, setSelectedCustomer] = useState("");
   const [valueText, setValueText] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -34,25 +40,25 @@ export function RebateCard({
     [rebates, selectedCustomer]
   );
 
-  async function handleApply() {
-    const rebateValue = Number(valueText);
-    if (!selectedCustomer) {
-      toast.error("Pick a customer first.");
-      return;
-    }
-    if (valueText === "" || Number.isNaN(rebateValue) || rebateValue < 0) {
-      toast.error("Enter a rebate of $0 or more.");
-      return;
-    }
+  const texts = useMemo(() => ({ rebate: valueText }), [valueText]);
+  const extraErrors = useMemo(
+    () => ({ customer: selectedCustomer ? null : { code: "required" as const } }),
+    [selectedCustomer]
+  );
+  const validation = useFieldValidation(texts, SPECS, extraErrors);
 
+  async function handleApply() {
+    if (!validation.attemptSubmit()) return;
+    const rebateValue = validation.values.rebate as number;
     setIsSubmitting(true);
     try {
       await putRebate(selectedCustomer, rebateValue);
-      toast.success(`Rebate set to ${formatCurrency(rebateValue)} for ${selectedCustomer}.`);
+      toast.success(t("grossMargin.updates.rebate.success", { amount: formatCurrency(rebateValue), customer: selectedCustomer }));
       setValueText("");
+      validation.reset();
       onApplied();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to update rebate.");
+      toast.error(err instanceof Error ? err.message : t("grossMargin.updates.rebate.failed"));
     } finally {
       setIsSubmitting(false);
     }
@@ -61,46 +67,43 @@ export function RebateCard({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Rebate</CardTitle>
-        <CardDescription>
-          A flat per-unit dollar amount subtracted from Avg Unit Sale Price, per customer — sourced
-          from db_ms.Clients (shared ERP data), written directly since it's the same row
-          db_ai.Sales already reads.
-        </CardDescription>
+        <CardTitle>{t("grossMargin.updates.rebate.title")}</CardTitle>
+        <CardDescription>{t("grossMargin.updates.rebate.description")}</CardDescription>
         <CardAction>
           <ReferenceBulkUpload resourceId="rebate" onApplied={onApplied} />
         </CardAction>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Customer</label>
+          <Field label={t("grossMargin.common.fields.customer")} error={validation.visibleErrors.customer}>
             <Combobox
               value={selectedCustomer}
-              onChange={(v) => v && setSelectedCustomer(v)}
+              onChange={setSelectedCustomer}
               options={customers.map((c) => ({ value: c, label: c }))}
-              placeholder="Select a customer…"
+              placeholder={t("grossMargin.common.selectCustomer")}
             />
-            {selectedCustomer && (
-              <p className="text-xs text-muted-foreground">
-                Current rebate: {formatCurrency(currentRebate)}
-              </p>
-            )}
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">New rebate ($)</label>
+          </Field>
+          <Field
+            label={
+              selectedCustomer
+                ? t("grossMargin.updates.rebate.newRebateNow", { value: formatCurrency(currentRebate) })
+                : t("grossMargin.updates.rebate.newRebate")
+            }
+            error={validation.visibleErrors.rebate}
+          >
             <Input
-              type="number"
-              step="0.01"
+              {...decimalInputProps}
               placeholder="e.g. 0.10"
               value={valueText}
               onChange={(e) => setValueText(e.target.value)}
+              onBlur={() => validation.touch("rebate")}
+              aria-invalid={!!validation.visibleErrors.rebate}
             />
-          </div>
+          </Field>
         </div>
 
-        <Button onClick={handleApply} disabled={isSubmitting || !selectedCustomer}>
-          {isSubmitting ? "Applying…" : "Apply Rebate"}
+        <Button onClick={handleApply} disabled={isSubmitting || !validation.isValid}>
+          {isSubmitting ? t("grossMargin.common.applying") : t("grossMargin.updates.rebate.apply")}
         </Button>
       </CardContent>
     </Card>

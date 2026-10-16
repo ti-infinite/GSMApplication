@@ -1,5 +1,7 @@
 import { useMemo, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
+import { useTranslation } from "react-i18next";
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
+import { Field } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
 import { Combobox } from "@/shared/ui/combobox";
 import { Tabs, TabsList, TabsTrigger } from "@/shared/ui/tabs";
@@ -9,13 +11,14 @@ import { Heatmap } from "./GrossMarginHeatmap";
 import { customersForVariety, buildHeatmapData, type RankMetric, type SalesRow } from "@/entities/grossMarginSalesRow";
 import { Search } from "lucide-react";
 
-const METRICS: { value: RankMetric; label: string }[] = [
-  { value: "AvgUnitPrice", label: "Avg Unit Price" },
-  { value: "CostRatio", label: "Cost Ratio" },
-  { value: "GrossMargin", label: "Gross Margin" },
+const METRICS: { value: RankMetric; labelKey: string }[] = [
+  { value: "AvgUnitPrice", labelKey: "avgUnitPrice" },
+  { value: "CostRatio", labelKey: "costRatio" },
+  { value: "GrossMargin", labelKey: "grossMargin" },
 ];
 
 export function VarietyClientExplorer({ rows }: { rows: SalesRow[] }) {
+  const { t } = useTranslation();
   const varietyCounts = useMemo(() => {
     const counts = new Map<string, number>();
     for (const r of rows) counts.set(r.Variety, (counts.get(r.Variety) ?? 0) + 1);
@@ -52,52 +55,51 @@ export function VarietyClientExplorer({ rows }: { rows: SalesRow[] }) {
 
   return (
     <Card>
-      <CardHeader className="flex flex-col gap-4">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <CardTitle className="text-base">Variety × Client explorer</CardTitle>
+      <CardHeader>
+        <CardTitle>{t("grossMargin.dashboard.explorer.title")}</CardTitle>
+        <CardAction>
           <Tabs value={view} onValueChange={(v) => setView(v as "bar" | "heatmap")}>
             <TabsList>
-              <TabsTrigger value="bar">Ranked bar chart</TabsTrigger>
-              <TabsTrigger value="heatmap">Heatmap</TabsTrigger>
+              <TabsTrigger value="bar">{t("grossMargin.dashboard.explorer.rankedBar")}</TabsTrigger>
+              <TabsTrigger value="heatmap">{t("grossMargin.dashboard.explorer.heatmap")}</TabsTrigger>
             </TabsList>
           </Tabs>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="w-full sm:w-44">
+        </CardAction>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <Field label={t("grossMargin.dashboard.explorer.metric")}>
             <Combobox
               value={metric}
-              onChange={(v) => setMetric(v as RankMetric)}
-              options={METRICS.map((m) => ({ value: m.value, label: m.label }))}
+              onChange={(v) => setMetric((v || "AvgUnitPrice") as RankMetric)}
+              options={METRICS.map((m) => ({ value: m.value, label: t(`grossMargin.dashboard.explorer.metrics.${m.labelKey}`) }))}
             />
-          </div>
+          </Field>
           {view === "bar" && (
-            <div className="w-full sm:w-72">
+            <Field label={t("grossMargin.common.fields.variety")}>
               <Combobox
                 value={selectedVariety}
                 onChange={(v) => setSelectedVariety(v ?? "")}
-                options={varieties.map((v) => ({
-                  value: v,
-                  label: `${v} (${varietyCounts.get(v)})`,
-                }))}
-                placeholder="Select a variety"
+                options={varieties.map((v) => ({ value: v, label: v }))}
+                placeholder={t("grossMargin.common.selectVariety")}
+              />
+            </Field>
+          )}
+          <Field label={t("grossMargin.common.fields.customer")}>
+            <div className="relative">
+              <Search
+                className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground"
+                aria-hidden="true"
+              />
+              <Input
+                placeholder={t("grossMargin.dashboard.rankings.searchCustomers")}
+                value={customerFilter}
+                onChange={(e) => setCustomerFilter(e.target.value)}
+                className="pl-8"
               />
             </div>
-          )}
-          <div className="relative w-full sm:w-auto">
-            <Search
-              className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground"
-              aria-hidden="true"
-            />
-            <Input
-              placeholder="Filter customers…"
-              value={customerFilter}
-              onChange={(e) => setCustomerFilter(e.target.value)}
-              className="h-8 w-full pl-8 text-sm sm:w-56"
-            />
-          </div>
+          </Field>
         </div>
-      </CardHeader>
-      <CardContent>
         {view === "bar" ? (
           <>
             <StatChips

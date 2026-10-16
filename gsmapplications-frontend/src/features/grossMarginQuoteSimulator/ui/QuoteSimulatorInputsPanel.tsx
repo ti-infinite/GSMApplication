@@ -1,7 +1,10 @@
 import { RotateCcw, SlidersHorizontal, DollarSign, ShoppingCart, ChevronUp, ChevronDown } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/shared/ui/card";
 import { Input } from "@/shared/ui/input";
 import { Button } from "@/shared/ui/button";
+import { Field, FieldToggle } from "@/shared/ui/field";
+import { decimalInputProps } from "@/shared/lib/formValidation";
 import type { CommissionRow } from "@/entities/grossMarginCommission";
 import type { TransportCostRow } from "@/entities/grossMarginTransportCost";
 import { getCurrentFieldValue, type SalesRowMode, type QuoteOverrides, type RecomputeInputs } from "../model/recompute";
@@ -35,12 +38,13 @@ function Stepper({
   onStep: (direction: 1 | -1) => void;
   labelPrefix: string;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="absolute inset-y-0 right-0 flex w-6 flex-col overflow-hidden rounded-r-lg border-l border-input">
       <button
         type="button"
         tabIndex={-1}
-        aria-label={`Increase ${labelPrefix}`}
+        aria-label={t("grossMargin.simulator.inputs.increase", { label: labelPrefix })}
         onClick={() => onStep(1)}
         className="flex flex-1 items-center justify-center text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
       >
@@ -49,7 +53,7 @@ function Stepper({
       <button
         type="button"
         tabIndex={-1}
-        aria-label={`Decrease ${labelPrefix}`}
+        aria-label={t("grossMargin.simulator.inputs.decrease", { label: labelPrefix })}
         onClick={() => onStep(-1)}
         className="flex flex-1 items-center justify-center border-t border-input text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
       >
@@ -85,8 +89,10 @@ export function QuoteSimulatorInputsPanel({
   // the real Flag on any actual db_ai.Sales row.
   onModeSelect?: (mode: "A" | "B") => void;
 }) {
+  const { t } = useTranslation();
   const { packQty, errors, wholePackFields, displayValue, setField, resetField, resetAll, toggleWholePack, stepValue } =
     useQuoteFieldEditor({ inputs, overrides, onChange, onTransportModeChange });
+  const L = (key: string) => t(`grossMargin.simulator.fields.${key}`);
 
   const canNegotiatePallet =
     transportCost !== null &&
@@ -94,8 +100,8 @@ export function QuoteSimulatorInputsPanel({
     transportCost.Qty !== null &&
     transportCost.BoxesXPallet !== null;
 
-  const priceFields = getPriceFields(commission?.CommissionType ?? null);
-  const costFields = excludingPalletNegotiatedTransport(getCostFields(mode), transportMode);
+  const priceFields = getPriceFields(commission?.CommissionType ?? null, L);
+  const costFields = excludingPalletNegotiatedTransport(getCostFields(mode, L), transportMode);
 
   function fieldRow(f: QuoteFieldMeta) {
     const isWholePack = !!(f.supportsWholePackEntry && wholePackFields[f.key] && packQty);
@@ -103,45 +109,43 @@ export function QuoteSimulatorInputsPanel({
     const err = errors[f.key];
     const base = baselineValue(f.key, inputs, avgUnitPriceBase);
     const displayBase = isWholePack && base !== null ? base * packQty! : base;
+    const showPackToggle = !!(f.supportsWholePackEntry && packQty && packQty > 1);
     return (
-      <div key={f.key} className="space-y-1">
-        <div className="flex items-center justify-between gap-2">
-          <label className="text-xs font-medium text-muted-foreground">{f.label}</label>
+      <Field
+        key={f.key}
+        label={f.label}
+        error={err}
+        labelEnd={
           <div className="flex items-center gap-2">
-            {f.supportsWholePackEntry && packQty && packQty > 1 && (
-              <div className="flex gap-0.5 rounded-md border border-input p-0.5 text-[0.65rem]">
-                <button
-                  type="button"
-                  onClick={() => isWholePack && toggleWholePack(f)}
-                  className={`rounded px-1.5 py-0.5 ${!isWholePack ? "bg-muted font-medium" : "text-muted-foreground"}`}
-                >
-                  Per unit
-                </button>
-                <button
-                  type="button"
-                  onClick={() => !isWholePack && toggleWholePack(f)}
-                  className={`rounded px-1.5 py-0.5 ${isWholePack ? "bg-muted font-medium" : "text-muted-foreground"}`}
-                >
-                  Whole pack ÷{packQty}
-                </button>
-              </div>
+            {showPackToggle && (
+              <FieldToggle
+                value={isWholePack ? "pack" : "unit"}
+                options={[
+                  { value: "unit", label: t("grossMargin.simulator.inputs.perUnit") },
+                  { value: "pack", label: t("grossMargin.simulator.inputs.perPack", { packQty }) },
+                ]}
+                onChange={(next) => {
+                  if ((next === "pack") !== isWholePack) toggleWholePack(f);
+                }}
+                ariaLabel={t("grossMargin.simulator.inputs.entryBasisAria", { label: f.label })}
+              />
             )}
             {text !== "" && (
               <button
                 type="button"
                 onClick={() => resetField(f.key)}
                 className="text-muted-foreground hover:text-foreground"
-                title="Reset to baseline"
+                title={t("grossMargin.simulator.inputs.resetToBaseline")}
               >
                 <RotateCcw className="size-3" />
               </button>
             )}
           </div>
-        </div>
+        }
+      >
         <div className="relative">
           <Input
-            type="number"
-            step={isWholePack ? String(Number(f.step) * packQty!) : f.step}
+            {...decimalInputProps}
             value={text}
             onChange={(e) => setField(f.key, e.target.value, f)}
             placeholder={formatByFieldFormat(f.format, displayBase)}
@@ -150,19 +154,7 @@ export function QuoteSimulatorInputsPanel({
           />
           <Stepper labelPrefix={f.label} onStep={(direction) => stepValue(f, base, direction)} />
         </div>
-        {f.supportsWholePackEntry && packQty && packQty > 1 && (
-          <p className="text-[0.65rem] text-muted-foreground">
-            Per single unit. Have a whole-pack cost instead? Flip the toggle above
-            {base !== null && (
-              <>
-                {" "}
-                — e.g. {formatCurrency(base * packQty)} for a {packQty}-pack → {formatCurrency(base)}/unit.
-              </>
-            )}
-          </p>
-        )}
-        {err && <p className="text-xs text-destructive">{err}</p>}
-      </div>
+      </Field>
     );
   }
 
@@ -170,38 +162,30 @@ export function QuoteSimulatorInputsPanel({
     return (
       <Card>
         <CardHeader>
-          <CardTitle>No cost basis for this row yet</CardTitle>
-          <CardDescription>
-            No purchase cost is on file for this Variety/Warehouse. Pick how it&apos;s sourced to
-            enter cost values by hand and see a live margin — you can save these as a real Cost
-            Reference afterward.
-          </CardDescription>
+          <CardTitle>{t("grossMargin.simulator.inputs.noCostTitle")}</CardTitle>
+          <CardDescription>{t("grossMargin.simulator.inputs.noCostDescription")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">{priceFields.map(fieldRow)}</div>
           {onModeSelect && (
             <div className="space-y-2">
-              <p className="text-xs font-medium text-muted-foreground">How is this sourced?</p>
+              <p className="text-xs font-medium text-muted-foreground">{t("grossMargin.simulator.inputs.sourcingQuestion")}</p>
               <div className="flex gap-2">
                 <button
                   type="button"
                   onClick={() => onModeSelect("A")}
                   className="flex-1 rounded-lg border border-input px-3 py-2 text-left text-sm transition-colors hover:bg-muted"
                 >
-                  <span className="font-medium">Bought pre-packaged</span>
-                  <span className="block text-xs text-muted-foreground">
-                    Supplier already packs it at the final size — enter a direct unit cost.
-                  </span>
+                  <span className="font-medium">{t("grossMargin.simulator.modes.A.plain")}</span>
+                  <span className="block text-xs text-muted-foreground">{t("grossMargin.simulator.modes.A.description")}</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => onModeSelect("B")}
                   className="flex-1 rounded-lg border border-input px-3 py-2 text-left text-sm transition-colors hover:bg-muted"
                 >
-                  <span className="font-medium">Bought raw, by the pound</span>
-                  <span className="block text-xs text-muted-foreground">
-                    We do the production/repacking ourselves — enter a $/lb price and Yield.
-                  </span>
+                  <span className="font-medium">{t("grossMargin.simulator.modes.B.plain")}</span>
+                  <span className="block text-xs text-muted-foreground">{t("grossMargin.simulator.modes.B.description")}</span>
                 </button>
               </div>
             </div>
@@ -219,20 +203,20 @@ export function QuoteSimulatorInputsPanel({
             <SlidersHorizontal className="size-4.5" aria-hidden="true" />
           </div>
           <div>
-            <CardTitle>Adjust the inputs</CardTitle>
-            <CardDescription>Every field defaults to the real baseline value until you change it.</CardDescription>
+            <CardTitle>{t("grossMargin.simulator.inputs.title")}</CardTitle>
+            <CardDescription>{t("grossMargin.simulator.inputs.description")}</CardDescription>
           </div>
         </div>
         <Button variant="outline" size="sm" onClick={resetAll}>
           <RotateCcw className="size-3.5" aria-hidden="true" />
-          Reset all
+          {t("grossMargin.simulator.inputs.resetAll")}
         </Button>
       </CardHeader>
       <CardContent className="space-y-6">
         <div>
           <p className="mb-2 flex items-center gap-1.5 text-sm font-semibold">
             <DollarSign className="size-3.5 text-success" aria-hidden="true" />
-            Sales price
+            {t("grossMargin.simulator.inputs.salesPrice")}
           </p>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">{priceFields.map(fieldRow)}</div>
         </div>
@@ -240,82 +224,64 @@ export function QuoteSimulatorInputsPanel({
           <div className="mb-2 flex items-center justify-between">
             <p className="flex items-center gap-1.5 text-sm font-semibold">
               <ShoppingCart className="size-3.5 text-[var(--chart-2)]" aria-hidden="true" />
-              Purchase cost
+              {t("grossMargin.simulator.inputs.purchaseCost")}
             </p>
             {canNegotiatePallet && (
-              <div className="flex gap-1 rounded-md border border-border p-0.5 text-xs">
-                <button
-                  type="button"
-                  onClick={() => onTransportModeChange("direct")}
-                  className={`rounded px-2 py-1 ${transportMode === "direct" ? "bg-muted font-medium" : "text-muted-foreground"}`}
-                >
-                  Transport: direct $
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onTransportModeChange("pallet")}
-                  className={`rounded px-2 py-1 ${transportMode === "pallet" ? "bg-muted font-medium" : "text-muted-foreground"}`}
-                >
-                  Negotiate Pallet Cost
-                </button>
-              </div>
+              <FieldToggle
+                value={transportMode}
+                options={[
+                  { value: "direct", label: t("grossMargin.simulator.inputs.transportDirect") },
+                  { value: "pallet", label: t("grossMargin.simulator.inputs.transportPallet") },
+                ]}
+                onChange={onTransportModeChange}
+                ariaLabel={t("grossMargin.simulator.inputs.transportAria")}
+              />
             )}
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {costFields.map(fieldRow)}
             {transportMode === "pallet" && transportCost && (
-              <div key="palletCostOverride" className="space-y-1">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-medium text-muted-foreground">Pallet Cost</label>
-                  {displayValue("palletCostOverride") !== "" && (
+              <Field
+                key="palletCostOverride"
+                label={L("palletCost")}
+                error={errors.palletCostOverride}
+                labelEnd={
+                  displayValue("palletCostOverride") !== "" ? (
                     <button
                       type="button"
                       onClick={() => resetField("palletCostOverride")}
                       className="text-muted-foreground hover:text-foreground"
+                      title={t("grossMargin.simulator.inputs.resetToBaseline")}
                     >
                       <RotateCcw className="size-3" />
                     </button>
-                  )}
-                </div>
+                  ) : null
+                }
+              >
                 <div className="relative">
                   <Input
-                    type="number"
-                    step="0.01"
+                    {...decimalInputProps}
                     value={displayValue("palletCostOverride")}
                     onChange={(e) => setField("palletCostOverride", e.target.value)}
                     placeholder={formatCurrency(transportCost.PalletCost)}
+                    aria-invalid={!!errors.palletCostOverride}
                     className={cn("pr-6", HIDE_NATIVE_SPINNER)}
                   />
                   <Stepper
-                    labelPrefix="Pallet Cost"
+                    labelPrefix={L("palletCost")}
                     onStep={(direction) =>
                       stepValue(
-                        { key: "palletCostOverride", label: "Pallet Cost", group: "cost", format: "currency", step: "0.01" },
+                        { key: "palletCostOverride", label: L("palletCost"), labelKey: "palletCost", group: "cost", format: "currency", step: "0.01" },
                         transportCost.PalletCost,
                         direction
                       )
                     }
                   />
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Qty {transportCost.Qty} × Boxes/Pallet {transportCost.BoxesXPallet} — TransportUnitCost recomputes live.
-                </p>
-              </div>
+              </Field>
             )}
           </div>
         </div>
-        {mode === "C" && (
-          <p className="text-xs text-muted-foreground">
-            Mixed-herb blends move as one blended purchase-cost number in this version — per-component
-            editing needs additional data this dashboard doesn&apos;t expose yet.
-          </p>
-        )}
-        {mode === "B" && (
-          <p className="text-xs text-muted-foreground">
-            Purchase Cost reflects the current blended price across all suppliers — per-supplier
-            decomposition isn&apos;t available yet.
-          </p>
-        )}
       </CardContent>
     </Card>
   );

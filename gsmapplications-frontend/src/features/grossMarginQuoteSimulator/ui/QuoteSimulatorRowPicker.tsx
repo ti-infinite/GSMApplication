@@ -1,9 +1,10 @@
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { SearchCheck } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/shared/ui/card";
 import { Combobox } from "@/shared/ui/combobox";
 import type { SalesRow } from "@/entities/grossMarginSalesRow";
-import { StepLabel } from "./StepLabel";
+import { Field } from "@/shared/ui/field";
 
 // Modeled on cost-reference-card.tsx's search+Select picker, extended to
 // three cascading dimensions since a SalesRow's real identity key is
@@ -17,6 +18,7 @@ export function QuoteSimulatorRowPicker({
   selected: SalesRow | null;
   onSelect: (row: SalesRow) => void;
 }) {
+  const { t } = useTranslation();
   const [selectedVariety, setSelectedVariety] = useState(selected?.Variety ?? "");
   const [selectedCustomer, setSelectedCustomer] = useState(selected?.Customer ?? "");
   const [selectedWarehouse, setSelectedWarehouse] = useState(selected?.Warehouse ?? "");
@@ -76,45 +78,39 @@ export function QuoteSimulatorRowPicker({
             <SearchCheck className="size-4.5" aria-hidden="true" />
           </div>
           <div>
-            <CardTitle>Pick a row to simulate</CardTitle>
-            <CardDescription>
-              Select the real Variety, Customer, and Warehouse combination you want to model — its
-              current live values become the baseline.
-            </CardDescription>
+            <CardTitle>{t("grossMargin.simulator.picker.title")}</CardTitle>
+            <CardDescription>{t("grossMargin.simulator.picker.description")}</CardDescription>
           </div>
         </div>
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <div className="space-y-1.5">
-            <StepLabel step={1} text="Variety" active={!!selectedVariety} />
+          <Field label={t("grossMargin.common.fields.variety")} step={{ n: 1, active: !!selectedVariety }}>
             <Combobox
               value={selectedVariety}
-              onChange={(v) => v && handleVariety(v)}
+              onChange={handleVariety}
               options={varieties.map((v) => ({ value: v, label: v }))}
-              placeholder="Select a variety…"
+              placeholder={t("grossMargin.common.selectVariety")}
             />
-          </div>
-          <div className="space-y-1.5">
-            <StepLabel step={2} text="Customer" active={!!selectedCustomer} />
+          </Field>
+          <Field label={t("grossMargin.common.fields.customer")} step={{ n: 2, active: !!selectedCustomer }}>
             <Combobox
               value={selectedCustomer}
-              onChange={(v) => v && handleCustomer(v)}
+              onChange={handleCustomer}
               disabled={!selectedVariety}
               options={customersForVariety.map((c) => ({ value: c, label: c }))}
-              placeholder={selectedVariety ? "Select a customer…" : "Pick a variety first"}
+              placeholder={selectedVariety ? t("grossMargin.common.selectCustomer") : t("grossMargin.simulator.picker.varietyFirst")}
             />
-          </div>
-          <div className="space-y-1.5">
-            <StepLabel step={3} text="Warehouse" active={!!selectedWarehouse} />
+          </Field>
+          <Field label={t("grossMargin.common.fields.warehouse")} step={{ n: 3, active: !!selectedWarehouse }}>
             <Combobox
               value={selectedWarehouse}
-              onChange={(v) => v && handleWarehouse(v)}
+              onChange={(v) => (v ? handleWarehouse(v) : setSelectedWarehouse(""))}
               disabled={!selectedCustomer}
               options={warehousesForSelection.map((w) => ({ value: w, label: w }))}
-              placeholder={selectedCustomer ? "Select a warehouse…" : "Pick a customer first"}
+              placeholder={selectedCustomer ? t("grossMargin.common.selectWarehouse") : t("grossMargin.simulator.picker.customerFirst")}
             />
-          </div>
+          </Field>
         </div>
       </CardContent>
     </Card>

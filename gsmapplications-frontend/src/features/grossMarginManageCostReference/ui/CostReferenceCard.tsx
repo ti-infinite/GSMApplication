@@ -1,42 +1,65 @@
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Card, CardAction, CardContent, CardHeader, CardTitle, CardDescription } from "@/shared/ui/card";
 import { ReferenceBulkUpload } from "@/shared/ui/reference-bulk-upload";
 import { Input } from "@/shared/ui/input";
 import { Button } from "@/shared/ui/button";
 import { Combobox } from "@/shared/ui/combobox";
+import { Field } from "@/shared/ui/field";
 import type { SalesRow } from "@/entities/grossMarginSalesRow";
 import { useReferenceSearch } from "@/shared/lib/useReferenceSearch";
 import { useSubmitWithConflict } from "@/shared/lib/useSubmitWithConflict";
 import { grossMarginFetch as relayFetch } from "@/shared/lib/ihAgent";
+import { decimalInputProps, hasAnyValue, type NumberRule } from "@/shared/lib/formValidation";
+import { useFieldValidation } from "@/shared/lib/useFieldValidation";
+import { getFieldRules } from "@/shared/lib/referenceSchemas";
 
 const FIELDS = [
-  { key: "packing", label: "Packing" },
-  { key: "sticker", label: "Sticker" },
-  { key: "box", label: "Box" },
-  { key: "labourProd", label: "Labour (Prod)" },
-  { key: "labourRepack", label: "Labour (Repack)" },
-  { key: "labourAssembler", label: "Labour (Assembler)" },
+  { key: "packing" },
+  { key: "sticker" },
+  { key: "box" },
+  { key: "labourProd" },
+  { key: "labourRepack" },
+  { key: "labourAssembler" },
 ] as const;
+type CostKey = (typeof FIELDS)[number]["key"];
+const COST_KEYS = FIELDS.map((f) => f.key);
+
+const SPECS = Object.fromEntries(FIELDS.map((f) => [f.key, getFieldRules("cost-reference", f.key)])) as Record<
+  CostKey,
+  NumberRule[]
+>;
+const EMPTY_TEXTS = Object.fromEntries(FIELDS.map((f) => [f.key, ""])) as Record<CostKey, string>;
 
 export function CostReferenceCard({ rows, onApplied }: { rows: SalesRow[]; onApplied: () => void }) {
+  const { t } = useTranslation();
   const { values: varieties } = useReferenceSearch(rows, (r) => r.Variety);
   const [selectedVariety, setSelectedVariety] = useState("");
   const [selectedWarehouse, setSelectedWarehouse] = useState("");
-  const [texts, setTexts] = useState<Record<string, string>>({});
+  const [texts, setTexts] = useState<Record<CostKey, string>>(EMPTY_TEXTS);
   const { isSubmitting, conflictError, submit } = useSubmitWithConflict();
 
   const warehouses = useMemo(() => Array.from(new Set(rows.map((r) => r.Warehouse))).sort(), [rows]);
 
+  const anyCostTyped = COST_KEYS.some((k) => texts[k].trim() !== "");
+  const extraErrors = useMemo(
+    () => ({
+      variety: selectedVariety ? null : { code: "required" as const },
+      warehouse: selectedWarehouse ? null : { code: "required" as const },
+      costs: anyCostTyped ? null : { code: "atLeastOneValue" as const },
+    }),
+    [selectedVariety, selectedWarehouse, anyCostTyped]
+  );
+  const validation = useFieldValidation(texts, SPECS, extraErrors);
+
   async function handleApply() {
-    if (!selectedVariety || !selectedWarehouse) {
-      toast.error("Pick a variety and warehouse first.");
-      return;
-    }
+    if (!validation.attemptSubmit()) return;
+    if (!hasAnyValue(validation.values, COST_KEYS)) return;
     const body: Record<string, unknown> = { variety: selectedVariety, warehouse: selectedWarehouse };
-    for (const f of FIELDS) {
-      const text = texts[f.key];
-      if (text) body[f.key] = Number(text);
+    for (const key of COST_KEYS) {
+      const value = validation.values[key];
+      if (value !== null) body[key] = value;
     }
 
     await submit(
@@ -46,14 +69,15 @@ export function CostReferenceCard({ rows, onApplied }: { rows: SalesRow[]; onApp
           body: JSON.stringify(body),
         }),
       {
-        conflictMessage: "A cost reference already exists for this combination — see the table below.",
-        defaultErrorMessage: "Failed to add cost reference.",
+        conflictMessage: t("grossMargin.updates.costReference.conflict"),
+        defaultErrorMessage: t("grossMargin.updates.costReference.failed"),
         onSuccess: (json) => {
           if (json.warning) toast.warning(json.warning as string);
-          toast.success(`Cost reference added for ${selectedVariety} at ${selectedWarehouse}.`);
+          toast.success(t("grossMargin.updates.costReference.success", { variety: selectedVariety, warehouse: selectedWarehouse }));
           setSelectedVariety("");
           setSelectedWarehouse("");
-          setTexts({});
+          setTexts(EMPTY_TEXTS);
+          validation.reset();
           onApplied();
         },
       }
@@ -63,50 +87,52 @@ export function CostReferenceCard({ rows, onApplied }: { rows: SalesRow[]; onApp
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Cost Reference</CardTitle>
-        <CardDescription>
-          Packing/Sticker/Box/Labour costs per variety and warehouse — leave a field blank for "not
-          applicable" (never a guessed zero).
-        </CardDescription>
+        <CardTitle>{t("grossMargin.updates.costReference.title")}</CardTitle>
+        <CardDescription>{t("grossMargin.updates.costReference.description")}</CardDescription>
         <CardAction>
           <ReferenceBulkUpload resourceId="cost-reference" onApplied={onApplied} />
         </CardAction>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Variety</label>
+          <Field label={t("grossMargin.common.fields.variety")} error={validation.visibleErrors.variety}>
             <Combobox
               value={selectedVariety}
-              onChange={(v) => v && setSelectedVariety(v)}
+              onChange={setSelectedVariety}
               options={varieties.map((v) => ({ value: v, label: v }))}
-              placeholder="Select a variety…"
+              placeholder={t("grossMargin.common.selectVariety")}
             />
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Warehouse</label>
+          </Field>
+          <Field label={t("grossMargin.common.fields.warehouse")} error={validation.visibleErrors.warehouse}>
             <Combobox
               value={selectedWarehouse}
-              onChange={(v) => v && setSelectedWarehouse(v)}
+              onChange={setSelectedWarehouse}
               options={warehouses.map((w) => ({ value: w, label: w }))}
-              placeholder="Select a warehouse…"
+              placeholder={t("grossMargin.common.selectWarehouse")}
             />
-          </div>
+          </Field>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          {FIELDS.map((f) => (
-            <div key={f.key} className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">{f.label}</label>
-              <Input
-                type="number"
-                step="0.01"
-                placeholder="—"
-                value={texts[f.key] ?? ""}
-                onChange={(e) => setTexts((t) => ({ ...t, [f.key]: e.target.value }))}
-              />
-            </div>
-          ))}
+        <div className="space-y-1.5">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {FIELDS.map((f) => (
+              <Field key={f.key} label={t(`grossMargin.common.fields.${f.key}`)} error={validation.visibleErrors[f.key]}>
+                <Input
+                  {...decimalInputProps}
+                  placeholder="—"
+                  value={texts[f.key]}
+                  onChange={(e) => setTexts((t) => ({ ...t, [f.key]: e.target.value }))}
+                  onBlur={() => validation.touch(f.key)}
+                  aria-invalid={!!validation.visibleErrors[f.key]}
+                />
+              </Field>
+            ))}
+          </div>
+          {validation.visibleErrors.costs && (
+            <p role="alert" className="text-xs text-destructive">
+              {validation.visibleErrors.costs}
+            </p>
+          )}
         </div>
 
         {conflictError && (
@@ -115,8 +141,8 @@ export function CostReferenceCard({ rows, onApplied }: { rows: SalesRow[]; onApp
           </div>
         )}
 
-        <Button onClick={handleApply} disabled={isSubmitting || !selectedVariety || !selectedWarehouse}>
-          {isSubmitting ? "Adding…" : "Add Cost Reference"}
+        <Button onClick={handleApply} disabled={isSubmitting || !validation.isValid}>
+          {isSubmitting ? t("grossMargin.common.adding") : t("grossMargin.updates.costReference.add")}
         </Button>
       </CardContent>
     </Card>

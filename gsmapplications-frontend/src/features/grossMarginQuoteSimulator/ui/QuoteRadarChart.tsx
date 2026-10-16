@@ -8,6 +8,7 @@ import {
   Tooltip,
   Legend,
 } from "recharts";
+import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/shared/ui/card";
 import { computeCostBreakdown } from "@/entities/grossMarginSalesRow";
 import { formatPercent } from "@/shared/lib/format";
@@ -18,6 +19,7 @@ import { THRESHOLDS } from "@/shared/lib/thresholds";
 // computeCostBreakdown()'s own categories directly, so $ and % metrics
 // share one honest scale with no new normalization logic invented.
 export function QuoteRadarChart({ actual, simulated }: { actual: SalesRow; simulated: SalesRow }) {
+  const { t } = useTranslation();
   const actualBreakdown = computeCostBreakdown(actual);
   const simulatedBreakdown = computeCostBreakdown(simulated);
 
@@ -30,7 +32,7 @@ export function QuoteRadarChart({ actual, simulated }: { actual: SalesRow; simul
   };
 
   const data = actualBreakdown.map((cat, i) => ({
-    category: cat.label,
+    category: t(`grossMargin.alarms.categories.${cat.key}`),
     actual: cat.value !== null ? cat.value * 100 : 0,
     simulated: (simulatedBreakdown[i].value ?? 0) * 100,
     target: targetByKey[cat.key] * 100,
@@ -46,11 +48,9 @@ export function QuoteRadarChart({ actual, simulated }: { actual: SalesRow; simul
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Cost &amp; margin shape</CardTitle>
+        <CardTitle>{t("grossMargin.simulator.charts.radarTitle")}</CardTitle>
         <CardDescription>
-          {hasChanges
-            ? "Every axis is a % of Avg Sales Unit Price, so costs and margin share one honest scale. For cost axes, closer to center is better; for Gross Margin, farther out is better."
-            : "Every axis is a % of Avg Sales Unit Price. Simulated currently matches Actual exactly — adjust an input above to see them diverge."}
+          {hasChanges ? t("grossMargin.simulator.charts.radarDescription") : t("grossMargin.simulator.charts.radarNoChanges")}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -65,10 +65,10 @@ export function QuoteRadarChart({ actual, simulated }: { actual: SalesRow; simul
             {/* isAnimationActive=false: otherwise recharts tweens from the
                 previous row's shape, briefly showing stale data on switch. */}
             {hasChanges && (
-              <Radar name="Simulated" dataKey="simulated" stroke="var(--color-primary)" fill="var(--color-primary)" fillOpacity={0.3} isAnimationActive={false} />
+              <Radar name={t("grossMargin.simulator.charts.series.simulated")} dataKey="simulated" stroke="var(--color-primary)" fill="var(--color-primary)" fillOpacity={0.3} isAnimationActive={false} />
             )}
-            <Radar name="Actual" dataKey="actual" stroke="var(--color-muted-foreground)" fill="var(--color-muted-foreground)" fillOpacity={hasChanges ? 0.15 : 0.25} isAnimationActive={false} />
-            <Radar name="Target" dataKey="target" stroke="var(--color-chart-4)" fill="none" strokeDasharray="4 4" isAnimationActive={false} />
+            <Radar name={t("grossMargin.simulator.charts.series.actual")} dataKey="actual" stroke="var(--color-muted-foreground)" fill="var(--color-muted-foreground)" fillOpacity={hasChanges ? 0.15 : 0.25} isAnimationActive={false} />
+            <Radar name={t("grossMargin.simulator.charts.series.target")} dataKey="target" stroke="var(--color-chart-4)" fill="none" strokeDasharray="4 4" isAnimationActive={false} />
             <Legend wrapperStyle={{ fontSize: 12 }} />
             <Tooltip
               formatter={(value) => formatPercent(typeof value === "number" ? value / 100 : Number(value) / 100)}

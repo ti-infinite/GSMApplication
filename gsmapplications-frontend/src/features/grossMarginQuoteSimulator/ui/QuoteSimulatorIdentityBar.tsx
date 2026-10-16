@@ -1,7 +1,7 @@
 import { Package, UserPlus, MapPin, Users2, Tag } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { SalesRow } from "@/entities/grossMarginSalesRow";
 import type { SalesRowMode } from "../model/recompute";
-import { MODE_COPY } from "../model/quoteModeCopy";
 import { cn } from "@/shared/lib/utils";
 
 // Stays pinned under the picker for the whole session so the numbers below
@@ -17,7 +17,7 @@ export function QuoteSimulatorIdentityBar({
   blendSummary?: string;
   isNewCustomerQuote?: boolean;
 }) {
-  const copy = MODE_COPY[mode];
+  const { t } = useTranslation();
   return (
     <div
       className={cn(
@@ -36,10 +36,10 @@ export function QuoteSimulatorIdentityBar({
         </div>
         <div className="min-w-0">
           <p className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-            {isNewCustomerQuote ? "You're quoting a new customer" : "You're modeling"}
+            {isNewCustomerQuote ? t("grossMargin.simulator.identity.quotingNewCustomer") : t("grossMargin.simulator.identity.quoting")}
             {isNewCustomerQuote && (
               <span className="rounded-md bg-[var(--chart-2)]/15 px-2 py-0.5 text-[0.65rem] font-semibold text-[var(--chart-2)]">
-                New customer
+                {t("grossMargin.simulator.identity.newCustomer")}
               </span>
             )}
           </p>
@@ -51,7 +51,7 @@ export function QuoteSimulatorIdentityBar({
             </span>
             <span className="flex items-center gap-1.5">
               <MapPin className="size-3.5" aria-hidden="true" />
-              {row.Warehouse} warehouse
+              {row.Warehouse}
             </span>
             <span className="flex items-center gap-1.5 font-mono">
               <Tag className="size-3.5" aria-hidden="true" />
@@ -61,8 +61,8 @@ export function QuoteSimulatorIdentityBar({
         </div>
       </div>
       <div className="rounded-xl bg-card/80 px-4 py-2.5 text-sm shadow-sm sm:max-w-xs">
-        <p className="font-medium text-foreground">{copy.plain}</p>
-        <p className="mt-0.5 text-xs text-muted-foreground">{copy.description}</p>
+        <p className="font-medium text-foreground">{t(`grossMargin.simulator.modes.${mode}.plain`)}</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">{t(`grossMargin.simulator.modes.${mode}.description`)}</p>
         {blendSummary && <p className="mt-1 text-xs text-muted-foreground">{blendSummary}</p>}
       </div>
     </div>

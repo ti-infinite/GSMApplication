@@ -1,5 +1,7 @@
 import { useMemo, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
+import { useTranslation } from "react-i18next";
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
+import { Field } from "@/shared/ui/field";
 import {
   Table,
   TableBody,
@@ -17,16 +19,17 @@ import { formatCurrency, formatPercent } from "@/shared/lib/format";
 import { EMPTY_CELL_CLASSES } from "@/shared/lib/emptyCellStyles";
 import type { SalesRow } from "@/entities/grossMarginSalesRow";
 import { cn } from "@/shared/lib/utils";
+import { THRESHOLD_LABELS } from "@/shared/lib/thresholds";
 import { X, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 
 const PAGE_SIZE_OPTIONS = [25, 50, 100, 200];
 
-const ZONE_OPTIONS: { value: Zone | "any"; label: string }[] = [
-  { value: "any", label: "Any zone" },
-  { value: "red", label: "Red — over threshold" },
-  { value: "yellow", label: "Yellow — approaching threshold" },
-  { value: "green", label: "Green — healthy" },
-  { value: "unknown", label: "No data" },
+const ZONE_OPTIONS: { value: Zone | "any"; labelKey: string }[] = [
+  { value: "any", labelKey: "statusAny" },
+  { value: "red", labelKey: "statusOver" },
+  { value: "yellow", labelKey: "statusClose" },
+  { value: "green", labelKey: "statusWithin" },
+  { value: "unknown", labelKey: "statusNoData" },
 ];
 
 // Cell background/text driven entirely by semantic tokens (never raw hex),
@@ -49,13 +52,14 @@ function ZoneCell({
   isFloor: boolean;
   zone: Zone;
 }) {
+  const { t } = useTranslation();
   const comparison = isFloor
-    ? `Floor: ${formatPercent(threshold)} minimum`
-    : `Threshold: ${formatPercent(threshold)} maximum`;
+    ? t("grossMargin.alarms.floor", { value: formatPercent(threshold) })
+    : t("grossMargin.alarms.threshold", { value: formatPercent(threshold) });
 
   return (
     <div
-      title={value === null ? "No data available" : comparison}
+      title={value === null ? t("grossMargin.dashboard.breakdown.noDataAvailable") : comparison}
       className={cn(
         "flex w-full items-center justify-center rounded-md px-2 py-1.5 font-mono text-sm tabular-nums font-medium cursor-default",
         ZONE_CELL_CLASSES[zone]
@@ -67,6 +71,7 @@ function ZoneCell({
 }
 
 export function CostBreakdownTable({ rows }: { rows: SalesRow[] }) {
+  const { t } = useTranslation();
   const [zoneFilter, setZoneFilter] = useState<Zone | "any">("any");
   const [varietyFilter, setVarietyFilter] = useState("");
   const [customerFilter, setCustomerFilter] = useState("");
@@ -105,7 +110,7 @@ export function CostBreakdownTable({ rows }: { rows: SalesRow[] }) {
       });
   }, [enriched, varietyFilter, customerFilter, warehouseFilter, zoneFilter]);
 
-  const categoryLabels = enriched[0]?.breakdown.map((c) => c.label) ?? [];
+  const categoryLabels = enriched[0]?.breakdown.map((c) => t(`grossMargin.alarms.categories.${c.key}`)) ?? [];
 
   // Paginated, not virtualized -- consistent with Sales Explorer, this
   // caps how much the table ever mounts at once instead of relying on
@@ -131,43 +136,10 @@ export function CostBreakdownTable({ rows }: { rows: SalesRow[] }) {
 
   return (
     <Card>
-      <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <CardTitle className="text-base">
-          Cost breakdown — {filtered.length} row{filtered.length === 1 ? "" : "s"}
-        </CardTitle>
-        <div className="flex flex-wrap gap-2">
-          <Input
-            placeholder="Filter varieties…"
-            value={varietyFilter}
-            onChange={(e) => setVarietyFilter(e.target.value)}
-            className="h-8 w-full text-sm sm:w-44"
-          />
-          <Input
-            placeholder="Filter customers…"
-            value={customerFilter}
-            onChange={(e) => setCustomerFilter(e.target.value)}
-            className="h-8 w-full text-sm sm:w-44"
-          />
-          <div className="w-full sm:w-36">
-            <Combobox
-              size="sm"
-              value={warehouseFilter}
-              onChange={(v) => setWarehouseFilter(v || "all")}
-              options={[
-                { value: "all", label: "All warehouses" },
-                ...warehouses.map((w) => ({ value: w, label: w })),
-              ]}
-            />
-          </div>
-          <div className="w-full sm:w-56">
-            <Combobox
-              size="sm"
-              value={zoneFilter}
-              onChange={(v) => setZoneFilter((v || "any") as Zone | "any")}
-              options={ZONE_OPTIONS.map((opt) => ({ value: opt.value, label: opt.label }))}
-            />
-          </div>
-          {hasActiveFilters && (
+      <CardHeader>
+        <CardTitle>{t("grossMargin.dashboard.breakdown.title")}</CardTitle>
+        {hasActiveFilters && (
+          <CardAction>
             <Button
               variant="ghost"
               size="sm"
@@ -180,42 +152,72 @@ export function CostBreakdownTable({ rows }: { rows: SalesRow[] }) {
               }}
             >
               <X aria-hidden="true" />
-              Reset
+              {t("grossMargin.dashboard.breakdown.reset")}
             </Button>
-          )}
-        </div>
+          </CardAction>
+        )}
       </CardHeader>
       <CardContent>
-        <div className="mb-3 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
-          <span className="flex items-center gap-1.5">
-            <span className="size-2.5 rounded-full bg-success" /> Healthy
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="size-2.5 rounded-full bg-warning" /> Approaching threshold
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="size-2.5 rounded-full bg-destructive" /> Over threshold
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="size-2.5 rounded-full bg-muted-foreground/40" /> No data
-          </span>
+        <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <Field label={t("grossMargin.common.fields.variety")}>
+            <Input
+              placeholder={t("grossMargin.common.search")}
+              value={varietyFilter}
+              onChange={(e) => setVarietyFilter(e.target.value)}
+            />
+          </Field>
+          <Field label={t("grossMargin.common.fields.customer")}>
+            <Input
+              placeholder={t("grossMargin.common.search")}
+              value={customerFilter}
+              onChange={(e) => setCustomerFilter(e.target.value)}
+            />
+          </Field>
+          <Field label={t("grossMargin.common.fields.warehouse")}>
+            <Combobox
+              value={warehouseFilter}
+              onChange={(v) => setWarehouseFilter(v || "all")}
+              options={[
+                { value: "all", label: t("grossMargin.common.allWarehouses") },
+                ...warehouses.map((w) => ({ value: w, label: w })),
+              ]}
+            />
+          </Field>
+          <Field label={t("grossMargin.dashboard.breakdown.status")}>
+            <Combobox
+              value={zoneFilter}
+              onChange={(v) => setZoneFilter((v || "any") as Zone | "any")}
+              options={ZONE_OPTIONS.map((opt) => ({ value: opt.value, label: t(`grossMargin.dashboard.breakdown.${opt.labelKey}`) }))}
+            />
+          </Field>
         </div>
+
+        <p className="mb-2 text-xs text-muted-foreground">
+          {t("grossMargin.dashboard.breakdown.limits", {
+            purchase: THRESHOLD_LABELS.purchaseCost,
+            packing: THRESHOLD_LABELS.packing,
+            labour: THRESHOLD_LABELS.labour,
+            transport: THRESHOLD_LABELS.transport,
+            margin: THRESHOLD_LABELS.margin,
+            band: THRESHOLD_LABELS.amberBand,
+          })}
+        </p>
 
         <div className="mb-4 flex flex-wrap gap-2">
           <span className="rounded-full bg-destructive/10 px-2.5 py-1 text-xs font-medium text-destructive">
-            {summary.redRows} over threshold
+            {t("grossMargin.dashboard.breakdown.pillOver", { count: summary.redRows })}
           </span>
           <span className="rounded-full bg-warning/10 px-2.5 py-1 text-xs font-medium text-warning">
-            {summary.yellowOnly} approaching
+            {t("grossMargin.dashboard.breakdown.pillClose", { count: summary.yellowOnly })}
           </span>
           <span className="rounded-full bg-success/10 px-2.5 py-1 text-xs font-medium text-success">
-            {summary.healthy} fully healthy
+            {t("grossMargin.dashboard.breakdown.pillWithin", { count: summary.healthy })}
           </span>
         </div>
 
         {filtered.length === 0 ? (
           <p className="py-8 text-center text-sm text-muted-foreground">
-            No rows match the current filters.
+            {t("grossMargin.dashboard.breakdown.noRowsMatch")}
           </p>
         ) : (
           <div className="overflow-hidden rounded-lg border">
@@ -223,10 +225,10 @@ export function CostBreakdownTable({ rows }: { rows: SalesRow[] }) {
               <Table>
                 <TableHeader className="bg-card">
                   <TableRow>
-                    <TableHead className="whitespace-nowrap">Variety</TableHead>
-                    <TableHead className="whitespace-nowrap">Customer</TableHead>
-                    <TableHead className="whitespace-nowrap">Warehouse</TableHead>
-                    <TableHead className="whitespace-nowrap text-right">Avg Unit Price</TableHead>
+                    <TableHead className="whitespace-nowrap">{t("grossMargin.common.fields.variety")}</TableHead>
+                    <TableHead className="whitespace-nowrap">{t("grossMargin.common.fields.customer")}</TableHead>
+                    <TableHead className="whitespace-nowrap">{t("grossMargin.common.fields.warehouse")}</TableHead>
+                    <TableHead className="whitespace-nowrap text-right">{t("grossMargin.dashboard.salesExplorer.columns.avgUnitPrice")}</TableHead>
                     {categoryLabels.map((label) => (
                       <TableHead key={label} className="min-w-32 whitespace-nowrap text-center">
                         {label}
@@ -263,7 +265,7 @@ export function CostBreakdownTable({ rows }: { rows: SalesRow[] }) {
 
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-card px-4 py-1 text-sm">
               <div className="flex items-center gap-2 text-muted-foreground">
-                <span>Rows per page</span>
+                <span>{t("grossMargin.common.rowsPerPage")}</span>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button
@@ -292,7 +294,7 @@ export function CostBreakdownTable({ rows }: { rows: SalesRow[] }) {
                       type="button"
                       disabled={safePage === 0}
                       onClick={() => setPage(safePage - 1)}
-                      aria-label="Previous"
+                      aria-label={t("grossMargin.common.previous")}
                       className="rounded-md p-1 text-muted-foreground hover:bg-muted disabled:opacity-40"
                     >
                       <ChevronLeft className="h-4 w-4" />
@@ -302,7 +304,7 @@ export function CostBreakdownTable({ rows }: { rows: SalesRow[] }) {
                       type="button"
                       disabled={safePage >= pageCount - 1}
                       onClick={() => setPage(safePage + 1)}
-                      aria-label="Next"
+                      aria-label={t("grossMargin.common.next")}
                       className="rounded-md p-1 text-muted-foreground hover:bg-muted disabled:opacity-40"
                     >
                       <ChevronRight className="h-4 w-4" />

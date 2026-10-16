@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 // The repeated submitting/conflictError/try-catch-finally shell duplicated
@@ -11,6 +12,7 @@ import { toast } from "sonner";
 // dual entry has no equivalent in the other 5) and forcing them into this
 // shell would make it a leaky abstraction instead of a clean one.
 export function useSubmitWithConflict() {
+  const { t } = useTranslation();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [conflictError, setConflictError] = useState<string | null>(null);
 
@@ -40,7 +42,7 @@ export function useSubmitWithConflict() {
       }
       options.onSuccess(json);
     } catch {
-      toast.error("Failed to reach the server. Try again.");
+      toast.error(t("grossMargin.common.serverUnreachable"));
     } finally {
       setIsSubmitting(false);
     }

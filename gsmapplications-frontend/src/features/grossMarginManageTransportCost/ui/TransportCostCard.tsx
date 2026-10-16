@@ -1,81 +1,82 @@
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Card, CardAction, CardContent, CardHeader, CardTitle, CardDescription } from "@/shared/ui/card";
 import { ReferenceBulkUpload } from "@/shared/ui/reference-bulk-upload";
 import { Input } from "@/shared/ui/input";
 import { Button } from "@/shared/ui/button";
 import { Combobox } from "@/shared/ui/combobox";
+import { Field } from "@/shared/ui/field";
 import type { SalesRow } from "@/entities/grossMarginSalesRow";
 import { useReferenceSearch } from "@/shared/lib/useReferenceSearch";
 import { useSubmitWithConflict } from "@/shared/lib/useSubmitWithConflict";
 import { grossMarginFetch as relayFetch } from "@/shared/lib/ihAgent";
+import { decimalInputProps, type NumberRule } from "@/shared/lib/formValidation";
+import { useFieldValidation } from "@/shared/lib/useFieldValidation";
+import { getFieldRules } from "@/shared/lib/referenceSchemas";
 
 const TYPE_OPTIONS = ["R", "P"];
 const PACKAGING_OPTIONS = ["CLA", "BAG", "BOX"];
-// Sentinel for the Select control only -- never sent to the relay. An
-// unset Warehouse means "applies regardless of warehouse" (every
-// division's real behavior before Market Basket, the first customer
-// genuinely fulfilled from more than one warehouse for the same product).
+// Sentinel for the Select control only -- never sent to the relay. An unset
+// Warehouse means "applies regardless of warehouse".
 const ANY_WAREHOUSE = "__any__";
 
+type NumKey = "measurementUnitValue" | "packQty" | "qty" | "boxesXPallet" | "palletCost";
+const SPECS: Record<NumKey, NumberRule[]> = {
+  measurementUnitValue: getFieldRules("transport-cost", "measurementUnitValue"),
+  packQty: getFieldRules("transport-cost", "packQty"),
+  qty: getFieldRules("transport-cost", "qty"),
+  boxesXPallet: getFieldRules("transport-cost", "boxesXPallet"),
+  palletCost: getFieldRules("transport-cost", "palletCost"),
+};
+const EMPTY_TEXTS: Record<NumKey, string> = {
+  measurementUnitValue: "",
+  packQty: "",
+  qty: "",
+  boxesXPallet: "",
+  palletCost: "",
+};
+
 export function TransportCostCard({ rows, onApplied }: { rows: SalesRow[]; onApplied: () => void }) {
+  const { t } = useTranslation();
   const { values: divisions } = useReferenceSearch(rows, (r) => r.Customer);
   const [selectedDivision, setSelectedDivision] = useState("");
   const [warehouse, setWarehouse] = useState(ANY_WAREHOUSE);
-  const [packQtyText, setPackQtyText] = useState("");
   const [type, setType] = useState("");
   const [packaging, setPackaging] = useState("");
-  const [measurementUnitText, setMeasurementUnitText] = useState("");
-  const [qtyText, setQtyText] = useState("");
-  const [boxesXPalletText, setBoxesXPalletText] = useState("");
-  const [palletCostText, setPalletCostText] = useState("");
+  const [texts, setTexts] = useState<Record<NumKey, string>>(EMPTY_TEXTS);
   const { isSubmitting, conflictError, submit } = useSubmitWithConflict();
 
   const warehouses = useMemo(() => Array.from(new Set(rows.map((r) => r.Warehouse))).sort(), [rows]);
 
+  const extraErrors = useMemo(
+    () => ({
+      division: selectedDivision ? null : { code: "required" as const },
+      type: type ? null : { code: "required" as const },
+      packaging: packaging ? null : { code: "required" as const },
+    }),
+    [selectedDivision, type, packaging]
+  );
+  const validation = useFieldValidation(texts, SPECS, extraErrors);
+
+  function setText(key: NumKey, value: string) {
+    setTexts((t) => ({ ...t, [key]: value }));
+  }
+
   async function handleApply() {
-    const measurementUnitValue = Number(measurementUnitText);
-    if (!selectedDivision) {
-      toast.error("Pick a customer/division first.");
-      return;
-    }
-    if (!measurementUnitText || Number.isNaN(measurementUnitValue) || measurementUnitValue <= 0) {
-      toast.error("Enter a package size greater than 0.");
-      return;
-    }
-    // Type/Packaging/Qty are NOT NULL in db_ai.DivisionTransportCost -- every
-    // real row has all three, unlike BoxesXPallet/PalletCost which have
-    // genuine blank cases in the source data (see the relay's own comment).
-    if (!type || !packaging) {
-      toast.error("Pick a Type and Packaging.");
-      return;
-    }
-    const qty = Number(qtyText);
-    if (!qtyText || Number.isNaN(qty) || qty <= 0) {
-      toast.error("Enter a Qty greater than 0.");
-      return;
-    }
-    const boxesXPallet = boxesXPalletText ? Number(boxesXPalletText) : null;
-    if (boxesXPallet !== null && boxesXPallet <= 0) {
-      toast.error("Boxes per pallet must be greater than 0.");
-      return;
-    }
-    const packQty = packQtyText ? Number(packQtyText) : null;
-    if (packQty !== null && (Number.isNaN(packQty) || packQty <= 0)) {
-      toast.error("Pack size must be a whole number greater than 0.");
-      return;
-    }
+    if (!validation.attemptSubmit()) return;
+    const v = validation.values;
 
     const body: Record<string, unknown> = {
       divisionName: selectedDivision,
-      measurementUnitValue,
+      measurementUnitValue: v.measurementUnitValue,
       type,
       packaging,
-      qty,
-      boxesXPallet: boxesXPallet ?? undefined,
-      palletCost: palletCostText ? Number(palletCostText) : undefined,
+      qty: v.qty,
+      boxesXPallet: v.boxesXPallet ?? undefined,
+      palletCost: v.palletCost ?? undefined,
       warehouse: warehouse === ANY_WAREHOUSE ? undefined : warehouse,
-      packQty: packQty ?? undefined,
+      packQty: v.packQty ?? undefined,
     };
 
     await submit(
@@ -85,137 +86,91 @@ export function TransportCostCard({ rows, onApplied }: { rows: SalesRow[]; onApp
           body: JSON.stringify(body),
         }),
       {
-        conflictMessage: "A transport cost already exists for this combination — see the table below.",
-        defaultErrorMessage: "Failed to add transport cost.",
+        conflictMessage: t("grossMargin.updates.transportCost.conflict"),
+        defaultErrorMessage: t("grossMargin.updates.transportCost.failed"),
         onSuccess: () => {
-          toast.success(`Transport cost added for ${selectedDivision}.`);
+          toast.success(t("grossMargin.updates.transportCost.success", { customer: selectedDivision }));
           setSelectedDivision("");
           setWarehouse(ANY_WAREHOUSE);
-          setPackQtyText("");
           setType("");
           setPackaging("");
-          setMeasurementUnitText("");
-          setQtyText("");
-          setBoxesXPalletText("");
-          setPalletCostText("");
+          setTexts(EMPTY_TEXTS);
+          validation.reset();
           onApplied();
         },
       }
     );
   }
 
+  function numberField(key: NumKey, label: string, placeholder: string) {
+    return (
+      <Field label={label} error={validation.visibleErrors[key]}>
+        <Input
+          {...decimalInputProps}
+          placeholder={placeholder}
+          value={texts[key]}
+          onChange={(e) => setText(key, e.target.value)}
+          onBlur={() => validation.touch(key)}
+          aria-invalid={!!validation.visibleErrors[key]}
+        />
+      </Field>
+    );
+  }
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Transport Cost</CardTitle>
-        <CardDescription>
-          Per-customer, per-package-size transport cost — feeds the Transport column for every
-          variety sold to that customer at that size.
-        </CardDescription>
+        <CardTitle>{t("grossMargin.updates.transportCost.title")}</CardTitle>
+        <CardDescription>{t("grossMargin.updates.transportCost.description")}</CardDescription>
         <CardAction>
           <ReferenceBulkUpload resourceId="transport-cost" onApplied={onApplied} />
         </CardAction>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Customer</label>
+          <Field label={t("grossMargin.common.fields.customer")} error={validation.visibleErrors.division}>
             <Combobox
               value={selectedDivision}
-              onChange={(v) => v && setSelectedDivision(v)}
+              onChange={setSelectedDivision}
               options={divisions.map((d) => ({ value: d, label: d }))}
-              placeholder="Select a customer…"
+              placeholder={t("grossMargin.common.selectCustomer")}
             />
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Warehouse</label>
+          </Field>
+          <Field label={t("grossMargin.common.fields.warehouse")}>
             <Combobox
               value={warehouse}
-              onChange={(v) => v && setWarehouse(v)}
+              onChange={(v) => setWarehouse(v || ANY_WAREHOUSE)}
               options={[
-                { value: ANY_WAREHOUSE, label: "Any warehouse" },
+                { value: ANY_WAREHOUSE, label: t("grossMargin.common.anyWarehouse") },
                 ...warehouses.map((w) => ({ value: w, label: w })),
               ]}
-              placeholder="Any warehouse"
+              placeholder={t("grossMargin.common.anyWarehouse")}
             />
-            <p className="text-[11px] text-muted-foreground">
-              Only set this if the same customer ships from more than one warehouse at different costs.
-            </p>
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Package size</label>
-            <Input
-              type="number"
-              step="0.01"
-              placeholder="e.g. 1"
-              value={measurementUnitText}
-              onChange={(e) => setMeasurementUnitText(e.target.value)}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Pack size</label>
-            <Input
-              type="number"
-              step="1"
-              placeholder="Any pack size"
-              value={packQtyText}
-              onChange={(e) => setPackQtyText(e.target.value)}
-            />
-            <p className="text-[11px] text-muted-foreground">
-              Only set this if the same package size ships in more than one pack count (e.g. 3-pack vs 6-pack).
-            </p>
-          </div>
+          </Field>
+          {numberField("measurementUnitValue", t("grossMargin.common.fields.packageSize"), "e.g. 1")}
+          {numberField("packQty", t("grossMargin.common.fields.packSize"), t("grossMargin.updates.transportCost.anyPackSize"))}
         </div>
 
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Type</label>
+          <Field label={t("grossMargin.common.fields.type")} error={validation.visibleErrors.type}>
             <Combobox
               value={type}
-              onChange={(v) => setType(v || "")}
+              onChange={setType}
               options={TYPE_OPTIONS.map((t) => ({ value: t, label: t }))}
               placeholder="—"
             />
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Packaging</label>
+          </Field>
+          <Field label={t("grossMargin.common.fields.packaging")} error={validation.visibleErrors.packaging}>
             <Combobox
               value={packaging}
-              onChange={(v) => setPackaging(v || "")}
+              onChange={setPackaging}
               options={PACKAGING_OPTIONS.map((p) => ({ value: p, label: p }))}
               placeholder="—"
             />
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Qty</label>
-            <Input
-              type="number"
-              step="1"
-              placeholder="—"
-              value={qtyText}
-              onChange={(e) => setQtyText(e.target.value)}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Boxes/Pallet</label>
-            <Input
-              type="number"
-              step="1"
-              placeholder="—"
-              value={boxesXPalletText}
-              onChange={(e) => setBoxesXPalletText(e.target.value)}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Pallet Cost</label>
-            <Input
-              type="number"
-              step="0.01"
-              placeholder="—"
-              value={palletCostText}
-              onChange={(e) => setPalletCostText(e.target.value)}
-            />
-          </div>
+          </Field>
+          {numberField("qty", t("grossMargin.common.fields.qty"), "—")}
+          {numberField("boxesXPallet", t("grossMargin.common.fields.boxesPerPallet"), "—")}
+          {numberField("palletCost", t("grossMargin.common.fields.palletCost"), "—")}
         </div>
 
         {conflictError && (
@@ -224,11 +179,8 @@ export function TransportCostCard({ rows, onApplied }: { rows: SalesRow[]; onApp
           </div>
         )}
 
-        <Button
-          onClick={handleApply}
-          disabled={isSubmitting || !selectedDivision || !type || !packaging || !qtyText}
-        >
-          {isSubmitting ? "Adding…" : "Add Transport Cost"}
+        <Button onClick={handleApply} disabled={isSubmitting || !validation.isValid}>
+          {isSubmitting ? t("grossMargin.common.adding") : t("grossMargin.updates.transportCost.add")}
         </Button>
       </CardContent>
     </Card>

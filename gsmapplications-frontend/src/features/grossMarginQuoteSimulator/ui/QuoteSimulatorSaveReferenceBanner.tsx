@@ -1,12 +1,10 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Save } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/shared/ui/card";
 import { Button } from "@/shared/ui/button";
 import { getCurrentFieldValue, type QuoteOverrides, type RecomputeInputs, type SalesRowMode } from "../model/recompute";
-import type { SalesRow } from "@/entities/grossMarginSalesRow";
-import { useSkuBuilder } from "../model/useSkuBuilder";
-import { QuoteSimulatorSkuBuilder } from "./QuoteSimulatorSkuBuilder";
 import { grossMarginFetch as relayFetch } from "@/shared/lib/ihAgent";
 
 // purchaseCostOverride is deliberately excluded -- CostReference has no
@@ -33,7 +31,7 @@ export function QuoteSimulatorSaveReferenceBanner({
   inputs,
   overrides,
   avgUnitPriceBase,
-  rows,
+  calculatedSku,
   onSaved,
 }: {
   mode: SalesRowMode;
@@ -42,14 +40,15 @@ export function QuoteSimulatorSaveReferenceBanner({
   inputs: RecomputeInputs;
   overrides: QuoteOverrides;
   avgUnitPriceBase: number | null;
-  rows: SalesRow[];
+  // Product code built in the New Variety flow (null for every other flow).
+  // Cost-Reference-only: never sent to /yields, since a wrong code could
+  // orphan a Yield row or collide with a real product's SKU (CalculatedSKU
+  // is Yields' primary key).
+  calculatedSku: string | null;
   onSaved: () => void;
 }) {
+  const { t } = useTranslation();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  // SKU builder -- Cost-Reference-only: never sent to /api/yields, since a
-  // wrong guess could orphan a Yield row or collide with a real product's
-  // SKU (CalculatedSKU is Yields' primary key).
-  const skuBuilder = useSkuBuilder(rows);
 
   if (mode !== "A" && mode !== "B") return null;
 
@@ -77,9 +76,9 @@ export function QuoteSimulatorSaveReferenceBanner({
       const tasks: { label: string; promise: Promise<Response> }[] = [];
       if (Object.keys(costBody).length > 0) {
         const costReferenceBody: Record<string, unknown> = { variety, warehouse, ...costBody };
-        if (skuBuilder.builtSku) costReferenceBody.calculatedSku = skuBuilder.builtSku;
+        if (calculatedSku) costReferenceBody.calculatedSku = calculatedSku;
         tasks.push({
-          label: "Cost Reference",
+          label: t("grossMargin.simulator.saveReference.costReference"),
           promise: relayFetch("/cost-reference", {
             method: "POST",
             body: JSON.stringify(costReferenceBody),
@@ -88,7 +87,7 @@ export function QuoteSimulatorSaveReferenceBanner({
       }
       if (yieldValue !== null) {
         tasks.push({
-          label: "Yield",
+          label: t("grossMargin.simulator.saveReference.yield"),
           promise: relayFetch("/yields", {
             method: "POST",
             body: JSON.stringify({ variety, yieldValue }),
@@ -117,22 +116,35 @@ export function QuoteSimulatorSaveReferenceBanner({
       const failed = outcomes.filter((o) => !o.ok && o.status !== 409);
 
       if (succeeded.length > 0) {
-        toast.success(`Saved ${succeeded.map((o) => o.label).join(" and ")} for ${variety} at ${warehouse}.`);
+        toast.success(
+          t("grossMargin.simulator.saveReference.saved", {
+            items: succeeded.map((o) => o.label).join(t("grossMargin.simulator.saveReference.and")),
+            variety,
+            warehouse,
+          })
+        );
       }
       for (const s of succeeded) {
         if (s.info) toast.info(s.info);
       }
       if (conflicted.length > 0) {
         toast.warning(
-          `${conflicted.map((o) => o.label).join(" and ")} already existed on file and ${conflicted.length > 1 ? "were" : "was"} skipped — edit ${conflicted.length > 1 ? "them" : "it"} directly in the Updates tab if needed.`
+          t("grossMargin.simulator.saveReference.conflict", {
+            items: conflicted.map((o) => o.label).join(t("grossMargin.simulator.saveReference.and")),
+          })
         );
       }
       for (const f of failed) {
-        toast.error(`${f.label} wasn't saved: ${f.error ?? "unknown error"}`);
+        toast.error(
+          t("grossMargin.simulator.saveReference.notSaved", {
+            item: f.label,
+            error: f.error ?? t("grossMargin.simulator.saveReference.unknownError"),
+          })
+        );
       }
       if (succeeded.length > 0 || conflicted.length > 0) onSaved();
     } catch {
-      toast.error("Failed to reach the server. Try again.");
+      toast.error(t("grossMargin.common.serverUnreachable"));
     } finally {
       setIsSubmitting(false);
     }
@@ -146,36 +158,14 @@ export function QuoteSimulatorSaveReferenceBanner({
             <Save className="size-4.5" aria-hidden="true" />
           </div>
           <div>
-            <CardTitle>Save these as a Cost Reference?</CardTitle>
-            <CardDescription>
-              {variety} at {warehouse} didn&apos;t have a Cost Reference{mode === "B" ? "/Yield" : ""} on
-              file. Saving keeps the packaging/labor numbers you typed for future quotes — it
-              doesn&apos;t create a live sale, and the purchase cost you entered for this quote is
-              only used here, not saved anywhere.
-            </CardDescription>
+            <CardTitle>{t("grossMargin.simulator.saveReference.title")}</CardTitle>
+            <CardDescription>{t("grossMargin.simulator.saveReference.description", { variety, warehouse })}</CardDescription>
           </div>
         </div>
       </CardHeader>
-      <CardContent className="space-y-3">
-        <QuoteSimulatorSkuBuilder
-          isExpanded={skuBuilder.isSkuExpanded}
-          onToggleExpanded={() => skuBuilder.setIsSkuExpanded((v) => !v)}
-          skuClass={skuBuilder.skuClass}
-          onSkuClassChange={skuBuilder.setSkuClass}
-          skuType={skuBuilder.skuType}
-          onSkuTypeChange={skuBuilder.setSkuType}
-          selectedHerbCode={skuBuilder.selectedHerbCode}
-          onSelectedHerbCodeChange={skuBuilder.setSelectedHerbCode}
-          customHerbCode={skuBuilder.customHerbCode}
-          onCustomHerbCodeChange={skuBuilder.setCustomHerbCode}
-          herbCodes={skuBuilder.herbCodes}
-          usingCustomHerb={skuBuilder.usingCustomHerb}
-          herbCodeValid={skuBuilder.herbCodeValid}
-          builtSku={skuBuilder.builtSku}
-        />
-
+      <CardContent>
         <Button onClick={handleSave} disabled={isSubmitting}>
-          {isSubmitting ? "Saving…" : "Save Cost Reference"}
+          {isSubmitting ? t("grossMargin.simulator.saveReference.saving") : t("grossMargin.simulator.saveReference.save")}
         </Button>
       </CardContent>
     </Card>

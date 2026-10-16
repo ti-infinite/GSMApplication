@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Trash2, FolderOpen, Download } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/shared/ui/card";
@@ -41,6 +42,7 @@ export function QuoteSimulatorScenarioManager({
   // Lazy initializer -- reads localStorage once on mount without a
   // separate effect+setState round-trip (avoids the cascading-render
   // pattern React now warns about for effect-only state seeding).
+  const { t, i18n } = useTranslation();
   const [scenarios, setScenarios] = useState<QuoteScenario[]>(() => listScenarios());
   const [name, setName] = useState("");
   const [isExporting, setIsExporting] = useState(false);
@@ -51,26 +53,26 @@ export function QuoteSimulatorScenarioManager({
 
   function handleSave() {
     if (!name.trim()) {
-      toast.error("Give this scenario a name first.");
+      toast.error(t("grossMargin.simulator.scenarios.nameFirst"));
       return;
     }
     if (Object.keys(overrides).length === 0) {
-      toast.error("Nothing's been changed yet — adjust an input before saving.");
+      toast.error(t("grossMargin.simulator.scenarios.nothingChanged"));
       return;
     }
     const result = saveScenario(name.trim(), baseline, overrides, packQuantity);
     if (!result.ok) {
-      toast.error(result.error);
+      toast.error(t(`grossMargin.simulator.scenarios.${result.error}`));
       return;
     }
-    toast.success(`Saved "${name.trim()}".`);
+    toast.success(t("grossMargin.simulator.scenarios.saved", { name: name.trim() }));
     setName("");
     refresh();
   }
 
   function handleDelete(id: string, scenarioName: string) {
     deleteScenario(id);
-    toast.success(`Deleted "${scenarioName}".`);
+    toast.success(t("grossMargin.simulator.scenarios.deleted", { name: scenarioName }));
     refresh();
   }
 
@@ -103,7 +105,7 @@ export function QuoteSimulatorScenarioManager({
         body: JSON.stringify({ quotes }),
       });
       if (!res.ok) {
-        toast.error("Failed to build the export.");
+        toast.error(t("grossMargin.simulator.scenarios.exportFailed"));
         return;
       }
       const blob = await res.blob();
@@ -116,7 +118,7 @@ export function QuoteSimulatorScenarioManager({
       a.remove();
       URL.revokeObjectURL(url);
     } catch {
-      toast.error("Failed to reach the server. Try again.");
+      toast.error(t("grossMargin.common.serverUnreachable"));
     } finally {
       setIsExporting(false);
     }
@@ -126,24 +128,24 @@ export function QuoteSimulatorScenarioManager({
     <Card>
       <CardHeader className="flex flex-row items-start justify-between gap-3">
         <div>
-          <CardTitle>Scenarios</CardTitle>
-          <CardDescription>Saved only in this browser — never written to the production database.</CardDescription>
+          <CardTitle>{t("grossMargin.simulator.scenarios.title")}</CardTitle>
+          <CardDescription>{t("grossMargin.simulator.scenarios.description")}</CardDescription>
         </div>
         <Button variant="outline" size="sm" onClick={handleExport} disabled={isExporting || scenarios.length === 0}>
           <Download aria-hidden="true" />
-          {isExporting ? "Preparing…" : "Download saved quotes"}
+          {isExporting ? t("grossMargin.simulator.scenarios.preparing") : t("grossMargin.simulator.scenarios.download")}
         </Button>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex gap-2">
-          <Input placeholder="Name this scenario…" value={name} onChange={(e) => setName(e.target.value)} />
+          <Input placeholder={t("grossMargin.simulator.scenarios.namePlaceholder")} value={name} onChange={(e) => setName(e.target.value)} />
           <Button onClick={handleSave} disabled={!name.trim()}>
-            Save current
+            {t("grossMargin.simulator.scenarios.saveCurrent")}
           </Button>
         </div>
 
         {scenarios.length === 0 ? (
-          <p className="py-4 text-center text-sm text-muted-foreground">No saved scenarios yet.</p>
+          <p className="py-4 text-center text-sm text-muted-foreground">{t("grossMargin.simulator.scenarios.empty")}</p>
         ) : (
           <div className="space-y-2">
             {scenarios.map((s) => (
@@ -154,13 +156,14 @@ export function QuoteSimulatorScenarioManager({
                     {s.baselineIdentity.variety} · {s.baselineIdentity.customer} · {s.baselineIdentity.warehouse}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {Object.keys(s.overrides).length} change{Object.keys(s.overrides).length === 1 ? "" : "s"} · saved{" "}
-                    {new Date(s.savedAt).toLocaleString("en-US")}
-                    {s.baselineSnapshot.GrossMargin !== null && ` · baseline margin ${formatPercent(s.baselineSnapshot.GrossMargin)}`}
+                    {t("grossMargin.simulator.scenarios.changes", { count: Object.keys(s.overrides).length })}
+                    {t("grossMargin.simulator.scenarios.savedAt", { date: new Date(s.savedAt).toLocaleString(i18n.language) })}
+                    {s.baselineSnapshot.GrossMargin !== null &&
+                      t("grossMargin.simulator.scenarios.baselineMargin", { value: formatPercent(s.baselineSnapshot.GrossMargin) })}
                   </p>
                 </div>
                 <div className="flex items-center gap-1">
-                  <Button variant="ghost" size="icon-sm" onClick={() => onLoad(s)} title="Load this scenario">
+                  <Button variant="ghost" size="icon-sm" onClick={() => onLoad(s)} title={t("grossMargin.simulator.scenarios.load")}>
                     <FolderOpen className="size-3.5" />
                   </Button>
                   <Button
@@ -168,7 +171,7 @@ export function QuoteSimulatorScenarioManager({
                     size="icon-sm"
                     className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                     onClick={() => handleDelete(s.id, s.name)}
-                    title="Delete this scenario"
+                    title={t("grossMargin.simulator.scenarios.delete")}
                   >
                     <Trash2 className="size-3.5" />
                   </Button>

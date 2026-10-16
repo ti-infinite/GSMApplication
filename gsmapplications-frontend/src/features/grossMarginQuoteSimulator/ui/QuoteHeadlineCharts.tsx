@@ -1,4 +1,5 @@
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/shared/ui/card";
 import { formatCurrency, formatPercent } from "@/shared/lib/format";
 import type { SalesRow } from "@/entities/grossMarginSalesRow";
@@ -6,18 +7,22 @@ import type { SalesRow } from "@/entities/grossMarginSalesRow";
 // Two charts, not one dual-axis chart -- $ metrics and % metrics never
 // share a scale, avoiding the classic misleading dual-axis trap.
 export function QuoteHeadlineCharts({ actual, simulated }: { actual: SalesRow; simulated: SalesRow }) {
+  const { t } = useTranslation();
+  const M = (key: string) => t(`grossMargin.simulator.charts.metrics.${key}`);
+  const actualLabel = t("grossMargin.simulator.charts.series.actual");
+  const simulatedLabel = t("grossMargin.simulator.charts.series.simulated");
   const actualGM = actual.AvgUnitPrice !== null && actual.FinalUnitCost !== null ? actual.AvgUnitPrice - actual.FinalUnitCost : null;
   const simulatedGM = simulated.AvgUnitPrice !== null && simulated.FinalUnitCost !== null ? simulated.AvgUnitPrice - simulated.FinalUnitCost : null;
 
   const dollarData = [
-    { metric: "Avg Sales Price", Actual: actual.AvgUnitPrice, Simulated: simulated.AvgUnitPrice },
-    { metric: "Final Unit Cost", Actual: actual.FinalUnitCost, Simulated: simulated.FinalUnitCost },
-    { metric: "Gross Margin $", Actual: actualGM, Simulated: simulatedGM },
+    { metric: M("avgSalesPrice"), [actualLabel]: actual.AvgUnitPrice, [simulatedLabel]: simulated.AvgUnitPrice },
+    { metric: M("finalUnitCost"), [actualLabel]: actual.FinalUnitCost, [simulatedLabel]: simulated.FinalUnitCost },
+    { metric: M("grossMarginAmount"), [actualLabel]: actualGM, [simulatedLabel]: simulatedGM },
   ];
 
   const percentData = [
-    { metric: "Cost Ratio", Actual: actual.CostRatio !== null ? actual.CostRatio * 100 : null, Simulated: simulated.CostRatio !== null ? simulated.CostRatio * 100 : null },
-    { metric: "Gross Margin %", Actual: actual.GrossMargin !== null ? actual.GrossMargin * 100 : null, Simulated: simulated.GrossMargin !== null ? simulated.GrossMargin * 100 : null },
+    { metric: M("costRatio"), [actualLabel]: actual.CostRatio !== null ? actual.CostRatio * 100 : null, [simulatedLabel]: simulated.CostRatio !== null ? simulated.CostRatio * 100 : null },
+    { metric: M("grossMarginPct"), [actualLabel]: actual.GrossMargin !== null ? actual.GrossMargin * 100 : null, [simulatedLabel]: simulated.GrossMargin !== null ? simulated.GrossMargin * 100 : null },
   ];
 
   const tooltipStyle = {
@@ -31,8 +36,8 @@ export function QuoteHeadlineCharts({ actual, simulated }: { actual: SalesRow; s
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
       <Card>
         <CardHeader>
-          <CardTitle>Dollar metrics</CardTitle>
-          <CardDescription>Actual vs. Simulated</CardDescription>
+          <CardTitle>{t("grossMargin.simulator.charts.dollarTitle")}</CardTitle>
+          <CardDescription>{t("grossMargin.simulator.charts.actualVsSimulated")}</CardDescription>
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={240}>
@@ -42,8 +47,8 @@ export function QuoteHeadlineCharts({ actual, simulated }: { actual: SalesRow; s
               <YAxis tickFormatter={(v) => formatCurrency(v)} tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }} axisLine={{ stroke: "var(--color-border)" }} width={70} />
               <Tooltip formatter={(v) => formatCurrency(typeof v === "number" ? v : Number(v))} contentStyle={tooltipStyle} />
               <Legend wrapperStyle={{ fontSize: 12 }} />
-              <Bar dataKey="Actual" fill="var(--color-muted-foreground)" radius={[4, 4, 0, 0]} maxBarSize={40} />
-              <Bar dataKey="Simulated" fill="var(--color-primary)" radius={[4, 4, 0, 0]} maxBarSize={40} />
+              <Bar dataKey={actualLabel} fill="var(--color-muted-foreground)" radius={[4, 4, 0, 0]} maxBarSize={40} />
+              <Bar dataKey={simulatedLabel} fill="var(--color-primary)" radius={[4, 4, 0, 0]} maxBarSize={40} />
             </BarChart>
           </ResponsiveContainer>
         </CardContent>
@@ -51,8 +56,8 @@ export function QuoteHeadlineCharts({ actual, simulated }: { actual: SalesRow; s
 
       <Card>
         <CardHeader>
-          <CardTitle>Ratio metrics</CardTitle>
-          <CardDescription>Actual vs. Simulated</CardDescription>
+          <CardTitle>{t("grossMargin.simulator.charts.ratioTitle")}</CardTitle>
+          <CardDescription>{t("grossMargin.simulator.charts.actualVsSimulated")}</CardDescription>
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={240}>
@@ -62,8 +67,8 @@ export function QuoteHeadlineCharts({ actual, simulated }: { actual: SalesRow; s
               <YAxis tickFormatter={(v) => `${v}%`} tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }} axisLine={{ stroke: "var(--color-border)" }} width={50} />
               <Tooltip formatter={(v) => formatPercent(typeof v === "number" ? v / 100 : Number(v) / 100)} contentStyle={tooltipStyle} />
               <Legend wrapperStyle={{ fontSize: 12 }} />
-              <Bar dataKey="Actual" fill="var(--color-muted-foreground)" radius={[4, 4, 0, 0]} maxBarSize={40} />
-              <Bar dataKey="Simulated" fill="var(--color-primary)" radius={[4, 4, 0, 0]} maxBarSize={40} />
+              <Bar dataKey={actualLabel} fill="var(--color-muted-foreground)" radius={[4, 4, 0, 0]} maxBarSize={40} />
+              <Bar dataKey={simulatedLabel} fill="var(--color-primary)" radius={[4, 4, 0, 0]} maxBarSize={40} />
             </BarChart>
           </ResponsiveContainer>
         </CardContent>

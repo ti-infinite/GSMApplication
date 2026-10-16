@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Skeleton } from "@/shared/ui/skeleton";
 import type { SalesRow } from "@/entities/grossMarginSalesRow";
 import { useQuoteSimulatorState } from "../model/useQuoteSimulatorState";
@@ -29,6 +30,7 @@ export function QuoteSimulatorTab({
   // Optional so other callers can render this without wiring it up.
   refreshKey?: number | string;
 }) {
+  const { t, i18n } = useTranslation();
   const {
     isLoading,
     commissions,
@@ -37,6 +39,7 @@ export function QuoteSimulatorTab({
     quoteFlow,
     selectedRow,
     isNewCustomerQuote,
+    calculatedSkuForSave,
     overrides,
     setOverrides,
     selectionGeneration,
@@ -71,36 +74,28 @@ export function QuoteSimulatorTab({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h2 className="text-lg font-semibold">Quote Simulator</h2>
-          <p className="text-sm text-muted-foreground">
-            Pick a row, then negotiate a supplier price, transport rate, rebate, or any other
-            cost/price input to see how it would move that row&apos;s Gross Margin — nothing here
-            touches production data.
-          </p>
-        </div>
-        <div className="flex shrink-0 flex-wrap gap-1 self-start rounded-md border border-border p-0.5 text-xs">
+      <div className="flex justify-end">
+        <div className="flex shrink-0 flex-wrap gap-1 rounded-md border border-border p-0.5 text-xs">
           <button
             type="button"
             onClick={() => handleQuoteFlowChange("existing")}
             className={`rounded px-2.5 py-1.5 ${quoteFlow === "existing" ? "bg-muted font-medium" : "text-muted-foreground"}`}
           >
-            Pick existing row
+            {t("grossMargin.simulator.flows.existing")}
           </button>
           <button
             type="button"
             onClick={() => handleQuoteFlowChange("new-customer")}
             className={`rounded px-2.5 py-1.5 ${quoteFlow === "new-customer" ? "bg-muted font-medium" : "text-muted-foreground"}`}
           >
-            Quote a new customer
+            {t("grossMargin.simulator.flows.newCustomer")}
           </button>
           <button
             type="button"
             onClick={() => handleQuoteFlowChange("new-variety")}
             className={`rounded px-2.5 py-1.5 ${quoteFlow === "new-variety" ? "bg-muted font-medium" : "text-muted-foreground"}`}
           >
-            New Variety
+            {t("grossMargin.simulator.flows.newVariety")}
           </button>
         </div>
       </div>
@@ -120,7 +115,7 @@ export function QuoteSimulatorTab({
           {result.warnings.length > 0 && (
             <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
               {result.warnings.map((w) => (
-                <p key={w}>{w}</p>
+                <p key={w}>{t(`grossMargin.simulator.warnings.${w}`)}</p>
               ))}
             </div>
           )}
@@ -130,7 +125,7 @@ export function QuoteSimulatorTab({
             mode={result.mode}
             blendSummary={
               children.length > 0
-                ? `Blend: ${children.map((c) => `${c.Quantity}× ${c.ChildVariety.split(" - ")[0]}`).join(", ")}`
+                ? t("grossMargin.simulator.blend", { summary: children.map((c) => `${c.Quantity}× ${c.ChildVariety.split(" - ")[0]}`).join(", ") })
                 : undefined
             }
             isNewCustomerQuote={isNewCustomerQuote}
@@ -182,7 +177,7 @@ export function QuoteSimulatorTab({
               inputs={inputs}
               overrides={overrides}
               avgUnitPriceBase={result.avgUnitPriceBase}
-              rows={rows}
+              calculatedSku={calculatedSkuForSave}
               onSaved={loadReferenceData}
             />
           )}
@@ -214,8 +209,8 @@ export function QuoteSimulatorTab({
 
           {costReference && (
             <p className="text-xs text-muted-foreground">
-              Reference on file: Cost Reference last updated {new Date(costReference.UpdatedAt).toLocaleDateString("en-US")}
-              {yieldRow && ` · Yield last updated ${new Date(yieldRow.UpdatedAt).toLocaleDateString("en-US")}`}
+              {t("grossMargin.simulator.referenceOnFile", { date: new Date(costReference.UpdatedAt).toLocaleDateString(i18n.language) })}
+              {yieldRow && t("grossMargin.simulator.yieldOnFile", { date: new Date(yieldRow.UpdatedAt).toLocaleDateString(i18n.language) })}
             </p>
           )}
         </>

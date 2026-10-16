@@ -1,6 +1,10 @@
+import type { TFunction } from "i18next";
 import type { ReferenceLogTableConfig } from "@/shared/ui/reference-log-table";
+import { getFieldRules } from "@/shared/lib/referenceSchemas";
 import { formatNumber } from "@/shared/lib/format";
 import type { ExtraCostRow } from "@/entities/grossMarginExtraCost";
+
+const WAREHOUSE_KEYS = ["mia", "bos", "chi", "vin"] as const;
 
 function getFieldValue(row: ExtraCostRow, key: string): number | null {
   switch (key) {
@@ -17,27 +21,30 @@ function getFieldValue(row: ExtraCostRow, key: string): number | null {
   }
 }
 
-export const extraCostLogTableConfig: ReferenceLogTableConfig<ExtraCostRow> = {
-  title: "Supplier Extra Cost log",
-  description: "Every per-supplier, per-SKU landed cost adjustment currently applied.",
-  identityColumns: [
-    { label: "Supplier", render: (row) => row.Supplier },
-    { label: "SKU", render: (row) => row.SKUCalculated },
-    { label: "Size", render: (row) => formatNumber(row.MeasureUnit, 2) },
-  ],
-  editableFields: [
-    { key: "mia", label: "MIA", step: "0.0001" },
-    { key: "bos", label: "BOS", step: "0.0001" },
-    { key: "chi", label: "CHI", step: "0.0001" },
-    { key: "vin", label: "VIN", step: "0.0001" },
-  ],
-  getFieldValue,
-  rowId: (row) => row.Id,
-  deleteWarning: (row) =>
-    `This changes the landed cost for every purchase of ${row.Supplier} × ${row.SKUCalculated} ` +
-    `at the ${row.MeasureUnit} size, across all warehouses — affecting every customer who buys ` +
-    `that SKU, not just one row.`,
-  emptyMessage: "No extra costs applied yet.",
-  getSearchText: (row) => `${row.Supplier} ${row.SKUCalculated}`,
-  searchPlaceholder: "Search supplier or SKU…",
-};
+export function createExtraCostLogTableConfig(t: TFunction): ReferenceLogTableConfig<ExtraCostRow> {
+  return {
+    title: t("grossMargin.updates.extraCost.log.title"),
+    description: t("grossMargin.updates.extraCost.log.description"),
+    identityColumns: [
+      { label: t("grossMargin.common.fields.supplier"), render: (row) => row.Supplier },
+      { label: t("grossMargin.common.fields.sku"), render: (row) => row.SKUCalculated },
+      { label: t("grossMargin.updates.extraCost.log.size"), render: (row) => formatNumber(row.MeasureUnit, 2) },
+    ],
+    editableFields: WAREHOUSE_KEYS.map((key) => ({
+      key,
+      label: key.toUpperCase(),
+      rules: getFieldRules("extra-cost", key),
+    })),
+    getFieldValue,
+    rowId: (row) => row.Id,
+    deleteWarning: (row) =>
+      t("grossMargin.updates.extraCost.log.deleteWarning", {
+        supplier: row.Supplier,
+        sku: row.SKUCalculated,
+        size: row.MeasureUnit,
+      }),
+    emptyMessage: t("grossMargin.updates.extraCost.log.empty"),
+    getSearchText: (row) => `${row.Supplier} ${row.SKUCalculated}`,
+    searchPlaceholder: t("grossMargin.updates.extraCost.log.searchPlaceholder"),
+  };
+}

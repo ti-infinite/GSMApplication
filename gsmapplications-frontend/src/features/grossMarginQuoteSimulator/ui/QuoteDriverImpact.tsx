@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { TrendingUp, TrendingDown } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/shared/ui/card";
 import { formatCurrency, formatPercent } from "@/shared/lib/format";
@@ -20,6 +21,7 @@ export function QuoteDriverImpact({
   inputs: RecomputeInputs;
   overrides: QuoteOverrides;
 }) {
+  const { t } = useTranslation();
   const fields = useQuoteFields(commissionType, mode);
   const impacts = useMemo(() => buildDriverImpacts(inputs, overrides, fields), [inputs, overrides, fields]);
 
@@ -28,16 +30,15 @@ export function QuoteDriverImpact({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>What&apos;s driving the change</CardTitle>
+        <CardTitle>{t("grossMargin.simulator.drivers.title")}</CardTitle>
         <CardDescription>
-          Each edited input&apos;s own effect on Gross Margin $, on its own — holding everything else
-          at its real baseline value. {impacts.length > 1 && "Levers can interact slightly, so these won't always add up to the total exactly."}
+          {t("grossMargin.simulator.drivers.description")} {impacts.length > 1 && t("grossMargin.simulator.drivers.interaction")}
         </CardDescription>
       </CardHeader>
       <CardContent>
         {impacts.length === 0 ? (
           <p className="py-8 text-center text-sm text-muted-foreground">
-            Change an input above to see what&apos;s driving your margin here.
+            {t("grossMargin.simulator.drivers.empty")}
           </p>
         ) : (
           <div className="space-y-2">

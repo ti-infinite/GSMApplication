@@ -1,5 +1,9 @@
+import type { TFunction } from "i18next";
 import type { ReferenceLogTableConfig } from "@/shared/ui/reference-log-table";
+import { getFieldRules } from "@/shared/lib/referenceSchemas";
 import type { CostReferenceRow } from "@/entities/grossMarginCostReference";
+
+const COST_KEYS = ["packing", "sticker", "box", "labourProd", "labourRepack", "labourAssembler"] as const;
 
 function getFieldValue(row: CostReferenceRow, key: string): number | null {
   switch (key) {
@@ -20,27 +24,25 @@ function getFieldValue(row: CostReferenceRow, key: string): number | null {
   }
 }
 
-export const costReferenceLogTableConfig: ReferenceLogTableConfig<CostReferenceRow> = {
-  title: "Cost Reference log",
-  description: "Every variety+warehouse's Packing/Sticker/Box/Labour costs currently applied.",
-  identityColumns: [
-    { label: "Variety", render: (row) => row.Variety },
-    { label: "Warehouse", render: (row) => row.Warehouse },
-  ],
-  editableFields: [
-    { key: "packing", label: "Packing" },
-    { key: "sticker", label: "Sticker" },
-    { key: "box", label: "Box" },
-    { key: "labourProd", label: "Labour (Prod)" },
-    { key: "labourRepack", label: "Labour (Repack)" },
-    { key: "labourAssembler", label: "Labour (Assembler)" },
-  ],
-  getFieldValue,
-  rowId: (row) => row.Id,
-  deleteWarning: (row) =>
-    `This changes Packing/Sticker/Box/Labour costs for every customer buying ${row.Variety} ` +
-    `from ${row.Warehouse} — not just one row.`,
-  emptyMessage: "No cost references applied yet.",
-  getSearchText: (row) => `${row.Variety} ${row.Warehouse}`,
-  searchPlaceholder: "Search variety or warehouse…",
-};
+export function createCostReferenceLogTableConfig(t: TFunction): ReferenceLogTableConfig<CostReferenceRow> {
+  return {
+    title: t("grossMargin.updates.costReference.log.title"),
+    description: t("grossMargin.updates.costReference.log.description"),
+    identityColumns: [
+      { label: t("grossMargin.common.fields.variety"), render: (row) => row.Variety },
+      { label: t("grossMargin.common.fields.warehouse"), render: (row) => row.Warehouse },
+    ],
+    editableFields: COST_KEYS.map((key) => ({
+      key,
+      label: t(`grossMargin.common.fields.${key}`),
+      rules: getFieldRules("cost-reference", key),
+    })),
+    getFieldValue,
+    rowId: (row) => row.Id,
+    deleteWarning: (row) =>
+      t("grossMargin.updates.costReference.log.deleteWarning", { variety: row.Variety, warehouse: row.Warehouse }),
+    emptyMessage: t("grossMargin.updates.costReference.log.empty"),
+    getSearchText: (row) => `${row.Variety} ${row.Warehouse}`,
+    searchPlaceholder: t("grossMargin.updates.costReference.log.searchPlaceholder"),
+  };
+}

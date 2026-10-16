@@ -9,6 +9,7 @@
 // semantic check lives in the relay instead.
 
 import { cellToText, cellToNumber } from "./cellParse";
+import type { NumberRule } from "./formValidation";
 
 export type ColumnType = "string" | "number" | "enum";
 
@@ -402,4 +403,54 @@ export function getReferenceSchema(resourceId: string): ReferenceTableSchema {
   const schema = REFERENCE_SCHEMAS.find((s) => s.resourceId === resourceId);
   if (!schema) throw new Error(`Unknown reference resource: ${resourceId}`);
   return schema;
+}
+
+// Numeric entry rules per resource field -- the single list the "Add" cards
+// and the log tables' inline edits both validate against, so a value that
+// can't be typed into the form can't be sneaked in through an edit either.
+// (Bulk upload keeps its own parseRow checks above, which mirror these.)
+const FIELD_RULES: Record<string, Record<string, NumberRule[]>> = {
+  commission: {
+    // Entered as a whole percent (10 = 10%); divided by 100 before sending.
+    commissionAmountPercent: [{ kind: "required" }, { kind: "nonNegative" }, { kind: "max", value: 100, inclusive: false }],
+    commissionAmountValue: [{ kind: "required" }, { kind: "nonNegative" }],
+  },
+  rebate: {
+    rebateValue: [{ kind: "required" }, { kind: "nonNegative" }],
+  },
+  yields: {
+    yieldValue: [{ kind: "required" }, { kind: "positive" }],
+  },
+  "cost-reference": {
+    packing: [{ kind: "nonNegative" }],
+    sticker: [{ kind: "nonNegative" }],
+    box: [{ kind: "nonNegative" }],
+    labourProd: [{ kind: "nonNegative" }],
+    labourRepack: [{ kind: "nonNegative" }],
+    labourAssembler: [{ kind: "nonNegative" }],
+  },
+  "extra-cost": {
+    measureUnit: [{ kind: "required" }, { kind: "positive" }],
+    mia: [{ kind: "nonNegative" }],
+    bos: [{ kind: "nonNegative" }],
+    chi: [{ kind: "nonNegative" }],
+    vin: [{ kind: "nonNegative" }],
+  },
+  "transport-cost": {
+    measurementUnitValue: [{ kind: "required" }, { kind: "positive" }],
+    packQty: [{ kind: "positive" }, { kind: "integer" }],
+    qty: [{ kind: "required" }, { kind: "positive" }, { kind: "integer" }],
+    boxesXPallet: [{ kind: "positive" }, { kind: "integer" }],
+    palletCost: [{ kind: "nonNegative" }],
+  },
+  "variety-desegregation": {
+    quantity: [{ kind: "required" }, { kind: "positive" }],
+    factor: [{ kind: "positive" }, { kind: "max", value: 1 }],
+  },
+};
+
+export function getFieldRules(resourceId: string, key: string): NumberRule[] {
+  const rules = FIELD_RULES[resourceId]?.[key];
+  if (!rules) throw new Error(`No field rules for ${resourceId}.${key}`);
+  return rules;
 }

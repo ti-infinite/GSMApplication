@@ -1,4 +1,6 @@
 import { useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { toast } from "sonner";
 import { Upload } from "lucide-react";
 import { Button } from "@/shared/ui/button";
@@ -18,11 +20,11 @@ import { parseReferenceUpload } from "@/shared/lib/excelParse";
 import { grossMarginFetch as relayFetch } from "@/shared/lib/ihAgent";
 import { formatCurrency } from "@/shared/lib/format";
 
-export async function downloadReferenceTemplate() {
+export async function downloadReferenceTemplate(t: TFunction) {
   try {
     const res = await relayFetch("/templates/reference-data");
     if (!res.ok) {
-      toast.error("Failed to download the template.");
+      toast.error(t("grossMargin.updates.bulk.templateFailed"));
       return;
     }
     const blob = await res.blob();
@@ -35,7 +37,7 @@ export async function downloadReferenceTemplate() {
     a.remove();
     URL.revokeObjectURL(url);
   } catch {
-    toast.error("Failed to reach the server. Try again.");
+    toast.error(t("grossMargin.common.serverUnreachable"));
   }
 }
 
@@ -67,12 +69,14 @@ function summarizeRow(schema: ReferenceTableSchema, data: Record<string, unknown
 }
 
 function ActionBadge({ action }: { action: PlanRow["action"] }) {
-  if (action === "create") return <Badge variant="secondary" className="bg-success/10 text-success">Will create</Badge>;
-  if (action === "update") return <Badge variant="secondary">Will update</Badge>;
-  return <Badge variant="destructive">Error</Badge>;
+  const { t } = useTranslation();
+  if (action === "create") return <Badge variant="secondary" className="bg-success/10 text-success">{t("grossMargin.updates.bulk.willCreate")}</Badge>;
+  if (action === "update") return <Badge variant="secondary">{t("grossMargin.updates.bulk.willUpdate")}</Badge>;
+  return <Badge variant="destructive">{t("grossMargin.updates.bulk.error")}</Badge>;
 }
 
 export function ReferenceBulkUpload({ resourceId, onApplied }: { resourceId: string; onApplied: () => void }) {
+  const { t } = useTranslation();
   const schema = getReferenceSchema(resourceId);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isPreviewing, setIsPreviewing] = useState(false);
@@ -102,7 +106,7 @@ export function ReferenceBulkUpload({ resourceId, onApplied }: { resourceId: str
       const buffer = await file.arrayBuffer();
       const parsed = await parseReferenceUpload(buffer, schema);
       if (!parsed.ok) {
-        setTopLevelError(parsed.topLevelError ?? "Couldn't read this file.");
+        setTopLevelError(parsed.topLevelError ?? t("grossMargin.updates.bulk.unreadable"));
         setPlan(null);
         setDialogOpen(true);
         return;
@@ -113,7 +117,7 @@ export function ReferenceBulkUpload({ resourceId, onApplied }: { resourceId: str
       });
       const json = await res.json();
       if (!res.ok) {
-        setTopLevelError(json.detail ?? "Failed to read this file.");
+        setTopLevelError(json.detail ?? t("grossMargin.updates.bulk.readFailed"));
         setPlan(null);
         setDialogOpen(true);
         return;
@@ -121,7 +125,7 @@ export function ReferenceBulkUpload({ resourceId, onApplied }: { resourceId: str
       setPlan(json.plan);
       setDialogOpen(true);
     } catch {
-      setTopLevelError("Failed to reach the server. Try again.");
+      setTopLevelError(t("grossMargin.common.serverUnreachable"));
       setDialogOpen(true);
     } finally {
       setIsPreviewing(false);
@@ -134,7 +138,7 @@ export function ReferenceBulkUpload({ resourceId, onApplied }: { resourceId: str
       .filter((r) => r.action !== "error" && r.data)
       .map((r) => ({ rowNumber: r.rowNumber, data: r.data }));
     if (rowsToCommit.length === 0) {
-      toast.error("No valid rows to upload.");
+      toast.error(t("grossMargin.updates.bulk.noValidRows"));
       return;
     }
 
@@ -146,17 +150,21 @@ export function ReferenceBulkUpload({ resourceId, onApplied }: { resourceId: str
       });
       const json = await res.json();
       if (!res.ok) {
-        toast.error(json.detail ?? "Failed to upload.");
+        toast.error(json.detail ?? t("grossMargin.updates.bulk.uploadFailed"));
         return;
       }
       setResults(json.results);
       const created = (json.results as ResultRow[]).filter((r) => r.status === "created").length;
       const updated = (json.results as ResultRow[]).filter((r) => r.status === "updated").length;
       const errored = (json.results as ResultRow[]).filter((r) => r.status === "error").length;
-      toast.success(`${created} created, ${updated} updated${errored > 0 ? `, ${errored} failed` : ""}.`);
+      toast.success(
+        errored > 0
+          ? t("grossMargin.updates.bulk.commitSuccessWithErrors", { created, updated, errored })
+          : t("grossMargin.updates.bulk.commitSuccess", { created, updated })
+      );
       onApplied();
     } catch {
-      toast.error("Failed to reach the server. Try again.");
+      toast.error(t("grossMargin.common.serverUnreachable"));
     } finally {
       setIsCommitting(false);
     }
@@ -179,26 +187,32 @@ export function ReferenceBulkUpload({ resourceId, onApplied }: { resourceId: str
       <input ref={fileInputRef} type="file" accept=".xlsx" className="hidden" onChange={handleFileSelected} />
       <Button variant="outline" size="sm" onClick={pickFile} disabled={isPreviewing}>
         <Upload className="size-3.5" aria-hidden="true" />
-        {isPreviewing ? "Reading…" : "Upload Excel"}
+        {isPreviewing ? t("grossMargin.updates.bulk.reading") : t("grossMargin.updates.bulk.uploadExcel")}
       </Button>
       <button
         type="button"
-        onClick={downloadReferenceTemplate}
+        onClick={() => downloadReferenceTemplate(t)}
         className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
       >
-        Need the template?
+        {t("grossMargin.updates.bulk.needTemplate")}
       </button>
 
       <Dialog open={dialogOpen} onOpenChange={(open) => (open ? setDialogOpen(true) : closeDialog())}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{schema.label} upload</DialogTitle>
+            <DialogTitle>{t("grossMargin.updates.bulk.dialogTitle", { label: schema.label })}</DialogTitle>
             <DialogDescription>
               {results
-                ? "Upload complete."
+                ? t("grossMargin.updates.bulk.complete")
                 : topLevelError
-                  ? "This file couldn't be read."
-                  : `${validCount} valid row${validCount === 1 ? "" : "s"} of ${plan?.length ?? 0} — ${createCount} to create, ${updateCount} to update, ${errorCount} will be skipped.`}
+                  ? t("grossMargin.updates.bulk.unreadable")
+                  : t("grossMargin.updates.bulk.summary", {
+                      valid: validCount,
+                      total: plan?.length ?? 0,
+                      create: createCount,
+                      update: updateCount,
+                      errors: errorCount,
+                    })}
             </DialogDescription>
           </DialogHeader>
 
@@ -211,9 +225,9 @@ export function ReferenceBulkUpload({ resourceId, onApplied }: { resourceId: str
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Row</TableHead>
-                    <TableHead>Result</TableHead>
-                    <TableHead>Detail</TableHead>
+                    <TableHead>{t("grossMargin.updates.bulk.row")}</TableHead>
+                    <TableHead>{t("grossMargin.updates.bulk.result")}</TableHead>
+                    <TableHead>{t("grossMargin.updates.bulk.detail")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -222,10 +236,10 @@ export function ReferenceBulkUpload({ resourceId, onApplied }: { resourceId: str
                       <TableCell>{r.rowNumber}</TableCell>
                       <TableCell>
                         {r.status === "error" ? (
-                          <Badge variant="destructive">Failed</Badge>
+                          <Badge variant="destructive">{t("grossMargin.updates.bulk.failed")}</Badge>
                         ) : (
                           <Badge variant="secondary" className="bg-success/10 text-success">
-                            {r.status === "created" ? "Created" : "Updated"}
+                            {r.status === "created" ? t("grossMargin.updates.bulk.created") : t("grossMargin.updates.bulk.updated")}
                           </Badge>
                         )}
                       </TableCell>
@@ -238,10 +252,10 @@ export function ReferenceBulkUpload({ resourceId, onApplied }: { resourceId: str
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Row</TableHead>
-                    <TableHead>Summary</TableHead>
-                    {schema.upsertOnly && <TableHead>Old → New</TableHead>}
-                    <TableHead>Action</TableHead>
+                    <TableHead>{t("grossMargin.updates.bulk.row")}</TableHead>
+                    <TableHead>{t("grossMargin.updates.bulk.rowSummary")}</TableHead>
+                    {schema.upsertOnly && <TableHead>{t("grossMargin.updates.bulk.oldNew")}</TableHead>}
+                    <TableHead>{t("grossMargin.updates.bulk.action")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -267,21 +281,21 @@ export function ReferenceBulkUpload({ resourceId, onApplied }: { resourceId: str
                 </TableBody>
               </Table>
             ) : (
-              <p className="py-8 text-center text-sm text-muted-foreground">No rows found in this file.</p>
+              <p className="py-8 text-center text-sm text-muted-foreground">{t("grossMargin.updates.bulk.noRows")}</p>
             )}
           </div>
 
           <DialogFooter>
             {results ? (
-              <Button onClick={closeDialog}>Done</Button>
+              <Button onClick={closeDialog}>{t("grossMargin.common.done")}</Button>
             ) : (
               <>
                 <DialogClose disabled={isCommitting} onClick={closeDialog}>
-                  Cancel
+                  {t("grossMargin.common.cancel")}
                 </DialogClose>
                 {!topLevelError && validCount > 0 && (
                   <Button onClick={handleCommit} disabled={isCommitting}>
-                    {isCommitting ? "Uploading…" : `Confirm & Upload (${validCount})`}
+                    {isCommitting ? t("grossMargin.updates.bulk.uploading") : t("grossMargin.updates.bulk.confirmUpload", { count: validCount })}
                   </Button>
                 )}
               </>

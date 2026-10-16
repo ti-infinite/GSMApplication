@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Pencil, RotateCcw } from "lucide-react";
 import {
@@ -24,26 +25,32 @@ import {
 import { formatCurrency } from "@/shared/lib/format";
 import { putRebate } from "../api/putRebate";
 import type { RebateRow } from "@/entities/grossMarginRebate";
+import { Field } from "@/shared/ui/field";
+import { decimalInputProps } from "@/shared/lib/formValidation";
+import { useFieldValidation } from "@/shared/lib/useFieldValidation";
+import { getFieldRules } from "@/shared/lib/referenceSchemas";
+
+const SPECS = { rebate: getFieldRules("rebate", "rebateValue") };
 
 function EditPopover({ row, onSaved }: { row: RebateRow; onSaved: () => void }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [text, setText] = useState(String(row.Rebate));
   const [isSaving, setIsSaving] = useState(false);
+  const texts = useMemo(() => ({ rebate: text }), [text]);
+  const validation = useFieldValidation(texts, SPECS);
 
   async function save() {
-    const value = Number(text);
-    if (text === "" || Number.isNaN(value) || value < 0) {
-      toast.error("Enter a rebate of $0 or more.");
-      return;
-    }
+    if (!validation.attemptSubmit()) return;
+    const value = validation.values.rebate as number;
     setIsSaving(true);
     try {
       await putRebate(row.Customer, value);
-      toast.success(`Rebate updated for ${row.Customer}.`);
+      toast.success(t("grossMargin.updates.rebate.log.editSuccess", { customer: row.Customer }));
       setOpen(false);
       onSaved();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to update rebate.");
+      toast.error(err instanceof Error ? err.message : t("grossMargin.updates.rebate.failed"));
     } finally {
       setIsSaving(false);
     }
@@ -56,15 +63,18 @@ function EditPopover({ row, onSaved }: { row: RebateRow; onSaved: () => void }) 
       </PopoverTrigger>
       <PopoverContent className="w-64 space-y-3">
         <p className="text-sm font-semibold">{row.Customer}</p>
-        <Input
-          type="number"
-          step="0.01"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="e.g. 0.10"
-        />
-        <Button size="sm" onClick={save} disabled={isSaving} className="w-full">
-          {isSaving ? "Saving…" : "Save"}
+        <Field label={t("grossMargin.updates.rebate.log.edit")} error={validation.visibleErrors.rebate}>
+          <Input
+            {...decimalInputProps}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onBlur={() => validation.touch("rebate")}
+            aria-invalid={!!validation.visibleErrors.rebate}
+            placeholder="e.g. 0.10"
+          />
+        </Field>
+        <Button size="sm" onClick={save} disabled={isSaving || !validation.isValid} className="w-full">
+          {isSaving ? t("grossMargin.common.saving") : t("grossMargin.common.save")}
         </Button>
       </PopoverContent>
     </Popover>
@@ -75,6 +85,7 @@ function EditPopover({ row, onSaved }: { row: RebateRow; onSaved: () => void }) 
 // the row always exists; this just writes it back to $0.00 (the dashboard
 // never issues a true DELETE against shared ERP data).
 function ResetButton({ row, onReset }: { row: RebateRow; onReset: () => void }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
 
@@ -82,11 +93,11 @@ function ResetButton({ row, onReset }: { row: RebateRow; onReset: () => void }) 
     setIsResetting(true);
     try {
       await putRebate(row.Customer, 0);
-      toast.success(`Rebate reset to $0.00 for ${row.Customer}.`);
+      toast.success(t("grossMargin.updates.rebate.log.resetSuccess", { customer: row.Customer }));
       setOpen(false);
       onReset();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to reset rebate.");
+      toast.error(err instanceof Error ? err.message : t("grossMargin.updates.rebate.log.resetFailed"));
     } finally {
       setIsResetting(false);
     }
@@ -104,18 +115,17 @@ function ResetButton({ row, onReset }: { row: RebateRow; onReset: () => void }) 
       </Button>
       <DialogContent className="max-w-sm">
         <DialogHeader>
-          <DialogTitle>Reset this rebate?</DialogTitle>
+          <DialogTitle>{t("grossMargin.updates.rebate.log.resetTitle")}</DialogTitle>
           <DialogDescription>
-            Reset {row.Customer}&apos;s rebate back to $0.00? This affects their Avg Unit Price
-            across every variety they buy.
+            {t("grossMargin.updates.rebate.log.resetDescription", { customer: row.Customer })}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
           <DialogClose asChild>
-            <Button variant="outline" disabled={isResetting}>No, keep it</Button>
+            <Button variant="outline" disabled={isResetting}>{t("grossMargin.common.keepIt")}</Button>
           </DialogClose>
           <Button variant="destructive" onClick={confirmReset} disabled={isResetting}>
-            {isResetting ? "Resetting…" : "Yes, reset to $0.00"}
+            {isResetting ? t("grossMargin.common.resetting") : t("grossMargin.updates.rebate.log.resetConfirm")}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -124,25 +134,26 @@ function ResetButton({ row, onReset }: { row: RebateRow; onReset: () => void }) 
 }
 
 export function RebateLogTable({ rows, onChanged }: { rows: RebateRow[]; onChanged: () => void }) {
+  const { t } = useTranslation();
   const active = rows.filter((r) => r.Rebate !== 0);
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Rebate log</CardTitle>
-        <CardDescription>Every customer with a non-zero rebate currently applied.</CardDescription>
+        <CardTitle>{t("grossMargin.updates.rebate.log.title")}</CardTitle>
+        <CardDescription>{t("grossMargin.updates.rebate.log.description")}</CardDescription>
       </CardHeader>
       <CardContent>
         {active.length === 0 ? (
           <p className="py-8 text-center text-sm text-muted-foreground">
-            No rebates applied yet — every customer is at $0.00.
+            {t("grossMargin.updates.rebate.log.empty")}
           </p>
         ) : (
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Customer</TableHead>
-                <TableHead className="text-right">Rebate</TableHead>
+                <TableHead>{t("grossMargin.common.fields.customer")}</TableHead>
+                <TableHead className="text-right">{t("grossMargin.updates.rebate.title")}</TableHead>
                 <TableHead className="w-16" />
               </TableRow>
             </TableHeader>

@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { UserPlus } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/shared/ui/card";
 import { Input } from "@/shared/ui/input";
@@ -19,7 +20,7 @@ import {
   SelectValue,
 } from "@/shared/ui/select";
 import type { SalesRow } from "@/entities/grossMarginSalesRow";
-import { StepLabel } from "./StepLabel";
+import { Field } from "@/shared/ui/field";
 
 // Shared with quote-simulator-new-variety-picker.tsx -- both flows end up
 // building a manual starting point (buildManualBaseline) from a typed
@@ -27,6 +28,8 @@ import { StepLabel } from "./StepLabel";
 export interface NewVarietyShape {
   measurementUnitValue: number;
   packQty: number | null;
+  /** Real product code built from the SKU catalog; null when the catalog wasn't available. */
+  calculatedSku?: string | null;
 }
 
 // Existing-catalog varieties only -- quoting a brand-new product (never sold
@@ -39,6 +42,7 @@ export function QuoteSimulatorNewCustomerPicker({
   rows: SalesRow[];
   onCreate: (variety: string, warehouse: string, customerName: string) => void;
 }) {
+  const { t } = useTranslation();
   const [selectedVariety, setSelectedVariety] = useState("");
   const [selectedWarehouse, setSelectedWarehouse] = useState("");
   const [customerName, setCustomerName] = useState("");
@@ -79,36 +83,30 @@ export function QuoteSimulatorNewCustomerPicker({
             <UserPlus className="size-4.5" aria-hidden="true" />
           </div>
           <div>
-            <CardTitle>Quote a new customer</CardTitle>
-            <CardDescription>
-              Pick a Variety we already sell for a real starting estimate. Missing a Warehouse or
-              Cost Reference for this combination? You&apos;ll be able to fill it in by hand on the
-              next step. Quoting a brand-new product? Use the &quot;New Variety&quot; tab instead.
-            </CardDescription>
+            <CardTitle>{t("grossMargin.simulator.newCustomer.title")}</CardTitle>
+            <CardDescription>{t("grossMargin.simulator.newCustomer.description")}</CardDescription>
           </div>
         </div>
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <div className="space-y-1.5">
-            <StepLabel step={1} text="Variety" active={!!selectedVariety} />
+          <Field label={t("grossMargin.common.fields.variety")} step={{ n: 1, active: !!selectedVariety }}>
             <Combobox
               value={selectedVariety}
-              onChange={(v) => v && handleVariety(v)}
+              onChange={handleVariety}
               options={varieties.map((v) => ({ value: v, label: v }))}
-              placeholder="Select a variety…"
+              placeholder={t("grossMargin.common.selectVariety")}
             />
-          </div>
-          <div className="space-y-1.5">
-            <StepLabel step={2} text="Warehouse" active={!!selectedWarehouse} />
+          </Field>
+          <Field label={t("grossMargin.common.fields.warehouse")} step={{ n: 2, active: !!selectedWarehouse }}>
             <Select value={selectedWarehouse} onValueChange={(v) => v && setSelectedWarehouse(v)} disabled={!selectedVariety}>
               <SelectTrigger className="w-full">
-                <SelectValue placeholder={selectedVariety ? "Select a warehouse…" : "Pick a variety first"} />
+                <SelectValue placeholder={selectedVariety ? t("grossMargin.common.selectWarehouse") : t("grossMargin.simulator.picker.varietyFirst")} />
               </SelectTrigger>
               <SelectContent>
                 {warehousesForVariety.length > 0 && (
                   <SelectGroup>
-                    <SelectLabel>Ships from already</SelectLabel>
+                    <SelectLabel>{t("grossMargin.simulator.newCustomer.shipsFrom")}</SelectLabel>
                     {warehousesForVariety.map((w) => (
                       <SelectItem key={w} value={w}>
                         {w}
@@ -119,7 +117,7 @@ export function QuoteSimulatorNewCustomerPicker({
                 {warehousesForVariety.length > 0 && otherWarehouses.length > 0 && <SelectSeparator />}
                 {otherWarehouses.length > 0 && (
                   <SelectGroup>
-                    <SelectLabel>No data yet — starts blank</SelectLabel>
+                    <SelectLabel>{t("grossMargin.simulator.newCustomer.noDataYet")}</SelectLabel>
                     {otherWarehouses.map((w) => (
                       <SelectItem key={w} value={w}>
                         {w}
@@ -129,18 +127,17 @@ export function QuoteSimulatorNewCustomerPicker({
                 )}
               </SelectContent>
             </Select>
-          </div>
-          <div className="space-y-1.5">
-            <StepLabel step={3} text="New customer name" active={customerName.trim().length > 0} />
+          </Field>
+          <Field label={t("grossMargin.simulator.newCustomer.newCustomerName")} step={{ n: 3, active: customerName.trim().length > 0 }}>
             <Input
               placeholder="e.g. ACME GROCERY"
               value={customerName}
               onChange={(e) => setCustomerName(e.target.value)}
             />
-          </div>
+          </Field>
         </div>
         <Button className="mt-4" disabled={!canCreate} onClick={handleCreate}>
-          Create quote
+          {t("grossMargin.simulator.newCustomer.createQuote")}
         </Button>
       </CardContent>
     </Card>

@@ -1,4 +1,5 @@
 import { ArrowRight, CheckCircle2, AlertTriangle, XCircle, HelpCircle, Minus } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { formatPercent } from "@/shared/lib/format";
 import { grossMarginCellZone, type Zone } from "@/entities/grossMarginSalesRow";
 import type { SalesRow } from "@/entities/grossMarginSalesRow";
@@ -7,11 +8,11 @@ import { cn } from "@/shared/lib/utils";
 // One glance answers "did this scenario help or hurt?" -- Baseline and
 // Scenario sit side by side using the same zone coloring (green/yellow/red)
 // as the rest of the dashboard.
-const ZONE_META: Record<Zone, { label: string; icon: typeof CheckCircle2; classes: string }> = {
-  green: { label: "Healthy", icon: CheckCircle2, classes: "bg-success/10 text-success" },
-  yellow: { label: "Watch", icon: AlertTriangle, classes: "bg-warning/10 text-warning" },
-  red: { label: "Below floor", icon: XCircle, classes: "bg-destructive/10 text-destructive" },
-  unknown: { label: "Unknown", icon: HelpCircle, classes: "bg-muted text-muted-foreground" },
+const ZONE_META: Record<Zone, { icon: typeof CheckCircle2; classes: string }> = {
+  green: { icon: CheckCircle2, classes: "bg-success/10 text-success" },
+  yellow: { icon: AlertTriangle, classes: "bg-warning/10 text-warning" },
+  red: { icon: XCircle, classes: "bg-destructive/10 text-destructive" },
+  unknown: { icon: HelpCircle, classes: "bg-muted text-muted-foreground" },
 };
 
 function MarginBlock({
@@ -25,6 +26,7 @@ function MarginBlock({
   value: number | null;
   tone: "primary" | "chart-2";
 }) {
+  const { t } = useTranslation();
   const zone = grossMarginCellZone(value);
   const meta = ZONE_META[zone];
   const ZoneIcon = meta.icon;
@@ -36,7 +38,7 @@ function MarginBlock({
       <p className="text-xs text-muted-foreground">{sublabel}</p>
       <span className={cn("mt-1 flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium", meta.classes)}>
         <ZoneIcon className="size-3.5" aria-hidden="true" />
-        {meta.label}
+        {t(`grossMargin.simulator.headline.zones.${zone}`)}
       </span>
     </div>
   );
@@ -51,6 +53,7 @@ export function QuoteSimulatorHeadline({
   simulated: SalesRow;
   isNewCustomerQuote?: boolean;
 }) {
+  const { t } = useTranslation();
   const d =
     actual.GrossMargin !== null && simulated.GrossMargin !== null ? simulated.GrossMargin - actual.GrossMargin : null;
   const improved = d !== null && d > 1e-9;
@@ -59,14 +62,12 @@ export function QuoteSimulatorHeadline({
   return (
     <div className="relative overflow-hidden rounded-2xl border bg-gradient-to-br from-primary/10 via-card to-[var(--chart-2)]/10 p-6 shadow-sm sm:p-8">
       <p className="mb-5 text-center text-sm font-medium text-muted-foreground sm:mb-6">
-        {isNewCustomerQuote
-          ? "Gross margin — estimated starting point vs. this scenario"
-          : "Gross margin — what actually happened vs. this scenario"}
+        {isNewCustomerQuote ? t("grossMargin.simulator.headline.estimate") : t("grossMargin.simulator.headline.actual")}
       </p>
       <div className="flex flex-col items-center justify-center gap-4 sm:flex-row sm:gap-6">
         <MarginBlock
-          label="Baseline"
-          sublabel={isNewCustomerQuote ? "Estimated from other customers" : "Actual, unedited"}
+          label={t("grossMargin.simulator.headline.baseline")}
+          sublabel={isNewCustomerQuote ? t("grossMargin.simulator.headline.baselineSubEstimate") : t("grossMargin.simulator.headline.baselineSubActual")}
           value={actual.GrossMargin}
           tone="primary"
         />
@@ -89,7 +90,7 @@ export function QuoteSimulatorHeadline({
           )}
         </div>
 
-        <MarginBlock label="Scenario" sublabel="With your overrides" value={simulated.GrossMargin} tone="chart-2" />
+        <MarginBlock label={t("grossMargin.simulator.headline.scenario")} sublabel={t("grossMargin.simulator.headline.scenarioSub")} value={simulated.GrossMargin} tone="chart-2" />
       </div>
     </div>
   );

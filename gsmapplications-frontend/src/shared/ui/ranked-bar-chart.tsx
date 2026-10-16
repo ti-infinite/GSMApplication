@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Bar,
   BarChart,
@@ -97,6 +98,7 @@ export function RankedBarChart({
   // Resets to the default whenever the caller hands us a genuinely different
   // ranking (a new search/filter/metric) -- "show more" shouldn't carry over
   // into an unrelated list.
+  const { t } = useTranslation();
   const [visibleCount, setVisibleCount] = useState(DEFAULT_VISIBLE);
   useEffect(() => setVisibleCount(DEFAULT_VISIBLE), [data]);
 
@@ -107,7 +109,7 @@ export function RankedBarChart({
   if (data.length === 0) {
     return (
       <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
-        No data for this selection yet.
+        {t("grossMargin.chart.noData")}
       </div>
     );
   }
@@ -164,7 +166,7 @@ export function RankedBarChart({
             size="sm"
             onClick={() => setVisibleCount((c) => c + SHOW_MORE_STEP)}
           >
-            Show {Math.min(SHOW_MORE_STEP, remaining)} more ({remaining} left)
+            {t("grossMargin.chart.showMore", { count: Math.min(SHOW_MORE_STEP, remaining), remaining })}
           </Button>
         </div>
       )}

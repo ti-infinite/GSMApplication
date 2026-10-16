@@ -1,22 +1,30 @@
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Card, CardAction, CardContent, CardHeader, CardTitle, CardDescription } from "@/shared/ui/card";
 import { ReferenceBulkUpload } from "@/shared/ui/reference-bulk-upload";
 import { Input } from "@/shared/ui/input";
 import { Button } from "@/shared/ui/button";
 import { Combobox } from "@/shared/ui/combobox";
+import { Field, FieldToggle } from "@/shared/ui/field";
 import { formatCurrency, formatPercent } from "@/shared/lib/format";
+import { decimalInputProps } from "@/shared/lib/formValidation";
+import { useFieldValidation } from "@/shared/lib/useFieldValidation";
+import { getFieldRules } from "@/shared/lib/referenceSchemas";
 import { upsertCommission } from "../api/upsertCommission";
 import type { CommissionRow } from "@/entities/grossMarginCommission";
 import type { SalesRow } from "@/entities/grossMarginSalesRow";
-import { cn } from "@/shared/lib/utils";
 
-// REWRITE (2026-10-08): Commission moved from db_ai.CustomerCommission to
-// db_ms.Clients/ClientAttributes -- same mechanism as Rebate, applies per
-// Customer only now (never per Variety), so this card drops the whole
-// variety-selection step the old version needed and becomes a "pick a
-// customer, set a type + amount" upsert, structurally identical to
-// RebateCard's own shape (see features/grossMarginManageRebate/ui/RebateCard.tsx).
+type CommissionMode = "percent" | "value";
+
+const MODE_OPTIONS: { value: CommissionMode; label: string }[] = [
+  { value: "percent", label: "%" },
+  { value: "value", label: "$" },
+];
+
+// Commission applies per Customer only (never per Variety) and lives in the
+// shared client attributes, same mechanism as Rebate: pick a customer, set a
+// type + amount, upsert.
 export function CommissionCard({
   rows,
   commissions,
@@ -26,10 +34,10 @@ export function CommissionCard({
   commissions: CommissionRow[];
   onApplied: () => void;
 }) {
+  const { t } = useTranslation();
   const [selectedCustomer, setSelectedCustomer] = useState("");
-  const [mode, setMode] = useState<"percent" | "value">("percent");
-  const [percentText, setPercentText] = useState("");
-  const [valueText, setValueText] = useState("");
+  const [mode, setMode] = useState<CommissionMode>("percent");
+  const [amountText, setAmountText] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const customers = useMemo(() => Array.from(new Set(rows.map((r) => r.Customer))).sort(), [rows]);
@@ -39,116 +47,105 @@ export function CommissionCard({
     [commissions, selectedCustomer]
   );
 
+  const texts = useMemo(() => ({ amount: amountText }), [amountText]);
+  const specs = useMemo(
+    () => ({ amount: getFieldRules("commission", mode === "percent" ? "commissionAmountPercent" : "commissionAmountValue") }),
+    [mode]
+  );
+  const extraErrors = useMemo(
+    () => ({ customer: selectedCustomer ? null : { code: "required" as const } }),
+    [selectedCustomer]
+  );
+  const validation = useFieldValidation(texts, specs, extraErrors);
+
   function selectCustomer(customer: string) {
     setSelectedCustomer(customer);
-    setPercentText("");
-    setValueText("");
+    setAmountText("");
+    validation.reset();
+  }
+
+  function changeMode(next: CommissionMode) {
+    setMode(next);
+    setAmountText("");
   }
 
   async function handleApply() {
-    if (!selectedCustomer) {
-      toast.error("Pick a customer first.");
-      return;
-    }
-    const amountText = mode === "percent" ? percentText : valueText;
-    const amountNum = Number(amountText);
-    if (amountText === "" || Number.isNaN(amountNum) || amountNum < 0) {
-      toast.error(mode === "percent" ? "Enter a commission percentage." : "Enter a commission value.");
-      return;
-    }
-
+    if (!validation.attemptSubmit()) return;
+    const amount = validation.values.amount as number;
     setIsSubmitting(true);
     try {
-      const commissionAmount = mode === "percent" ? amountNum / 100 : amountNum;
+      const commissionAmount = mode === "percent" ? amount / 100 : amount;
       await upsertCommission(selectedCustomer, mode, commissionAmount);
       toast.success(
-        `Commission set to ${mode === "percent" ? formatPercent(commissionAmount) : formatCurrency(commissionAmount)} for ${selectedCustomer}.`
+        t("grossMargin.updates.commission.success", {
+          amount: mode === "percent" ? formatPercent(commissionAmount) : formatCurrency(commissionAmount),
+          customer: selectedCustomer,
+        })
       );
-      setPercentText("");
-      setValueText("");
+      setAmountText("");
+      validation.reset();
       onApplied();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to update commission.");
+      toast.error(err instanceof Error ? err.message : t("grossMargin.updates.commission.failed"));
     } finally {
       setIsSubmitting(false);
     }
   }
 
+  const currentLabel = currentCommission
+    ? currentCommission.CommissionType === "percent"
+      ? formatPercent(currentCommission.CommissionAmount)
+      : formatCurrency(currentCommission.CommissionAmount)
+    : null;
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Commission</CardTitle>
-        <CardDescription>
-          A percentage or flat dollar amount subtracted from Avg Unit Sale Price, per customer —
-          sourced from db_ms.Clients (shared ERP data), written directly since it's the same row
-          db_ai.GMSales already reads.
-        </CardDescription>
+        <CardTitle>{t("grossMargin.updates.commission.title")}</CardTitle>
+        <CardDescription>{t("grossMargin.updates.commission.description")}</CardDescription>
         <CardAction>
           <ReferenceBulkUpload resourceId="commission" onApplied={onApplied} />
         </CardAction>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Customer</label>
+          <Field label={t("grossMargin.common.fields.customer")} error={validation.visibleErrors.customer}>
             <Combobox
               value={selectedCustomer}
-              onChange={(v) => v && selectCustomer(v)}
+              onChange={selectCustomer}
               options={customers.map((c) => ({ value: c, label: c }))}
-              placeholder="Select a customer…"
+              placeholder={t("grossMargin.common.selectCustomer")}
             />
-            {selectedCustomer && (
-              <p className="text-xs text-muted-foreground">
-                Current commission:{" "}
-                {currentCommission
-                  ? currentCommission.CommissionType === "percent"
-                    ? formatPercent(currentCommission.CommissionAmount)
-                    : formatCurrency(currentCommission.CommissionAmount)
-                  : "none set"}
-              </p>
-            )}
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">New commission</label>
-            <div className="flex gap-2 pb-1 text-xs">
-              <button
-                type="button"
-                className={cn(mode === "percent" ? "font-semibold text-primary" : "text-muted-foreground")}
-                onClick={() => setMode("percent")}
-              >
-                % percent
-              </button>
-              <span className="text-muted-foreground">/</span>
-              <button
-                type="button"
-                className={cn(mode === "value" ? "font-semibold text-primary" : "text-muted-foreground")}
-                onClick={() => setMode("value")}
-              >
-                $ flat value
-              </button>
-            </div>
-            {mode === "percent" ? (
-              <Input
-                type="number"
-                step="0.01"
-                placeholder="e.g. 10"
-                value={percentText}
-                onChange={(e) => setPercentText(e.target.value)}
+          </Field>
+          <Field
+            label={
+              selectedCustomer && currentLabel
+                ? t("grossMargin.updates.commission.newCommissionNow", { value: currentLabel })
+                : t("grossMargin.updates.commission.newCommission")
+            }
+            labelEnd={
+              <FieldToggle
+                value={mode}
+                options={MODE_OPTIONS}
+                onChange={changeMode}
+                ariaLabel={t("grossMargin.updates.commission.typeAria")}
               />
-            ) : (
-              <Input
-                type="number"
-                step="0.0001"
-                placeholder="e.g. 0.15"
-                value={valueText}
-                onChange={(e) => setValueText(e.target.value)}
-              />
-            )}
-          </div>
+            }
+            error={validation.visibleErrors.amount}
+          >
+            <Input
+              {...decimalInputProps}
+              placeholder={mode === "percent" ? "e.g. 10" : "e.g. 0.15"}
+              value={amountText}
+              onChange={(e) => setAmountText(e.target.value)}
+              onBlur={() => validation.touch("amount")}
+              aria-invalid={!!validation.visibleErrors.amount}
+            />
+          </Field>
         </div>
 
-        <Button onClick={handleApply} disabled={isSubmitting || !selectedCustomer}>
-          {isSubmitting ? "Applying…" : "Apply Commission"}
+        <Button onClick={handleApply} disabled={isSubmitting || !validation.isValid}>
+          {isSubmitting ? t("grossMargin.common.applying") : t("grossMargin.updates.commission.apply")}
         </Button>
       </CardContent>
     </Card>

@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   type ColumnDef,
   type SortingState,
@@ -19,6 +20,8 @@ import {
 } from "@/shared/ui/table";
 import { Input } from "@/shared/ui/input";
 import { Button } from "@/shared/ui/button";
+import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
+import { Field } from "@/shared/ui/field";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/shared/ui/dropdown-menu";
 import { AlarmsCell } from "@/entities/grossMarginSalesRow";
 import { grossMarginCellZone, type Zone } from "@/entities/grossMarginSalesRow";
@@ -32,23 +35,23 @@ type ColKind = "currency" | "percent" | "number" | "flag";
 // "core" columns are what Sales Explorer shows by default -- the numbers
 // most relevant to margin at a glance. "Full Breakdown" reveals every
 // remaining column in db_ai.Sales (21 total) for a full cost-buildup audit.
-const NUMERIC_COLUMNS: { key: keyof SalesRow; label: string; kind: ColKind; core: boolean }[] = [
-  { key: "AvgUnitPrice", label: "Avg Unit Price", kind: "currency", core: true },
-  { key: "FinalUnitCost", label: "Final Unit Cost", kind: "currency", core: true },
-  { key: "CostRatio", label: "Cost Ratio", kind: "percent", core: true },
-  { key: "GrossMargin", label: "Gross Margin", kind: "percent", core: true },
-  { key: "MeasurementUnitValue", label: "Measurement Unit", kind: "number", core: false },
-  { key: "FinalPurPrice", label: "Final Product Price", kind: "currency", core: false },
-  { key: "PurchaseCost", label: "Purchase Cost", kind: "currency", core: false },
-  { key: "Flag", label: "Source", kind: "flag", core: false },
-  { key: "Yield", label: "Yield", kind: "number", core: false },
-  { key: "Packing", label: "Packing", kind: "currency", core: false },
-  { key: "Sticker", label: "Sticker", kind: "currency", core: false },
-  { key: "Box", label: "Box", kind: "currency", core: false },
-  { key: "LabourProd", label: "Labour (Prod)", kind: "currency", core: false },
-  { key: "LabourRepack", label: "Labour (Repack)", kind: "currency", core: false },
-  { key: "LabourAssembler", label: "Labour (Assembler)", kind: "currency", core: false },
-  { key: "Transport", label: "Transport", kind: "currency", core: false },
+const NUMERIC_COLUMNS: { key: keyof SalesRow; labelKey: string; kind: ColKind; core: boolean }[] = [
+  { key: "AvgUnitPrice", labelKey: "avgUnitPrice", kind: "currency", core: true },
+  { key: "FinalUnitCost", labelKey: "finalUnitCost", kind: "currency", core: true },
+  { key: "CostRatio", labelKey: "costRatio", kind: "percent", core: true },
+  { key: "GrossMargin", labelKey: "grossMargin", kind: "percent", core: true },
+  { key: "MeasurementUnitValue", labelKey: "measurementUnit", kind: "number", core: false },
+  { key: "FinalPurPrice", labelKey: "finalProductPrice", kind: "currency", core: false },
+  { key: "PurchaseCost", labelKey: "purchaseCost", kind: "currency", core: false },
+  { key: "Flag", labelKey: "source", kind: "flag", core: false },
+  { key: "Yield", labelKey: "yield", kind: "number", core: false },
+  { key: "Packing", labelKey: "packing", kind: "currency", core: false },
+  { key: "Sticker", labelKey: "sticker", kind: "currency", core: false },
+  { key: "Box", labelKey: "box", kind: "currency", core: false },
+  { key: "LabourProd", labelKey: "labourProd", kind: "currency", core: false },
+  { key: "LabourRepack", labelKey: "labourRepack", kind: "currency", core: false },
+  { key: "LabourAssembler", labelKey: "labourAssembler", kind: "currency", core: false },
+  { key: "Transport", labelKey: "transport", kind: "currency", core: false },
 ];
 
 // Traffic-light background for the Sales Explorer's Gross Margin cell only
@@ -61,19 +64,19 @@ const MARGIN_CELL_CLASSES: Record<Zone, string> = {
   unknown: "border border-border bg-muted text-muted-foreground",
 };
 
-const FLAG_LABELS: Record<string, string> = {
-  "1": "Unit",
-  "0": "Pound",
+const FLAG_LABEL_KEYS: Record<string, string> = {
+  "1": "grossMargin.dashboard.salesExplorer.source.unit",
+  "0": "grossMargin.dashboard.salesExplorer.source.pound",
 };
 
 const PAGE_SIZE_OPTIONS = [25, 50, 100, 200];
 
-const TEXT_COLUMNS: { key: keyof SalesRow; label: string; filterLabel: string; core: boolean }[] = [
-  { key: "Variety", label: "Variety", filterLabel: "varieties", core: true },
-  { key: "Customer", label: "Customer", filterLabel: "customers", core: true },
-  { key: "Warehouse", label: "Warehouse", filterLabel: "warehouses", core: true },
-  { key: "CalculatedSKU", label: "SKU", filterLabel: "SKUs", core: false },
-  { key: "SKUMeasure", label: "SKU (Measure)", filterLabel: "SKUs (measure)", core: false },
+const TEXT_COLUMNS: { key: keyof SalesRow; labelKey: string; core: boolean }[] = [
+  { key: "Variety", labelKey: "variety", core: true },
+  { key: "Customer", labelKey: "customer", core: true },
+  { key: "Warehouse", labelKey: "warehouse", core: true },
+  { key: "CalculatedSKU", labelKey: "sku", core: false },
+  { key: "SKUMeasure", labelKey: "skuMeasure", core: false },
 ];
 
 // w-px forces these to shrink-to-fit their short currency/percent content
@@ -87,12 +90,12 @@ const FILTER_COLUMNS = TEXT_COLUMNS.filter((col) =>
   (["Customer", "Variety", "Warehouse"] as (keyof SalesRow)[]).includes(col.key)
 );
 
-function formatCell(value: number | null, kind: ColKind) {
+function formatCell(value: number | null, kind: ColKind, flagLabel: (value: number) => string) {
   if (kind === "flag") {
     if (value === null) return <span className="text-muted-foreground">—</span>;
     return (
       <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-        {FLAG_LABELS[String(value)] ?? String(value)}
+        {flagLabel(value)}
       </span>
     );
   }
@@ -103,14 +106,20 @@ function formatCell(value: number | null, kind: ColKind) {
 
 function describeFilters(textFilters: Record<string, string>): string[] {
   const lines: string[] = [];
-  for (const { key, label } of FILTER_COLUMNS) {
+  for (const { key, labelKey } of FILTER_COLUMNS) {
     const value = textFilters[key];
-    if (value) lines.push(`${label} contains "${value}"`);
+    if (value) lines.push(`${labelKey} contains "${value}"`);
   }
   return lines;
 }
 
 export function SalesTable({ rows }: { rows: SalesRow[] }) {
+  const { t } = useTranslation();
+  const flagLabel = (value: number) => {
+    const key = FLAG_LABEL_KEYS[String(value)];
+    return key ? t(key) : String(value);
+  };
+  const columnLabel = (labelKey: string) => t(`grossMargin.dashboard.salesExplorer.columns.${labelKey}`);
   const [isFullBreakdown, setIsFullBreakdown] = useState(false);
   const { isExporting, exportToExcel } = useSalesExport();
   const [sorting, setSorting] = useState<SortingState>([
@@ -148,7 +157,7 @@ export function SalesTable({ rows }: { rows: SalesRow[] }) {
         (col): ColumnDef<SalesRow> => ({
           id: col.key,
           accessorKey: col.key,
-          header: col.label,
+          header: columnLabel(col.labelKey),
           cell: ({ getValue }) =>
             // Variety names run long enough to push Cost Ratio/Gross Margin
             // out of view -- capped and wrapped to keep the row height
@@ -164,7 +173,7 @@ export function SalesTable({ rows }: { rows: SalesRow[] }) {
         (col): ColumnDef<SalesRow> => ({
           id: col.key,
           accessorKey: col.key,
-          header: col.label,
+          header: columnLabel(col.labelKey),
           cell: ({ getValue, row }) => {
             const value = getValue() as number | null;
             if (col.key === "GrossMargin") {
@@ -187,23 +196,23 @@ export function SalesTable({ rows }: { rows: SalesRow[] }) {
               return (
                 <div className="whitespace-nowrap">
                   {value !== null && (
-                    <span className="font-mono tabular-nums">{formatCell(value, col.kind)}</span>
+                    <span className="font-mono tabular-nums">{formatCell(value, col.kind, flagLabel)}</span>
                   )}
                   {row.original.CommissionApplied === 1 && (
-                    <p className="text-[10px] leading-tight text-muted-foreground">Commission applied</p>
+                    <p className="text-[10px] leading-tight text-muted-foreground">{t("grossMargin.dashboard.salesExplorer.commissionApplied")}</p>
                   )}
                 </div>
               );
             }
             return value !== null ? (
-              <span className="font-mono tabular-nums whitespace-nowrap">{formatCell(value, col.kind)}</span>
+              <span className="font-mono tabular-nums whitespace-nowrap">{formatCell(value, col.kind, flagLabel)}</span>
             ) : null;
           },
         })
       ),
       {
         id: "alarms",
-        header: "Alarms",
+        header: t("grossMargin.dashboard.salesExplorer.columns.alarms"),
         enableSorting: false,
         cell: ({ row }) => <AlarmsCell row={row.original} />,
       },
@@ -246,50 +255,51 @@ export function SalesTable({ rows }: { rows: SalesRow[] }) {
   }
 
   return (
-    <div className="space-y-3">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h3 className="text-sm font-semibold">Sales Explorer</h3>
-          <p className="text-xs text-muted-foreground">
-            {isFullBreakdown
-              ? "Showing every column in db_ai.Sales — the full cost buildup per row."
-              : "Showing the headline columns. Switch to Full Breakdown to see every cost component."}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" size="sm" onClick={handleExport} disabled={isExporting}>
-            <Download aria-hidden="true" />
-            {isExporting ? "Preparing…" : "Export to Excel"}
-          </Button>
-          <Button
-            variant={isFullBreakdown ? "default" : "outline"}
-            size="sm"
-            onClick={toggleFullBreakdown}
-          >
-            {isFullBreakdown ? <Rows3 aria-hidden="true" /> : <Table2 aria-hidden="true" />}
-            {isFullBreakdown ? "Compact view" : "Full Breakdown"}
-          </Button>
-        </div>
-      </div>
-
+    <Card>
+      <CardHeader>
+        <CardTitle>{t("grossMargin.dashboard.salesExplorer.title")}</CardTitle>
+        <CardDescription>
+          {isFullBreakdown
+            ? t("grossMargin.dashboard.salesExplorer.descriptionFull")
+            : t("grossMargin.dashboard.salesExplorer.descriptionCompact")}
+        </CardDescription>
+        <CardAction>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="outline" size="sm" onClick={handleExport} disabled={isExporting}>
+              <Download aria-hidden="true" />
+              {isExporting ? t("grossMargin.dashboard.salesExplorer.preparing") : t("grossMargin.dashboard.salesExplorer.exportExcel")}
+            </Button>
+            <Button
+              variant={isFullBreakdown ? "default" : "outline"}
+              size="sm"
+              onClick={toggleFullBreakdown}
+            >
+              {isFullBreakdown ? <Rows3 aria-hidden="true" /> : <Table2 aria-hidden="true" />}
+              {isFullBreakdown ? t("grossMargin.dashboard.salesExplorer.compactView") : t("grossMargin.dashboard.salesExplorer.fullBreakdown")}
+            </Button>
+          </div>
+        </CardAction>
+      </CardHeader>
+      <CardContent className="space-y-3">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         {FILTER_COLUMNS.map((col) => (
-          <Input
-            key={col.key}
-            placeholder={`Filter ${col.filterLabel}…`}
-            aria-label={`Filter ${col.filterLabel}`}
-            value={textFilters[col.key] ?? ""}
-            onChange={(e) =>
-              setTextFilters((f) => ({ ...f, [col.key]: e.target.value }))
-            }
-            className="h-8 text-sm"
-          />
+          <Field key={col.key} label={columnLabel(col.labelKey)}>
+            <Input
+              placeholder={t("grossMargin.common.search")}
+              aria-label={t("grossMargin.dashboard.salesExplorer.filterAria", { label: columnLabel(col.labelKey) })}
+              value={textFilters[col.key] ?? ""}
+              onChange={(e) =>
+                setTextFilters((f) => ({ ...f, [col.key]: e.target.value }))
+              }
+              className="h-8 text-sm"
+            />
+          </Field>
         ))}
       </div>
 
       <p className="text-xs text-muted-foreground">
-        Showing {filteredRows.length} of {rows.length} rows
-        {isFullBreakdown ? ` · ${columns.length} columns` : ""}
+        {t("grossMargin.dashboard.salesExplorer.showing", { shown: filteredRows.length, total: rows.length })}
+        {isFullBreakdown ? t("grossMargin.dashboard.salesExplorer.columnsSuffix", { count: columns.length }) : ""}
       </p>
 
       <div className="overflow-hidden rounded-lg border">
@@ -343,7 +353,7 @@ export function SalesTable({ rows }: { rows: SalesRow[] }) {
               {tableRows.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={columns.length} className="h-24 text-center text-muted-foreground">
-                    No rows match the current filters.
+                    {t("grossMargin.dashboard.salesExplorer.noRowsMatch")}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -372,7 +382,7 @@ export function SalesTable({ rows }: { rows: SalesRow[] }) {
         {tableRows.length > 0 && (
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-card px-4 py-1 text-sm">
             <div className="flex items-center gap-2 text-muted-foreground">
-              <span>Rows per page</span>
+              <span>{t("grossMargin.common.rowsPerPage")}</span>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button
@@ -401,7 +411,7 @@ export function SalesTable({ rows }: { rows: SalesRow[] }) {
                     type="button"
                     disabled={safePage === 0}
                     onClick={() => setPage(safePage - 1)}
-                    aria-label="Previous"
+                    aria-label={t("grossMargin.common.previous")}
                     className="rounded-md p-1 text-muted-foreground hover:bg-muted disabled:opacity-40"
                   >
                     <ChevronLeft className="h-4 w-4" />
@@ -411,7 +421,7 @@ export function SalesTable({ rows }: { rows: SalesRow[] }) {
                     type="button"
                     disabled={safePage >= pageCount - 1}
                     onClick={() => setPage(safePage + 1)}
-                    aria-label="Next"
+                    aria-label={t("grossMargin.common.next")}
                     className="rounded-md p-1 text-muted-foreground hover:bg-muted disabled:opacity-40"
                   >
                     <ChevronRight className="h-4 w-4" />
@@ -422,6 +432,7 @@ export function SalesTable({ rows }: { rows: SalesRow[] }) {
           </div>
         )}
       </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }

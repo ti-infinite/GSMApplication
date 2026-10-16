@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { formatCurrency, formatPercent } from "@/shared/lib/format";
 import { cellKey, type RankMetric } from "@/entities/grossMarginSalesRow";
 import { Button } from "@/shared/ui/button";
@@ -42,6 +43,7 @@ export function Heatmap({
   cells: Map<string, number | null>;
   metric: RankMetric;
 }) {
+  const { t } = useTranslation();
   const values = Array.from(cells.values()).filter((v): v is number => v !== null);
   const min = values.length ? Math.min(...values) : 0;
   const max = values.length ? Math.max(...values) : 1;
@@ -57,7 +59,7 @@ export function Heatmap({
   if (varieties.length === 0 || customers.length === 0) {
     return (
       <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
-        No data to display.
+        {t("grossMargin.dashboard.explorer.heatmapNoData")}
       </div>
     );
   }
@@ -75,7 +77,7 @@ export function Heatmap({
   if (visibleCustomers.length === 0) {
     return (
       <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
-        No data for the customers currently shown — try clearing the customer filter.
+        {t("grossMargin.dashboard.explorer.heatmapNoCustomers")}
       </div>
     );
   }
@@ -96,7 +98,13 @@ export function Heatmap({
           }}
         />
         <span>{formatValue(max)}</span>
-        <span className="ml-2">({metric === "AvgUnitPrice" ? "price scale" : metric === "CostRatio" ? "green = better (lower)" : "green = better (higher)"})</span>
+        <span className="ml-2">
+          ({metric === "AvgUnitPrice"
+            ? t("grossMargin.dashboard.explorer.priceScale")
+            : metric === "CostRatio"
+              ? t("grossMargin.dashboard.explorer.greenLower")
+              : t("grossMargin.dashboard.explorer.greenHigher")})
+        </span>
       </div>
 
       <div className="overflow-hidden rounded-lg border">
@@ -135,7 +143,7 @@ export function Heatmap({
                     return (
                       <TableCell
                         key={`${variety}-${customer}`}
-                        title={`${variety} × ${customer}: ${value !== null ? formatValue(value) : "no data"}`}
+                        title={`${variety} × ${customer}: ${value !== null ? formatValue(value) : t("grossMargin.dashboard.explorer.noDataCell")}`}
                         className="h-12 min-w-18 cursor-default p-0 text-center font-mono tabular-nums"
                         style={{ background: cellColor(metric, value, min, max) }}
                       >
@@ -163,7 +171,7 @@ export function Heatmap({
             size="sm"
             onClick={() => setVisibleCount((c) => c + SHOW_MORE_STEP)}
           >
-            Show {Math.min(SHOW_MORE_STEP, remaining)} more ({remaining} left)
+            {t("grossMargin.chart.showMore", { count: Math.min(SHOW_MORE_STEP, remaining), remaining })}
           </Button>
         </div>
       )}

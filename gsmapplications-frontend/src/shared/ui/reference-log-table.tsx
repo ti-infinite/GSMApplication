@@ -1,4 +1,8 @@
 import { useMemo, useState, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
+import { Field } from "@/shared/ui/field";
+import { decimalInputProps, type NumberRule } from "@/shared/lib/formValidation";
+import { useFieldValidation } from "@/shared/lib/useFieldValidation";
 import { toast } from "sonner";
 import { Pencil, Trash2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/shared/ui/card";
@@ -26,7 +30,8 @@ import { formatNumber } from "@/shared/lib/format";
 export interface ReferenceEditableField {
   key: string;
   label: string;
-  step?: string;
+  /** Entry rules; the same list the resource's "Add" card validates against. */
+  rules: NumberRule[];
   format?: (value: number | null) => string;
 }
 
@@ -81,6 +86,7 @@ function EditPopover<Row>({
   onUpdate: (id: number, values: Record<string, number | null>) => Promise<unknown>;
   onSaved: () => void;
 }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [texts, setTexts] = useState<Record<string, string>>(() => {
     const initial: Record<string, string> = {};
@@ -91,21 +97,25 @@ function EditPopover<Row>({
     return initial;
   });
   const [isSaving, setIsSaving] = useState(false);
+  const specs = useMemo(
+    () => Object.fromEntries(editableFields.map((f) => [f.key, f.rules])) as Record<string, NumberRule[]>,
+    [editableFields]
+  );
+  const validation = useFieldValidation(texts, specs);
 
   async function save() {
+    if (!validation.attemptSubmit()) return;
     setIsSaving(true);
     try {
-      const values: Record<string, number | null> = {};
-      for (const f of editableFields) {
-        const text = texts[f.key];
-        values[f.key] = text === "" ? null : Number(text);
-      }
+      // Parsed values: null only for a blank OPTIONAL field (a blank required
+      // field never gets here -- validation blocks it).
+      const values: Record<string, number | null> = { ...validation.values };
       await onUpdate(rowId(row), values);
-      toast.success("Updated.");
+      toast.success(t("grossMargin.common.updated"));
       setOpen(false);
       onSaved();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to update.");
+      toast.error(err instanceof Error ? err.message : t("grossMargin.common.failedUpdate"));
     } finally {
       setIsSaving(false);
     }
@@ -119,20 +129,20 @@ function EditPopover<Row>({
       <PopoverContent className="w-72 space-y-3">
         <div className="space-y-2">
           {editableFields.map((f) => (
-            <div key={f.key} className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">{f.label}</label>
+            <Field key={f.key} label={f.label} error={validation.visibleErrors[f.key]}>
               <Input
-                type="number"
-                step={f.step ?? "0.01"}
+                {...decimalInputProps}
                 value={texts[f.key]}
                 onChange={(e) => setTexts((t) => ({ ...t, [f.key]: e.target.value }))}
+                onBlur={() => validation.touch(f.key)}
+                aria-invalid={!!validation.visibleErrors[f.key]}
                 placeholder="—"
               />
-            </div>
+            </Field>
           ))}
         </div>
-        <Button size="sm" onClick={save} disabled={isSaving} className="w-full">
-          {isSaving ? "Saving…" : "Save"}
+        <Button size="sm" onClick={save} disabled={isSaving || !validation.isValid} className="w-full">
+          {isSaving ? t("grossMargin.common.saving") : t("grossMargin.common.save")}
         </Button>
       </PopoverContent>
     </Popover>
@@ -152,6 +162,7 @@ function DeleteButton<Row>({
   onDelete: (id: number) => Promise<unknown>;
   onDeleted: () => void;
 }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -159,11 +170,11 @@ function DeleteButton<Row>({
     setIsDeleting(true);
     try {
       await onDelete(rowId(row));
-      toast.success("Deleted.");
+      toast.success(t("grossMargin.common.deleted"));
       setOpen(false);
       onDeleted();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to delete.");
+      toast.error(err instanceof Error ? err.message : t("grossMargin.common.failedDelete"));
     } finally {
       setIsDeleting(false);
     }
@@ -181,15 +192,15 @@ function DeleteButton<Row>({
       </Button>
       <DialogContent className="max-w-sm">
         <DialogHeader>
-          <DialogTitle>Delete this row?</DialogTitle>
+          <DialogTitle>{t("grossMargin.common.deleteRowTitle")}</DialogTitle>
           <DialogDescription>{deleteWarning(row)}</DialogDescription>
         </DialogHeader>
         <DialogFooter>
           <DialogClose asChild>
-            <Button variant="outline" disabled={isDeleting}>No, keep it</Button>
+            <Button variant="outline" disabled={isDeleting}>{t("grossMargin.common.keepIt")}</Button>
           </DialogClose>
           <Button variant="destructive" onClick={confirmDelete} disabled={isDeleting}>
-            {isDeleting ? "Deleting…" : "Yes, delete"}
+            {isDeleting ? t("grossMargin.common.deleting") : t("grossMargin.common.yesDelete")}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -209,10 +220,11 @@ export function ReferenceLogTable<Row>({
   onUpdate,
   onDelete,
   onChanged,
-  emptyMessage = "No rows yet.",
+  emptyMessage,
   getSearchText,
-  searchPlaceholder = "Search…",
+  searchPlaceholder,
 }: ReferenceLogTableProps<Row>) {
+  const { t } = useTranslation();
   const [search, setSearch] = useState("");
 
   const filteredRows = useMemo(() => {
@@ -228,7 +240,7 @@ export function ReferenceLogTable<Row>({
           {title}
           {search.trim() && (
             <span className="ml-2 font-normal text-muted-foreground">
-              — {filteredRows.length} of {rows.length}
+              — {t("grossMargin.common.shownOf", { shown: filteredRows.length, total: rows.length })}
             </span>
           )}
         </CardTitle>
@@ -237,17 +249,17 @@ export function ReferenceLogTable<Row>({
       <CardContent>
         {rows.length > 0 && (
           <Input
-            placeholder={searchPlaceholder}
+            placeholder={searchPlaceholder ?? t("grossMargin.common.search")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="mb-4 max-w-xs"
           />
         )}
         {rows.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">{emptyMessage}</p>
+          <p className="py-8 text-center text-sm text-muted-foreground">{emptyMessage ?? t("grossMargin.common.noRowsYet")}</p>
         ) : filteredRows.length === 0 ? (
           <p className="py-8 text-center text-sm text-muted-foreground">
-            No rows match &quot;{search}&quot;.
+            {t("grossMargin.common.noRowsMatch", { search })}
           </p>
         ) : (
           <Table>

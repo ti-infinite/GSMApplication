@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ChevronDown, Calculator } from "lucide-react";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/shared/ui/collapsible";
 import { formatCurrency, formatPercent } from "@/shared/lib/format";
@@ -18,27 +19,29 @@ export function QuoteSimulatorTransparencyPanel({
   mode: SalesRowMode;
   avgUnitPriceBase: number | null;
 }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
+  const T = (key: string) => t(`grossMargin.simulator.transparency.terms.${key}`);
 
   const costTerms: { label: string; value: number | null }[] =
     mode === "C"
       ? [
-          { label: "Blended Purchase Cost (whole pack)", value: row.FinalPurPrice },
-          { label: "Box (whole pack)", value: row.Box },
-          { label: "Transport (whole pack)", value: row.Transport },
+          { label: T("blendedPurchaseWholePack"), value: row.FinalPurPrice },
+          { label: T("boxWholePack"), value: row.Box },
+          { label: T("transportWholePack"), value: row.Transport },
         ]
       : [
-          { label: "Final Purchase Price", value: row.FinalPurPrice },
-          { label: "Packing", value: row.Packing },
-          { label: "Sticker", value: row.Sticker },
-          { label: "Box", value: row.Box },
-          { label: "Labour — Production", value: row.LabourProd },
-          { label: "Labour — Repack", value: row.LabourRepack },
-          { label: "Labour — Assembler", value: row.LabourAssembler },
-          { label: "Transport", value: row.Transport },
+          { label: T("finalPurchasePrice"), value: row.FinalPurPrice },
+          { label: T("packing"), value: row.Packing },
+          { label: T("sticker"), value: row.Sticker },
+          { label: T("box"), value: row.Box },
+          { label: T("labourProd"), value: row.LabourProd },
+          { label: T("labourRepack"), value: row.LabourRepack },
+          { label: T("labourAssembler"), value: row.LabourAssembler },
+          { label: T("transport"), value: row.Transport },
         ];
 
-  const applicableTerms = costTerms.filter((t) => t.value !== null);
+  const applicableTerms = costTerms.filter((term) => term.value !== null);
 
   return (
     <Collapsible open={open} onOpenChange={setOpen} className="rounded-2xl border bg-card shadow-sm">
@@ -53,10 +56,8 @@ export function QuoteSimulatorTransparencyPanel({
             <Calculator className="size-4.5" aria-hidden="true" />
           </div>
           <div>
-            <p className="text-sm font-semibold">How this was calculated</p>
-            <p className="text-xs text-muted-foreground">
-              See the exact formula behind the Scenario numbers above — same math as production.
-            </p>
+            <p className="text-sm font-semibold">{t("grossMargin.simulator.transparency.title")}</p>
+            <p className="text-xs text-muted-foreground">{t("grossMargin.simulator.transparency.subtitle")}</p>
           </div>
         </div>
         <ChevronDown
@@ -67,19 +68,21 @@ export function QuoteSimulatorTransparencyPanel({
       <CollapsibleContent>
         <div className="space-y-6 p-5 text-sm">
           <div>
-            <p className="mb-2 font-semibold">1. Avg Sales Unit Price</p>
+            <p className="mb-2 font-semibold">{t("grossMargin.simulator.transparency.step1")}</p>
             <div className="rounded-lg border border-border bg-muted/30 p-3 font-mono text-xs">
-              <p>List Price ({formatCurrency(avgUnitPriceBase)}) − Rebate − Commission = {formatCurrency(row.AvgUnitPrice)}</p>
+              <p>
+                {t("grossMargin.simulator.transparency.listPrice")} ({formatCurrency(avgUnitPriceBase)}) − {t("grossMargin.simulator.transparency.rebate")} − {t("grossMargin.simulator.transparency.commission")} = {formatCurrency(row.AvgUnitPrice)}
+              </p>
             </div>
           </div>
 
           <div>
-            <p className="mb-2 font-semibold">2. Final Unit Cost</p>
+            <p className="mb-2 font-semibold">{t("grossMargin.simulator.transparency.step2")}</p>
             <div className="space-y-1 rounded-lg border border-border bg-muted/30 p-3 font-mono text-xs">
-              {applicableTerms.map((t, i) => (
-                <p key={t.label}>
+              {applicableTerms.map((term, i) => (
+                <p key={term.label}>
                   {i > 0 && "+ "}
-                  {t.label} = {formatCurrency(t.value)}
+                  {term.label} = {formatCurrency(term.value)}
                 </p>
               ))}
               <div className="mt-1 border-t border-border pt-1 font-semibold">
@@ -89,24 +92,16 @@ export function QuoteSimulatorTransparencyPanel({
           </div>
 
           <div>
-            <p className="mb-2 font-semibold">3. Cost Ratio &amp; Gross Margin</p>
+            <p className="mb-2 font-semibold">{t("grossMargin.simulator.transparency.step3")}</p>
             <div className="rounded-lg border border-border bg-muted/30 p-3 font-mono text-xs">
               <p>
-                Cost Ratio = {formatCurrency(row.FinalUnitCost)} ÷ {formatCurrency(row.AvgUnitPrice)} = {formatPercent(row.CostRatio)}
+                {t("grossMargin.simulator.transparency.costRatio")} = {formatCurrency(row.FinalUnitCost)} ÷ {formatCurrency(row.AvgUnitPrice)} = {formatPercent(row.CostRatio)}
               </p>
               <p className="mt-1">
-                Gross Margin = ({formatCurrency(row.AvgUnitPrice)} − {formatCurrency(row.FinalUnitCost)}) ÷ {formatCurrency(row.AvgUnitPrice)} = {formatPercent(row.GrossMargin)}
+                {t("grossMargin.simulator.transparency.grossMargin")} = ({formatCurrency(row.AvgUnitPrice)} − {formatCurrency(row.FinalUnitCost)}) ÷ {formatCurrency(row.AvgUnitPrice)} = {formatPercent(row.GrossMargin)}
               </p>
             </div>
           </div>
-
-          {mode === "C" && (
-            <p className="text-xs text-muted-foreground">
-              This is a mixed-herb blend — Blended Purchase Cost already includes every component
-              herb&apos;s own price plus its share of packaging/labour, folded in per-child by the
-              production pipeline. See the composition below.
-            </p>
-          )}
         </div>
       </CollapsibleContent>
     </Collapsible>

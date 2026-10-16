@@ -15,3 +15,24 @@ export const THRESHOLDS = {
   // category -- both must read the same band via grossMarginCellZone().
   GROSS_MARGIN_CELL_YELLOW_FLOOR: 0.1,
 } as const;
+
+// A cost category enters the amber "close to a limit" zone once its ratio
+// crosses this share of its max -- an early warning before a row actually
+// breaches a rule. Margin uses its own banding (grossMarginCellZone).
+export const YELLOW_RATIO_OF_MAX = 0.9;
+
+// Whole-percent display form ("42%", never "42.0%") so every piece of UI
+// that quotes a limit renders it the same way.
+export function thresholdPercent(fraction: number): string {
+  return `${Math.round(fraction * 100)}%`;
+}
+
+export const THRESHOLD_LABELS = {
+  purchaseCost: thresholdPercent(THRESHOLDS.PURCHASE_COST_MAX),
+  packing: thresholdPercent(THRESHOLDS.PACKING_MAX),
+  labour: thresholdPercent(THRESHOLDS.LABOUR_MAX),
+  transport: thresholdPercent(THRESHOLDS.TRANSPORT_MAX),
+  margin: thresholdPercent(THRESHOLDS.MIN_GROSS_MARGIN),
+  // How close to a limit counts as "close" (e.g. "10%").
+  amberBand: thresholdPercent(1 - YELLOW_RATIO_OF_MAX),
+} as const;

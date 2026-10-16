@@ -1,4 +1,5 @@
 import { AlertTriangle, CheckCircle2, HelpCircle } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { cn } from "@/shared/lib/utils";
 import type { AlarmState } from "@/entities/grossMarginSalesRow";
 import { formatPercent } from "@/shared/lib/format";
@@ -10,22 +11,22 @@ import {
 
 const STATE_CONFIG: Record<
   AlarmState,
-  { label: string; icon: typeof CheckCircle2; className: string; textClassName: string }
+  { labelKey: string; icon: typeof CheckCircle2; className: string; textClassName: string }
 > = {
   ok: {
-    label: "OK",
+    labelKey: "grossMargin.alarms.ok",
     icon: CheckCircle2,
     className: "bg-success/10 text-success border-success/30",
     textClassName: "text-success",
   },
   alarm: {
-    label: "ALARM",
+    labelKey: "grossMargin.alarms.alarm",
     icon: AlertTriangle,
     className: "bg-destructive/10 text-destructive border-destructive/30",
     textClassName: "text-destructive",
   },
   unknown: {
-    label: "No data",
+    labelKey: "grossMargin.alarms.noData",
     icon: HelpCircle,
     className: "bg-warning/10 text-warning border-warning/30",
     textClassName: "text-warning",
@@ -54,8 +55,10 @@ export function AlarmBadge({
   detail?: AlarmBadgeDetail;
   className?: string;
 }) {
+  const { t } = useTranslation();
   const config = STATE_CONFIG[state];
   const Icon = config.icon;
+  const label = t(config.labelKey);
   const badgeClassName = cn(
     "inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium",
     config.className,
@@ -66,7 +69,7 @@ export function AlarmBadge({
     return (
       <span className={badgeClassName}>
         <Icon className="size-3.5" aria-hidden="true" />
-        {config.label}
+        {label}
       </span>
     );
   }
@@ -82,7 +85,7 @@ export function AlarmBadge({
           badge styling is applied directly to it. */}
       <PopoverTrigger className={cn(badgeClassName, "cursor-pointer")}>
         <Icon className="size-3.5" aria-hidden="true" />
-        {config.label}
+        {label}
       </PopoverTrigger>
       <PopoverContent>
         <p className="text-sm font-semibold">{detail.categoryLabel}</p>
@@ -91,14 +94,14 @@ export function AlarmBadge({
         </p>
         <p className="mt-1 text-xs text-muted-foreground">
           {detail.isFloor
-            ? `Floor: ${formatPercent(detail.threshold)} minimum`
-            : `Threshold: ${formatPercent(detail.threshold)} maximum`}
+            ? t("grossMargin.alarms.floor", { value: formatPercent(detail.threshold) })
+            : t("grossMargin.alarms.threshold", { value: formatPercent(detail.threshold) })}
         </p>
         {overUnder !== null && (
           <p className="mt-1 text-xs font-medium text-destructive">
             {detail.isFloor
-              ? `${formatPercent(Math.abs(overUnder))} below the floor`
-              : `${formatPercent(Math.abs(overUnder))} over the threshold`}
+              ? t("grossMargin.alarms.belowFloor", { value: formatPercent(Math.abs(overUnder)) })
+              : t("grossMargin.alarms.overThreshold", { value: formatPercent(Math.abs(overUnder)) })}
           </p>
         )}
       </PopoverContent>

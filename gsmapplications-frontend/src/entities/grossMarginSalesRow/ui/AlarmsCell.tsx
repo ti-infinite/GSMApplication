@@ -1,4 +1,5 @@
 import { memo } from "react";
+import { useTranslation } from "react-i18next";
 import { AlarmBadge } from "./AlarmBadge";
 import { evaluateAlarms } from "@/entities/grossMarginSalesRow";
 import { computeCostBreakdown } from "@/entities/grossMarginSalesRow";
@@ -10,6 +11,7 @@ const FLAGGED_KEYS = ["purchaseCost", "packing", "labour", "transport", "margin"
 // sort/filter/column-visibility change, recomputing alarms for rows whose
 // own data didn't change.
 export const AlarmsCell = memo(function AlarmsCell({ row }: { row: SalesRow }) {
+  const { t } = useTranslation();
   const alarms = evaluateAlarms(row);
   const breakdown = computeCostBreakdown(row);
   const flaggedKeys = FLAGGED_KEYS.filter((key) => alarms[key] === "alarm");
@@ -25,7 +27,7 @@ export const AlarmsCell = memo(function AlarmsCell({ row }: { row: SalesRow }) {
             key={key}
             state="alarm"
             detail={{
-              categoryLabel: cat.label,
+              categoryLabel: t(`grossMargin.alarms.categories.${cat.key}`),
               value: cat.value,
               threshold: cat.threshold,
               isFloor: cat.isFloor,

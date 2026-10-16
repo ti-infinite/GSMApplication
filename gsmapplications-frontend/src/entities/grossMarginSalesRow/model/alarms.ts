@@ -15,14 +15,6 @@ export interface RowAlarms {
 
 export type AlarmRuleKey = keyof Omit<RowAlarms, "anyAlarm" | "anyUnknown">;
 
-export const ALARM_LABELS: Record<AlarmRuleKey, string> = {
-  purchaseCost: "Purchase Cost > 42%",
-  packing: "Packing + Sticker + Box > 8%",
-  labour: "Labour (Prod + Repack + Assembler) > 17%",
-  transport: "Transport > 13%",
-  margin: "Gross Margin < 20%",
-};
-
 function sumOrNull(...vals: (number | null)[]): number | null {
   if (vals.some((v) => v === null || v === undefined)) return null;
   return vals.reduce<number>((a, b) => a + (b as number), 0);

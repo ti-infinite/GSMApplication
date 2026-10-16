@@ -1,6 +1,8 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { QuoteOverrides, RecomputeInputs } from "./recompute";
 import { decimalPlaces, validateFieldValue, type QuoteFieldMeta } from "./quoteFields";
+import { parseDecimal } from "@/shared/lib/formValidation";
 
 // Owns the Inputs Panel's editing state (typed values, validity, whole-pack
 // vs per-unit view), separate from field-definition/rendering concerns.
@@ -15,6 +17,7 @@ export function useQuoteFieldEditor({
   onChange: (next: QuoteOverrides) => void;
   onTransportModeChange: (mode: "direct" | "pallet") => void;
 }) {
+  const { t } = useTranslation();
   const [texts, setTexts] = useState<Record<string, string>>({});
   const [errors, setErrors] = useState<Record<string, string | null>>({});
   // Which fields the user toggled to "whole-pack cost" entry -- purely a
@@ -51,9 +54,14 @@ export function useQuoteFieldEditor({
       onChange(next as QuoteOverrides);
       return;
     }
-    const value = Number(text);
-    if (!Number.isFinite(value)) return;
-    const err = validateFieldValue(key, value);
+    const parsed = parseDecimal(text);
+    if (typeof parsed !== "number") {
+      setErrors((e) => ({ ...e, [key]: t("grossMargin.validation.notANumber") }));
+      return;
+    }
+    const value = parsed;
+    const code = validateFieldValue(key, value);
+    const err = code ? t(`grossMargin.simulator.fieldErrors.${code}`) : null;
     setErrors((e) => ({ ...e, [key]: err }));
     if (err) return;
     const perUnitValue = field && wholePackFields[key] && packQty ? value / packQty : value;
@@ -85,8 +93,9 @@ export function useQuoteFieldEditor({
     const goingWholePack = !wholePackFields[f.key];
     const current = displayValue(f.key, f);
     setWholePackFields((w) => ({ ...w, [f.key]: goingWholePack }));
-    if (current === "" || !Number.isFinite(Number(current))) return;
-    const num = Number(current);
+    const parsedCurrent = parseDecimal(current);
+    if (typeof parsedCurrent !== "number") return;
+    const num = parsedCurrent;
     const converted = roundTo(goingWholePack ? num * packQty : num / packQty, f.step);
     setTexts((t) => ({ ...t, [f.key]: String(converted) }));
     // `num` is already per-unit when going whole-pack; `converted` is
@@ -100,7 +109,8 @@ export function useQuoteFieldEditor({
     const isWholePack = !!(f.supportsWholePackEntry && wholePackFields[f.key] && packQty);
     const displayBase = isWholePack && base !== null ? base * packQty! : base;
     const text = displayValue(f.key, f);
-    const current = text !== "" && Number.isFinite(Number(text)) ? Number(text) : (displayBase ?? 0);
+    const parsedText = parseDecimal(text);
+    const current = typeof parsedText === "number" ? parsedText : (displayBase ?? 0);
     const effectiveStep = isWholePack ? Number(f.step) * packQty! : Number(f.step);
     const next = roundTo(current + direction * effectiveStep, f.step);
     setField(f.key, String(next), f);

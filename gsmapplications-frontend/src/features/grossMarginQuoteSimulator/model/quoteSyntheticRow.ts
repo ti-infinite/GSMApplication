@@ -116,19 +116,37 @@ export function buildSyntheticBaseline(
   return { row, transportCost, templateRowCount: templateRows.length, costFieldsDisagree };
 }
 
+// Placeholder code for a quote whose real product code isn't known. Never
+// sent to the relay: the save banner only forwards non-manual codes.
+export const MANUAL_SKU_PREFIX = "MANUAL-";
+export const isManualSku = (sku: string) => sku.startsWith(MANUAL_SKU_PREFIX);
+
+// Mirrors how the sales data derives SKUMeasure from a product code and its
+// unit value: "CRBASI" + 16 -> "CRBASI16.0000" (always four decimals).
+export function buildSkuMeasure(calculatedSku: string, measurementUnitValue: number): string {
+  return `${calculatedSku}${measurementUnitValue.toFixed(4)}`;
+}
+
 // A fully-blank starting point for a Variety+Warehouse with zero existing
 // data -- every field starts null and the user fills them in by hand.
-// CalculatedSKU/SKUMeasure are display-only placeholders; mixed-herb blends
+// CalculatedSKU/SKUMeasure use the real product code when the New Variety
+// flow built one, otherwise a display-only placeholder; mixed-herb blends
 // are out of scope (IsMixedHerbWholePack always 0).
 export function buildManualBaseline(
   variety: string,
   warehouse: string,
   customerName: string,
-  shapeTemplate: { measurementUnitValue: number; packQty: number | null; skuMeasure?: string }
+  shapeTemplate: { measurementUnitValue: number; packQty: number | null; skuMeasure?: string; calculatedSku?: string | null }
 ): SalesRow {
+  const calculatedSku = shapeTemplate.calculatedSku ?? `${MANUAL_SKU_PREFIX}${variety}`;
+  const skuMeasure =
+    shapeTemplate.skuMeasure ??
+    (shapeTemplate.calculatedSku
+      ? buildSkuMeasure(calculatedSku, shapeTemplate.measurementUnitValue)
+      : `${MANUAL_SKU_PREFIX}${variety}-${shapeTemplate.measurementUnitValue}`);
   return {
-    CalculatedSKU: `MANUAL-${variety}`,
-    SKUMeasure: shapeTemplate.skuMeasure ?? `MANUAL-${variety}-${shapeTemplate.measurementUnitValue}`,
+    CalculatedSKU: calculatedSku,
+    SKUMeasure: skuMeasure,
     Variety: variety,
     Customer: customerName,
     Warehouse: warehouse,

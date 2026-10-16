@@ -1,5 +1,5 @@
 import type { SalesRow } from "./types";
-import { THRESHOLDS } from "@/shared/lib/thresholds";
+import { THRESHOLDS, YELLOW_RATIO_OF_MAX } from "@/shared/lib/thresholds";
 import type { AlarmRuleKey } from "./alarms";
 
 export type Zone = "green" | "yellow" | "red" | "unknown";
@@ -7,12 +7,6 @@ export type Zone = "green" | "yellow" | "red" | "unknown";
 // Same float-noise tolerance as model/alarms.ts (see that file's comment for
 // the exact 0.13-boundary case this absorbs).
 const EPSILON = 1e-9;
-
-// A category enters the "approaching threshold" yellow zone once its ratio
-// crosses 90% of the max -- an early warning before a row actually
-// breaches a rule. Used by the cost-ratio categories below; margin uses
-// its own banding, see grossMarginCellZone.
-const YELLOW_RATIO_OF_MAX = 0.9;
 
 export interface CostCategory {
   key: AlarmRuleKey;
@@ -23,9 +17,8 @@ export interface CostCategory {
   zone: Zone;
 }
 
-// Short row-label form of model/alarms.ts's ALARM_LABELS (those include the
-// ">" threshold text, which is redundant once the actual percentage is
-// sitting right next to it in a table cell).
+// Short row labels for each cost category (the actual percentage sits
+// right next to them in a table cell, so no threshold text here).
 export const CATEGORY_SHORT_LABELS: Record<AlarmRuleKey, string> = {
   purchaseCost: "Purchase Cost",
   packing: "Packing + Sticker + Box",

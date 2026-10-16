@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { GROSS_MARGIN_REF_QUERY_KEY } from "@/shared/lib/grossMarginReferenceQueryKeys";
 import { useCommissions } from "@/entities/grossMarginCommission";
@@ -11,7 +12,7 @@ import { useVarietyDesegregations } from "@/entities/grossMarginVarietyDesegrega
 import { useYields } from "@/entities/grossMarginYield";
 import { recomputeSalesRow, type QuoteOverrides } from "./recompute";
 import type { QuoteScenario } from "./quoteScenarios";
-import { buildSyntheticBaseline, buildManualBaseline } from "./quoteSyntheticRow";
+import { buildSyntheticBaseline, buildManualBaseline, isManualSku } from "./quoteSyntheticRow";
 import {
   defaultPackQuantity,
   findCommissionForRow,
@@ -44,6 +45,7 @@ function isNewCustomerEntry(entry: QuoteEntry): boolean {
 }
 
 export function useQuoteSimulatorState(rows: SalesRow[], refreshKey?: number | string) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const { commissions, isLoading: commissionsLoading } = useCommissions();
   const { rebates, isLoading: rebatesLoading } = useRebates();
@@ -73,6 +75,12 @@ export function useQuoteSimulatorState(rows: SalesRow[], refreshKey?: number | s
 
   const selectedRow = selectedEntry?.row ?? null;
   const isNewCustomerQuote = selectedEntry ? isNewCustomerEntry(selectedEntry) : false;
+  // Only a New Variety quote carries a user-built product code worth saving
+  // with its Cost Reference; existing rows let the relay resolve the code.
+  const calculatedSkuForSave =
+    selectedEntry?.kind === "new-variety" && !isManualSku(selectedEntry.row.CalculatedSKU)
+      ? selectedEntry.row.CalculatedSKU
+      : null;
 
   // Kept as `loadReferenceData` (same name/shape the UI already calls as
   // `onSaved` after "save as Cost Reference") -- now an invalidation instead
@@ -160,10 +168,10 @@ export function useQuoteSimulatorState(rows: SalesRow[], refreshKey?: number | s
       // same default a fresh row-selection would use.
       setPackQuantity(scenario.packQuantity ?? defaultPackQuantity(nextRow));
       if (!live) {
-        toast.warning("This row is no longer in the current dataset — showing the last-known values.");
+        toast.warning(t("grossMargin.simulator.warnings.rowGone"));
       }
     },
-    [rows]
+    [rows, t]
   );
 
   const handleCreateNewCustomerQuote = useCallback(
@@ -171,9 +179,7 @@ export function useQuoteSimulatorState(rows: SalesRow[], refreshKey?: number | s
       const result = buildSyntheticBaseline(variety, warehouse, customerName, rows, transportCosts);
       if (result) {
         if (result.costFieldsDisagree.length > 0) {
-          toast.warning(
-            `Existing rows for this Variety+Warehouse disagree on: ${result.costFieldsDisagree.join(", ")} — used the first match, double-check before quoting.`
-          );
+          toast.warning(t("grossMargin.simulator.warnings.costFieldsDisagree", { fields: result.costFieldsDisagree.join(", ") }));
         }
         setSelectedEntry({ kind: "new-customer-synthetic", row: result.row, transportCost: result.transportCost });
         setOverrides({});
@@ -188,7 +194,7 @@ export function useQuoteSimulatorState(rows: SalesRow[], refreshKey?: number | s
       // Variety ships, since that's a property of the product, not the warehouse.
       const anyRowForVariety = rows.find((r) => r.Variety === variety && r.MeasurementUnitValue !== null);
       if (!anyRowForVariety || anyRowForVariety.MeasurementUnitValue === null) {
-        toast.error(`No data found for "${variety}" anywhere — can't determine its package size.`);
+        toast.error(t("grossMargin.simulator.warnings.noDataForVariety", { variety }));
         return;
       }
       const manualRow = buildManualBaseline(variety, warehouse, customerName, {
@@ -202,7 +208,7 @@ export function useQuoteSimulatorState(rows: SalesRow[], refreshKey?: number | s
       setTransportMode("direct");
       setPackQuantity(defaultPackQuantity(manualRow));
     },
-    [rows, transportCosts]
+    [rows, transportCosts, t]
   );
 
   // The "New Variety" tab -- a brand-new product, never sold anywhere.
@@ -243,6 +249,7 @@ export function useQuoteSimulatorState(rows: SalesRow[], refreshKey?: number | s
     quoteFlow,
     selectedRow,
     isNewCustomerQuote,
+    calculatedSkuForSave,
     overrides,
     setOverrides,
     selectionGeneration,

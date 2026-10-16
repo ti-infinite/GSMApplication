@@ -4,7 +4,7 @@
 // they depend on SalesRow -- an entity-level type shared/ can never import,
 // since shared is the floor layer and imports nothing from above it.
 export type { SalesRow } from "./model/types";
-export { ALARM_LABELS, evaluateAlarms } from "./model/alarms";
+export { evaluateAlarms } from "./model/alarms";
 export type { AlarmState, RowAlarms, AlarmRuleKey } from "./model/alarms";
 export { computeCostBreakdown, grossMarginCellZone, sumTreatingNullAsZero, ratioOrNull } from "./model/zones";
 export type { Zone, CostCategory } from "./model/zones";

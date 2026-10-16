@@ -1,23 +1,16 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
-  useGetCategories,
-  useGetSkuDefinitions,
-  useGetParameters,
-  useGetMasterProducts,
   getFilteredEmployees,
   getFilteredSuppliers,
 } from '@/shared/api/operations/endpoints'
 import { getStoredUser, isSessionActive } from '@/shared/lib/auth'
 import type {
-  GlobalParameterListApiResponse,
-  MasterProductDTOListApiResponse,
   EmployeeDTOListApiResponse,
   SupplierDTOListApiResponse,
-  StringApiResponse,
 } from '@/shared/api/operations/model'
 import type { AssignmentWizardConfig, Grower } from './types'
-import type { Category, SKUTemplate, Parameter, MasterProduct } from '@/entities/product'
+import { useSkuCatalog } from '@/entities/product'
 import type { Employee } from '@/entities/employee'
 
 export function useWizardData() {
@@ -26,67 +19,8 @@ export function useWizardData() {
   // that the browser can cache against these cacheable GET URLs).
   const enabled = isSessionActive()
 
-  // ── Categories — comes as JSON string ──────────────────────────
-  const { data: categories = [], isLoading: l1, isError: e1 } = useGetCategories({
-    query: {
-      enabled,
-      staleTime: 5 * 60 * 1000,
-      select: res => {
-        try { return JSON.parse((res.data as StringApiResponse).data ?? '[]') as Category[] }
-        catch { return [] }
-      },
-    },
-  })
-
-  // ── SKU Definitions — comes as JSON string ──────────────────────
-  const { data: skuTemplates = [], isLoading: l2, isError: e2 } = useGetSkuDefinitions({
-    query: {
-      enabled,
-      staleTime: 5 * 60 * 1000,
-      select: res => {
-        try { return JSON.parse((res.data as StringApiResponse).data ?? '[]') as SKUTemplate[] }
-        catch { return [] }
-      },
-    },
-  })
-
-  // ── Parameters ──────────────────────────────────────────────────
-  const { data: parameters = [], isLoading: l3, isError: e3 } = useGetParameters({
-    query: {
-      enabled,
-      staleTime: 5 * 60 * 1000,
-      select: res => ((res.data as GlobalParameterListApiResponse).data ?? []).map(p => ({
-        idParameter:     p.idParameter ?? 0,
-        paramCategory:   p.paramCategory ?? '',
-        shortName:       p.shortName ?? '',
-        descr:           p.descr ?? '',
-        paramAttributes: (p.paramAttributes ?? []).map(a => ({
-          shortName: a.shortName ?? '',
-          code:      a.code ?? '',
-          descr:     a.descr ?? '',
-        })),
-      }) satisfies Parameter),
-    },
-  })
-
-  // ── Master Products ─────────────────────────────────────────────
-  const { data: masterProducts = [], isLoading: l4, isError: e4 } = useGetMasterProducts({
-    query: {
-      enabled,
-      staleTime: 5 * 60 * 1000,
-      select: res => ((res.data as MasterProductDTOListApiResponse).data ?? []).map(p => ({
-        MasterProductName:    p.masterProductName ?? '',
-        SKU:                  p.sku ?? '',
-        MeasurementUnit:      p.measurementUnit ?? '',
-        MeasurementUnitValue: Number(p.measurementUnitValue ?? 0),
-        MV: (p.mv ?? []).map(v => ({
-          IdVariety: v.idVariety ?? 0,
-          Name:      v.name ?? '',
-          Qty:       Number(v.qty ?? 0),
-        })),
-      }) satisfies MasterProduct),
-    },
-  })
+  // ── SKU catalog (categories, SKU definitions, parameters, master products) ──
+  const { catalog, isLoading: lc, isError: ec } = useSkuCatalog({ enabled })
 
   // ── Employees — filtered by the current user's location ─────────
   // POST endpoint → driven through useQuery with the raw fetcher.
@@ -126,31 +60,27 @@ export function useWizardData() {
     }) satisfies Grower),
   })
 
-  const isLoading = l1 || l2 || l3 || l4 || l5 || l6
-  const isError   = e1 || e2 || e3 || e4 || e5 || e6
+  const isLoading = lc || l5 || l6
+  const isError   = ec || e5 || e6
 
   const data = useMemo<AssignmentWizardConfig | null>(() => {
     if (isLoading || isError) return null
 
-    // IDs referenced in any SKU template rule → go to useSkuBuilder
-    const skuParamIds   = new Set(skuTemplates.flatMap((t: SKUTemplate) => t.SKUR.map(r => r.IdParameter)))
-    const skuParameters = parameters.filter(p => skuParamIds.has(p.idParameter))
-
-    // PRDTYPE options
-    const productionTypes = parameters
+    // PRDTYPE options -- read from ALL parameters, not just the SKU ones
+    const productionTypes = catalog.parameters
       .find(p => p.paramCategory === 'PRDTYPE')
       ?.paramAttributes ?? []
 
     return {
-      categories,
-      skuTemplates,
-      parameters:     skuParameters,
+      categories:     catalog.categories,
+      skuTemplates:   catalog.skuTemplates,
+      parameters:     catalog.skuParameters,
       productionTypes,
-      masterProducts,
+      masterProducts: catalog.masterProducts,
       employees,
       growers,
     }
-  }, [isLoading, isError, categories, skuTemplates, parameters, masterProducts, employees, growers])
+  }, [isLoading, isError, catalog, employees, growers])
 
   return { data, isLoading, isError }
 }

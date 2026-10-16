@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useSalesData } from "@/entities/grossMarginSalesRow";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/ui/tabs";
 import { Skeleton } from "@/shared/ui/skeleton";
@@ -9,23 +10,16 @@ import { VarietyClientExplorer } from "@/widgets/GrossMarginVarietyClientExplore
 import { CostBreakdownTable } from "@/widgets/GrossMarginCostBreakdownTable";
 
 export default function DashboardPage() {
-  const { rows, isLoading, error, lastFetched } = useSalesData();
+  const { t } = useTranslation();
+  const { rows, isLoading, error } = useSalesData();
 
   return (
     <div className="flex flex-1 flex-col gap-6">
-      <header>
-        <div>
-          <h1 className="text-xl font-bold sm:text-2xl text-foreground">Gross Margin Dashboard</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Infinite Herbs
-            {lastFetched && ` · updated ${lastFetched.toLocaleTimeString()}`}
-          </p>
-        </div>
-      </header>
+      <h1 className="text-xl font-bold sm:text-2xl text-foreground">{t("grossMargin.pages.dashboardTitle")}</h1>
 
       {error && (
         <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
-          Couldn&apos;t load data from db_ai.Sales: {error}. It retries automatically; confirm NHUBEX is reachable if this persists.
+          {t("grossMargin.common.loadError")}
         </div>
       )}
 
@@ -41,12 +35,12 @@ export default function DashboardPage() {
       ) : (
         <Tabs defaultValue="overview" className="flex-1">
           <TabsList>
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="explorer">Sales Explorer</TabsTrigger>
-            <TabsTrigger value="variety-rankings">Variety Rankings</TabsTrigger>
-            <TabsTrigger value="client-rankings">Client Rankings</TabsTrigger>
-            <TabsTrigger value="variety-client">Variety × Client</TabsTrigger>
-            <TabsTrigger value="breakdown">Cost Breakdown</TabsTrigger>
+            <TabsTrigger value="overview">{t("grossMargin.dashboard.tabs.overview")}</TabsTrigger>
+            <TabsTrigger value="explorer">{t("grossMargin.dashboard.tabs.explorer")}</TabsTrigger>
+            <TabsTrigger value="variety-rankings">{t("grossMargin.dashboard.tabs.varietyRankings")}</TabsTrigger>
+            <TabsTrigger value="client-rankings">{t("grossMargin.dashboard.tabs.clientRankings")}</TabsTrigger>
+            <TabsTrigger value="variety-client">{t("grossMargin.dashboard.tabs.varietyClient")}</TabsTrigger>
+            <TabsTrigger value="breakdown">{t("grossMargin.dashboard.tabs.breakdown")}</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="mt-6">

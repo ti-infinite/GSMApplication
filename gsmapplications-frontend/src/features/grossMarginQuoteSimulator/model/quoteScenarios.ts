@@ -44,12 +44,12 @@ function readAll(): QuoteScenario[] {
 }
 
 function writeAll(scenarios: QuoteScenario[]): { ok: true } | { ok: false; error: string } {
-  if (typeof window === "undefined") return { ok: false, error: "Not available server-side." };
+  if (typeof window === "undefined") return { ok: false, error: "serverSide" }; // grossMargin.simulator.scenarios.* code
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(scenarios));
     return { ok: true };
   } catch {
-    return { ok: false, error: "Couldn't save — your browser's local storage may be full." };
+    return { ok: false, error: "storageFull" };
   }
 }
 

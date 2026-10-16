@@ -248,7 +248,7 @@ export function recomputeSalesRow(inputs: RecomputeInputs, overrides: QuoteOverr
     priceUsable && finalUnitCost !== null ? (avgUnitPrice - finalUnitCost) / avgUnitPrice : null;
 
   if (avgUnitPrice !== null && avgUnitPrice <= 0) {
-    warnings.push("Simulated Avg Unit Price is zero or negative — Cost Ratio and Gross Margin can't be computed.");
+    warnings.push("priceNotPositive"); // grossMargin.simulator.warnings.* code
   }
 
   // Presence check, not truthiness -- an explicit $0/0% override is still a

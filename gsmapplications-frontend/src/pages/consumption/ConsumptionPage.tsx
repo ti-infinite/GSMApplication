@@ -14,15 +14,15 @@ const registry = buildRegistry({
   fetchers: { LOCATIONS: locationsFetcher, CATEGORIES: categoriesFetcher, CATALOG: catalogFetcher },
 })
 
-export default function ExpensePage() {
+export default function ConsumptionPage() {
   return (
     <TrxModule
       prefix={PREFIX}
       registry={registry}
-      title="expenses"
-      subtitle="expensesSubtitle"
-      heading="recordExpense"
-      trxLabel="expense"
+      title="consumptions"
+      subtitle="consumptionsSubtitle"
+      heading="recordConsumption"
+      trxLabel="consumption"
     />
   )
 }

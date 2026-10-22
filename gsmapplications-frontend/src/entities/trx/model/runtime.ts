@@ -37,7 +37,7 @@ export interface TrxField {
   sign?:         boolean            // input que permite +/- (ajustes); si no, solo positivos
   negate?:       boolean            // qty: el usuario teclea positivo, se GUARDA negado (ej. gasto: 90 → -90)
   money?:        boolean            // → input de moneda ($ del tenant); guarda número plano, formatea solo display
-  sendToTrx?:    boolean            // default true → va en trxProductAttributes. false = columna SOLO-UI (ej. "rejected"), no se manda. Mismo patrón que `addSupply` (opt-out explícito, no hace falta tocar actions.ts por cada columna nueva).
+  sendToTrx?:    boolean            // products: default true (false = SOLO-UI, ej. "rejected") · summary: default false (true = se manda). Va en trxProductAttributes. Mismo patrón que `addSupply` (opt-out explícito, no hace falta tocar actions.ts por cada columna nueva).
   // NO se declara acá directo — igual que `sign`/`negate`, el template lo calcula comparando
   // `selectorValue` contra `FrontConfig.validations.required` (nivel transacción). Ninguna fila
   // (products o carrito) puede tener este campo vacío para poder confirmar → lo revisa el evento
@@ -107,46 +107,8 @@ export interface MainSlot {
   fields:       TrxField[]
 }
 
-/** 2do filtro tipo DOCUMENTO (recepción/OC/factura): recibe la location y lista los
- *  documentos a derivar. El template lo arma; el JSON solo da `source` (+ label). */
-export interface DocFilter {
-  source:       string
-  label?:       string
-  optionValue?: string
-  optionLabel?: string
-  input?:       'text'
-}
-
-/** 2do filtro tipo COMBO ESTÁTICO: opciones QUEMADAS en el JSON (sin request).
- *  Con `input:"text"` (sin `values`) es una caja de texto libre en vez de combo. */
-export interface ComboFilter {
-  type:   'combo'
-  key?:   string
-  label?: string
-  values?: { value: string; label: string }[]
-  input?:  'text' | 'date'
-  required?: boolean
-}
-
-/** 2do filtro tipo COMBO desde RESOURCE: las opciones salen de un resource (JsonREA)
- *  con params resueltos del context + gate (no fetchea hasta que sus params estén). Ej.
- *  Requerimiento ← LOADMISSINGTRX(location, origen, destino). Al elegir, su value entra
- *  al context → dispara el resource principal (líneas). Combo dependiente sin cascada estática. */
-export interface ResourceFilter {
-  type:     'resource'
-  resource: string   // id del resource (JsonREA) que da las opciones
-  key?:     string
-  label?:   string
-  optionValue?: string
-  optionLabel?: string
-  placeholder?: string
-}
-
-/** Un spec de `filter`: keyword ('category'), documento (source), combo estático o combo desde resource. */
-export type FilterSpec = string | DocFilter | ComboFilter | ResourceFilter
-
-/** Un attribute de la TRANSACCIÓN (`FrontConfig.trxAttributes`) — no filtra ninguna tabla (eso es
- *  `filter`), es un dato de la transacción misma (documento origen, proveedor, forma de pago…) que
+/** Un attribute de la TRANSACCIÓN (`FrontConfig.trxAttributes`) — no filtra ninguna tabla,
+ *  es un dato de la transacción misma (documento origen, proveedor, forma de pago…) que
  *  además necesita un control para elegirse. El motor lo renderiza como un filtro más (mismo
  *  FiltersBar, mismo context, mismo gate de resources) Y lo manda 1:1 a `payload.trxAttributes` —
  *  antes la key se declaraba dos veces (una en `filter`, otra en un `trxAttributes: string[]`
@@ -206,7 +168,6 @@ export interface SummarySlot {
 /** Agrupa lo VISUAL de la TRX (de filtros a carrito), separado del contrato
  *  (trxAttributes/event). El template lo aplana; también se acepta plano (backward-compat). */
 export interface ItemsSlots {
-  filter?:   FilterSpec | FilterSpec[]
   products?: ProductsSlot
   summary?:    SummarySlot | false   // false = sin carrito: `products` ES la transacción completa (ej. RPI/VFI)
 }
@@ -216,7 +177,6 @@ export interface FrontConfig {
   title?:      string
   subtitle?:   string
   rowKey?:     string
-  components?:     ComponentNode[]     // SDUI: lista plana (los filtros van en un `filters`)
   derive?:         { key: string; compute: string }[]   // context DERIVADO (registry.computeds con $options)
   initCollection?: string              // hidrata la collection con las filas de un resource (ej. "main")
   headerBadge?:    string              // computed (registry) → badge del header (ej. finca del usuario)
@@ -251,15 +211,12 @@ export interface FrontConfig {
   // diga a simple vista qué se valida en vez de quedar implícito.
   event?:          string[]
   // ── Forma MÍNIMA (el template `expandFront` la expande a location/filters/main/collection) ──
-  items?:      ItemsSlots           // agrupa lo visual (filter/products/cart); también se acepta plano
-  filter?:     FilterSpec | FilterSpec[]   // 2do filtro(s): 'category' | { source } (doc) | combo estático
+  items?:      ItemsSlots           // agrupa lo visual (products/cart); también se acepta plano
   products?:   ProductsSlot        // tabla principal (solo `columns`)
   summary?:    SummarySlot | false   // resumen/carrito (`columns` + `title`); false = sin carrito
-  // ── SLOTS internos (el template los arma; también aceptados explícitos = legacy) ──
-  location?:   FilterConfig        // filtro ubicación FIJO → el template lo pone 1º
+  // ── SLOTS internos: los arma expandFront, NO van en el JSON ──
   main?:       MainSlot            // slot de la tabla principal
-  filters?:    FilterConfig[]      // filtros VARIABLES (o legacy si hay component `filters`)
-  fields?:     TrxField[]          // legacy (columnas main sin slot `main`)
+  filters?:    FilterConfig[]      // location + trxAttributes con control + categoría
   collection?: CollectionSection   // slot carrito (inline/drawer)
 }
 

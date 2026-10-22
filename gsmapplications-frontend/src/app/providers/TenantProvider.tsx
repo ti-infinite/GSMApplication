@@ -1,4 +1,7 @@
 import { createContext, useContext, useState, useEffect, useLayoutEffect } from 'react'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
+import i18n from '@/app/i18n'
+import { getTenantLocale, isSupportedLocale, saveLocale } from '@/shared/hooks/useLocale'
 import { resolveCompany, persistCompany, persistCurrency } from '@/shared/lib/tenant'
 import { cacheThemeVars } from '@/shared/lib/theme'
 import type { Branding } from '@/shared/lib/tenants'
@@ -23,10 +26,12 @@ export function TenantProvider({ initialCompanyId, initialBranding, children }: 
   const [branding,  setBranding]  = useState<Branding>(initialBranding)
   const [resolving, setResolving] = useState(false)
   const [themeVars, setThemeVars] = useState<Record<string, string>>({})
+  const { locale = 'en' } = useParams<{ locale: string }>()
+  const navigate = useNavigate()
+  const location = useLocation()
 
   useEffect(() => {
     if (initialCompanyId) loadTenant(initialCompanyId)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useLayoutEffect(() => {
@@ -52,7 +57,19 @@ export function TenantProvider({ initialCompanyId, initialBranding, children }: 
       document.documentElement.setAttribute('data-tenant', slug)
       persistCompany(trimmed)
       persistCurrency(result.currency)
+      applyTenantLocale(trimmed, result.defaultLocale)
     }
+  }
+
+  function applyTenantLocale(id: string, defaultLocale?: string) {
+    const next = getTenantLocale(id) ?? (defaultLocale && isSupportedLocale(defaultLocale) ? defaultLocale : null)
+    if (!next || next === locale) return
+    saveLocale(next)
+    i18n.changeLanguage(next)
+    navigate(
+      { pathname: location.pathname.replace(new RegExp(`^/${locale}(?=/|$)`), `/${next}`), search: location.search },
+      { replace: true, state: location.state },
+    )
   }
 
   return (

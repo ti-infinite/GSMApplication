@@ -337,7 +337,7 @@ export const DEFAULT_RENDERERS: Record<string, (ctx: CellRenderCtx) => ReactNode
     // lado negativo topa; sumar es libre). Deshabilita agregar + avisa. Mismo cálculo que el
     // borde rojo del input y que el evento STOCK_LIMIT (registry/events.ts) — `overMax` de arriba.
     const remaining = Number(row.remaining)
-    const over = !emptyQty && overMax(field, row)
+    const over = !emptyQty && overMax({ ...field, selectorValue: qtyKey }, row)
     // Sin crecer la fila: el + se pone ROJO (destructive) + Tooltip (nuestro, con el theme del tenant)
     // con el motivo (hover), en vez de texto abajo. El span envuelve el botón deshabilitado para
     // que capture el hover (un `disabled` no dispara eventos por sí solo).
@@ -492,4 +492,48 @@ export const DEFAULT_RENDERERS: Record<string, (ctx: CellRenderCtx) => ReactNode
       />
     )
   },
+
+  // Free-text note per line. TrxTable renders it in the full-width row under the product
+  // (never as a column), so long text doesn't widen the table.
+  noteInput: ({ value, field, setValue, t }) => (
+    <NoteInput
+      value={value == null ? '' : String(value)}
+      label={t ? t(field.label ?? '') : (field.label ?? '')}
+      required={!!field.required}
+      onChange={setValue}
+    />
+  ),
+}
+
+function NoteInput({ value, label, required, onChange }: { value: string; label: string; required: boolean; onChange: (v: string) => void }) {
+  const [open, setOpen] = useState(() => value !== '' || required)
+
+  if (!open) {
+    return (
+      <button type="button" onClick={() => setOpen(true)}
+        className="flex items-center gap-1 text-xs font-medium text-primary hover:underline">
+        <Plus className="h-3.5 w-3.5" />{label}
+      </button>
+    )
+  }
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="flex items-center justify-between">
+        <span className="text-xs text-muted-foreground">{label}{required && ' *'}</span>
+        {!required && value === '' && (
+          <button type="button" onClick={() => setOpen(false)} aria-label="Cerrar"
+            className="text-muted-foreground hover:text-foreground">
+            <XCircle className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </div>
+      <textarea
+        rows={2}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        autoFocus={!required && value === ''}
+        className={`w-full min-w-0 resize-none rounded-md border bg-background px-2 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 ${errBorder(false)}`}
+      />
+    </div>
+  )
 }

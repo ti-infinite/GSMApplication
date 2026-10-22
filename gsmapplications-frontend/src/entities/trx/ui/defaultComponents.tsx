@@ -602,10 +602,23 @@ function TrxTable({ node, ctx }: { node: ComponentNode; ctx: RuntimeCtx }) {
       }))
     : []
 
-  const renderExpanded = node.expand
+  // `noteInput` fields live in the full-width row under each product, not as columns.
+  const allFields  = node.fields ?? []
+  const noteFields = allFields.filter(f => f.renderer === 'noteInput')
+  const colFields  = allFields.filter(f => f.renderer !== 'noteInput')
+  const noteCols   = ctx.makeColumns(noteFields, kf, isCollection)
+
+  const renderExpanded = node.expand || noteCols.length
     ? (row: Record<string, unknown>) => {
-        const r = ctx.registry.renderers[node.expand!]
-        return r ? r({ value: undefined, row, field: {} as TrxField, context: ctx.context, setValue: () => {}, collection: ctx.collection, keyField: kf }) : null
+        const r = node.expand ? ctx.registry.renderers[node.expand] : undefined
+        const custom = r ? r({ value: undefined, row, field: {} as TrxField, context: ctx.context, setValue: () => {}, collection: ctx.collection, keyField: kf }) : null
+        if (!noteCols.length) return custom
+        return (
+          <div className="flex flex-col gap-2">
+            {custom}
+            {noteCols.map(c => <div key={c.key}>{c.render?.(row)}</div>)}
+          </div>
+        )
       }
     : undefined
 
@@ -626,12 +639,12 @@ function TrxTable({ node, ctx }: { node: ComponentNode; ctx: RuntimeCtx }) {
     ) : null,
   }] : []
 
-  const columns = [...ctx.makeColumns(node.fields ?? [], kf, isCollection), ...dynCols, ...removeExtraCol]
+  const columns = [...ctx.makeColumns(colFields, kf, isCollection), ...dynCols, ...removeExtraCol]
 
   // "Agregar todos" reemplaza el header vacío de la columna del `+` (mismo índice que en
   // `node.fields`, ya que `makeColumns` mapea 1:1) — clickeable, misma jerarquía visual que
   // el resto de headers de la tabla, sin agregar un botón aparte en la barra.
-  const addBtnIdx = (node.fields ?? []).findIndex(f => f.renderer === 'addButton')
+  const addBtnIdx = colFields.findIndex(f => f.renderer === 'addButton')
   if (!isCollection && addBtnIdx !== -1 && columns[addBtnIdx]) {
     columns[addBtnIdx] = {
       ...columns[addBtnIdx],
@@ -645,7 +658,7 @@ function TrxTable({ node, ctx }: { node: ComponentNode; ctx: RuntimeCtx }) {
 
   // Card mobile propio: separa la fila en Título (variedad) · Datos (grilla) · Acción
   // (input + botones abajo). Categoriza por el renderer de cada field (ya normalizado).
-  const baseFields = node.fields ?? []
+  const baseFields = colFields
   const mobileCard = (r: Record<string, unknown>) => {
     const cells   = baseFields.map((f, i) => ({ f, col: columns[i] })).filter(c => c.col)
     const title   = cells.find(c => c.f.selectorValue === 'varietyName')

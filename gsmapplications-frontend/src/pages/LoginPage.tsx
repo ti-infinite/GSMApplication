@@ -1,22 +1,23 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Navigate, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Eye, EyeOff } from 'lucide-react'
 import { useTenant } from '@/app/providers/TenantProvider'
-import { login, isPasswordChangeRequired } from '@/shared/lib/auth'
+import { login, logout, isPasswordChangeRequired, isSessionActive } from '@/shared/lib/auth'
 import { AVAILABLE_TENANT_IDS, getBrandingFromCompanyId } from '@/shared/lib/tenants'
 import { isSafeUrl } from '@/shared/lib/utils'
 import { Button } from '@/shared/ui/button'
 import { useLocale, type Locale } from '@/shared/hooks/useLocale'
 import { ChangePasswordForm } from '@/shared/components/ChangePasswordForm'
 
-export default function LoginPage() {
+export default function LoginPage({ forcedPasswordChange = false }: { forcedPasswordChange?: boolean }) {
   const { locale, switchLocale } = useLocale()
   const navigate = useNavigate()
   const { t }                    = useTranslation()
   const { companyId, branding, resolving, loadTenant } = useTenant()
 
-  const [step,         setStep]        = useState<'login' | 'change-password'>('login')
+  const mustChangePassword = isSessionActive() && isPasswordChangeRequired()
+  const [step,         setStep]        = useState<'login' | 'change-password'>(mustChangePassword ? 'change-password' : 'login')
   const [error,        setError]       = useState<string | null>(null)
   const [pending,      setPending]     = useState(false)
   const [showPassword, setShowPassword] = useState(false)
@@ -35,6 +36,7 @@ export default function LoginPage() {
     if (result.success) {
       if (isPasswordChangeRequired()) {
         setStep('change-password')
+        navigate(`/${locale}/change-password`, { replace: true })
       } else {
         navigate(`/${locale}/dashboard`, { replace: true, state: { fromLogin: true } })
       }
@@ -43,8 +45,16 @@ export default function LoginPage() {
     }
   }
 
+  function handleLogout() {
+    logout()
+    setStep('login')
+    navigate(`/${locale}/login`, { replace: true })
+  }
+
+  const canSwitchTenant = step === 'login'
+
   function switchLanguage(next: Locale) {
-    switchLocale(next, `/${next}/login`)
+    switchLocale(next, `/${next}/${step === 'change-password' ? 'change-password' : 'login'}`)
   }
 
   function isTenantActive(prefix: string) {
@@ -56,6 +66,10 @@ export default function LoginPage() {
     prefix: id.substring(0, 2).toUpperCase(),
     label: getBrandingFromCompanyId(id).name,
   }))
+
+  if (forcedPasswordChange && !mustChangePassword) {
+    return <Navigate to={`/${locale}/${isSessionActive() ? 'dashboard' : 'login'}`} replace />
+  }
 
   return (
     <div className="flex min-h-screen flex-col lg:flex-row">
@@ -73,7 +87,7 @@ export default function LoginPage() {
           <span className="truncate text-sm font-semibold text-primary-foreground">{branding.name}</span>
         </div>
         <div className="flex shrink-0 items-center gap-1.5 pl-3">
-          {TENANTS.map(({ prefix, id, label }) => (
+          {canSwitchTenant && TENANTS.map(({ prefix, id, label }) => (
             <Button key={prefix} type="button" size="sm" variant="ghost"
               onClick={() => loadTenant(id)}
               className={`text-xs ${
@@ -86,7 +100,7 @@ export default function LoginPage() {
               <span className="sm:hidden">{prefix}</span>
             </Button>
           ))}
-          <span className="h-4 w-px bg-primary-foreground/20" />
+          {canSwitchTenant && <span className="h-4 w-px bg-primary-foreground/20" />}
           {(['en', 'es'] as Locale[]).map((loc) => (
             <Button key={loc} type="button" size="sm" variant="ghost"
               onClick={() => switchLanguage(loc)}
@@ -113,6 +127,10 @@ export default function LoginPage() {
             <h1 className="mb-1 text-3xl font-bold text-foreground">{t('changePassword.title')}</h1>
             <p className="mb-8 text-sm text-muted-foreground">{t('changePassword.forcedSubtitle')}</p>
             <ChangePasswordForm onSuccess={() => navigate(`/${locale}/dashboard`, { replace: true, state: { fromLogin: true } })} />
+            {/* The only way out of a pending password change is ending the session. */}
+            <Button type="button" variant="ghost" className="mt-3 w-full" onClick={handleLogout}>
+              {t('dashboard.logout')}
+            </Button>
           </>
         )}
         {step === 'login' && (
@@ -182,21 +200,25 @@ export default function LoginPage() {
       {/* Right panel */}
       <div className="relative hidden overflow-hidden bg-primary lg:flex lg:w-1/2 lg:flex-col">
         <div className="absolute right-6 top-6 z-20 flex items-center gap-3">
-          <div className="flex gap-1.5">
-            {TENANTS.map(({ prefix, id, label }) => (
-              <Button key={prefix} type="button" size="sm" variant="ghost"
-                onClick={() => loadTenant(id)}
-                className={`text-xs ${
-                  isTenantActive(prefix)
-                    ? 'bg-primary-foreground text-primary hover:bg-primary-foreground/90'
-                    : 'text-primary-foreground/60 hover:bg-primary-foreground/10 hover:text-primary-foreground'
-                }`}
-              >
-                {label}
-              </Button>
-            ))}
-          </div>
-          <span className="h-4 w-px bg-primary-foreground/20" />
+          {canSwitchTenant && (
+            <>
+              <div className="flex gap-1.5">
+                {TENANTS.map(({ prefix, id, label }) => (
+                  <Button key={prefix} type="button" size="sm" variant="ghost"
+                    onClick={() => loadTenant(id)}
+                    className={`text-xs ${
+                      isTenantActive(prefix)
+                        ? 'bg-primary-foreground text-primary hover:bg-primary-foreground/90'
+                        : 'text-primary-foreground/60 hover:bg-primary-foreground/10 hover:text-primary-foreground'
+                    }`}
+                  >
+                    {label}
+                  </Button>
+                ))}
+              </div>
+              <span className="h-4 w-px bg-primary-foreground/20" />
+            </>
+          )}
           <div className="flex gap-1">
             {(['en', 'es'] as Locale[]).map((loc) => (
               <Button key={loc} type="button" size="sm" variant="ghost"

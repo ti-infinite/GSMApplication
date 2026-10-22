@@ -21,12 +21,6 @@ import { expandFront } from '../model/template'
 
 type Row = Record<string, unknown>
 
-// Los filtros viven en un component `filters`; el runtime los extrae para el context.
-function getFilters(front: FrontConfig): FilterConfig[] {
-  const node = front.components?.find(c => c.type === 'filters')
-  return node?.filters ?? front.filters ?? []
-}
-
 function initialContext(filters: FilterConfig[]): Record<string, string> {
   const ctx: Record<string, string> = {}
   const user = getStoredUser() as Record<string, unknown> | null
@@ -75,7 +69,7 @@ function renderField(
   return value == null || value === '' ? '—' : String(value)
 }
 
-// Si el JSON no trae `components`, se arma una lista plana desde items/collection.
+// Árbol de components armado desde los slots que deja expandFront (filters/main/collection).
 // Traduce el shorthand del template (value/unit/input) al TrxField interno.
 function normField(f: TrxField): TrxField {
   const out: TrxField = { ...f, selectorValue: f.selectorValue ?? f.value }
@@ -102,8 +96,7 @@ function defaultTree(front: FrontConfig, heading?: string, headingBadge?: string
 
   // Filtros: el template ya dejó la ubicación FIJA como filters[0] + los variables. Categoría/
   // subcategoría (key 'category'/'subcategory', las inyecta expandFront si el módulo tiene
-  // CATEGORIES) NO van en esta barra — se renderizan DENTRO de la tabla (panel colapsable),
-  // sin importar si llegaron por la inyección automática o por el `"filter"` deprecado.
+  // CATEGORIES) NO van en esta barra — se renderizan DENTRO de la tabla (panel colapsable).
   const allFilters = front.filters ?? []
   const topFilters = allFilters.filter(f => f.key !== 'category' && f.key !== 'subcategory')
   const categoryFilters = allFilters.filter(f => f.key === 'category' || f.key === 'subcategory')
@@ -128,7 +121,7 @@ function defaultTree(front: FrontConfig, heading?: string, headingBadge?: string
     // propaga (son específicos de una TRX); acá se leen del slot products/main que los declara.
     select:        front.main?.select        ?? front.products?.select,
     dynamicFields: front.main?.dynamicFields ?? front.products?.dynamicFields,
-    fields:      (front.main?.fields ?? front.fields ?? []).map(normField),
+    fields:      (front.main?.fields ?? []).map(normField),
   }
 
   const coll = front.collection
@@ -178,7 +171,7 @@ export function TrxRuntime({ config, registry, title, subtitle, heading, heading
   )
   // Tabla principal: resource marcado `main:true` (explícito, sin depender del orden) o resources[0] (fallback).
   const mainResource = rea.resources.find(r => r.main) ?? rea.resources[0] ?? null
-  const filters = useMemo(() => getFilters(front), [front])
+  const filters = useMemo(() => front.filters ?? [], [front])
 
   // Elige el fetcher de un resource: custom por id (registry) → httpFetcher (API/endpoint) → none.
   // Único para la tabla principal y los combos-desde-resource (mismo resolver de datos).
@@ -566,7 +559,7 @@ export function TrxRuntime({ config, registry, title, subtitle, heading, heading
     keyField, registry, renderNode,
   }
 
-  const components = front.components ?? defaultTree(front, heading, headingBadge)
+  const components = defaultTree(front, heading, headingBadge)
 
   return (
     <div className="flex flex-col gap-6">

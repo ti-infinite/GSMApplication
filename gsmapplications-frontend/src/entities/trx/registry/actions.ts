@@ -4,12 +4,6 @@ import { createTransaction } from '@/shared/api/operations/endpoints'
 import type { TrxCreateDTO, ResponseCreateTransactionDTOApiResponse } from '@/shared/api/operations/model'
 import type { ActionCtx } from '../model/runtime'
 
-/**
- * Acciones GENÉRICAS del motor — comunes a TODAS las TRX, no se redefinen por módulo.
- * `createTrx` arma el TrxCreateDTO desde la collection + context + la transición y lo
- * postea (el carrito siempre mapea a trxProducts; la cantidad vive en `qty`). Un módulo
- * puede overridear un id o agregar el suyo (buildRegistry: DEFAULT_ACTIONS < module).
- */
 // El backend recibe las claves de atributo en PascalCase (mayúscula inicial): consumption → Consumption.
 // Se transforma acá (al armar el payload), NO en el JSON (el selectorValue lee la data del row) ni en i18n.
 const pascal = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s)
@@ -25,11 +19,19 @@ export const DEFAULT_ACTIONS: Record<string, (ctx: ActionCtx) => void | Promise<
     // en el JSON de la columna cuando NO — no hay que tocar este archivo por cada módulo nuevo.
     const front    = config.JsonFront
     const prodCols = front.items?.products?.columns ?? front.products?.columns ?? front.main?.fields ?? []
-    const attrCols = prodCols.filter(c => {
+    const prodAttrCols = prodCols.filter(c => {
       const k = c.value ?? c.selectorValue
       // `rejected` legacy: módulos ya seedeados que aún no migraron a `"sendToTrx": false`.
       return !!k && k !== 'qty' && k !== 'varietyName' && k !== 'rejected' && c.sendToTrx !== false
     })
+    // Summary columns are visual (e.g. AJT's resulting inventory) → opt-in with `"sendToTrx": true`.
+    const summarySlot = front.items?.summary ?? front.summary
+    const prodKeys    = new Set(prodAttrCols.map(c => c.value ?? c.selectorValue))
+    const summaryAttrCols = (summarySlot ? summarySlot.columns ?? [] : []).filter(c => {
+      const k = c.value ?? c.selectorValue
+      return !!k && c.sendToTrx === true && !prodKeys.has(k)
+    })
+    const attrCols = [...prodAttrCols, ...summaryAttrCols]
     // Una columna COMPUTED (ej. `priceQty`) nunca se guarda en la fila — solo existe al vuelo
     // vía `registry.computeds` para pintarla. Leer `r[key]` directo siempre da vacío ahí; hay
     // que llamar el computed con la fila, igual que hace el runtime para mostrarla en pantalla.

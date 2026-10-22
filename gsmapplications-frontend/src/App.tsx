@@ -22,6 +22,9 @@ export default function App() {
           <Route path="/" element={<Navigate to={`/${defaultLocale}/login`} replace />} />
           <Route path="/:locale" element={<LocaleLayout />}>
             <Route path="login" element={<LoginPage />} />
+            {/* Outside AuthGuard: the guard redirects here when the password change is
+                required, so guarding it too would render nothing. */}
+            <Route path="change-password" element={<LoginPage forcedPasswordChange />} />
             <Route element={<AuthGuard />}>
               <Route path="dashboard" element={<DashboardLayout />}>
                 <Route index element={<DashboardPage />} />

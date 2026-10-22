@@ -24,38 +24,19 @@ import type { LocationDTOListApiResponse } from '@/shared/api/application/model'
 // Solo la fecha (sin hora) en la zona horaria LOCAL — trxDate llega en ISO/UTC.
 const dateOnly = (iso?: string) => (iso ? new Date(iso).toLocaleDateString() : '')
 
-/* ───────────────────────────────────────────────────────────────────────────
- * Reportes/Histórico — NO es una TRX (no crea nada, no pasa por entities/trx
- * config-driven). Puramente consulta: s un tipo (trx-series) → tabla de
- * transacciones de ese tipo (filtered-trx por prefix, sin trxDocument) → clic
- * en una fila abre un preview genérico (cabecera + líneas, armado dinámicamente
- * desde trxAttributes/trxProductAttributes — sirve para CUALQUIER prefix sin
- * declarar columnas por tipo). "Descargar" = print-to-PDF nativo del navegador
- * sobre ese mismo preview, sin backend ni librería de PDF.
- * ─────────────────────────────────────────────────────────────────────────── */
 
-// camelCase → "Camel Case" — las keys de pivotAttributes son arbitrarias (cualquier prefix),
-// no hay un diccionario de labels central para ellas, así que se muestran así, legible sin traducir.
 const titleCase = (s: string) => s.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, c => c.toUpperCase()).trim()
 
-// Atributos de dinero conocidos (los mismos nombres que usan las columnas `money` de los
-// módulos TRX) — formateados con `formatMoney` acá; el resto se muestra tal cual (crudo).
+
 const MONEY_ATTR_KEYS = new Set(['price', 'unitPrice', 'productTotal', 'priceQty'])
 const formatAttrValue = (key: string, value: string) =>
   MONEY_ATTR_KEYS.has(key) && value !== '' && !Number.isNaN(Number(value)) ? formatMoney(Number(value)) : value
 
-// Mismo layout que el documento que manda el backend por correo (trx_document.html,
-// WeasyPrint) — pero con los TOKENS del tenant activo (var(--primary) etc.), no la paleta
-// Agroaromas fija que usa el back (ahí no hay contexto de tenant al generar el email).
 function TrxPreviewDialog({ trx, onClose, locationName, supplierName, documentTypeName }: {
   trx: TrxResponseDTO | null; onClose: () => void
   locationName: (code?: string | null) => string; supplierName: (id?: string) => string; documentTypeName: string
 }) {
   const { t } = useTranslation(undefined, { keyPrefix: 'reports' })
-  // Las keys de pivotAttributes son arbitrarias (cualquier prefix) — pero MUCHAS ya están
-  // traducidas en el namespace 'trx' (price/productTotal/consumption/remaining/paymentMethod/
-  // deliveryDate/observations…, las usa el motor TRX para sus propias columnas/filtros). Se
-  // reusa ESE diccionario ya existente como fallback — si la key no está ahí, cae a titleCase.
   const { t: tTrx } = useTranslation(undefined, { keyPrefix: 'trx' })
   const translateKey = (k: string) => tTrx(k, { defaultValue: titleCase(k) })
   const { branding } = useTenant()
@@ -72,8 +53,7 @@ function TrxPreviewDialog({ trx, onClose, locationName, supplierName, documentTy
   }))
   const columnKeys = Array.from(new Set(products.flatMap(p => Object.keys(p.attrs))))
 
-  // Se arma UNA vez y se monta DOS veces: una visible en el Dialog (preview en pantalla) y
-  // otra, oculta en pantalla, en un portal directo a <body> (fuera del Dialog/Portal de Radix)
+  // Document body (fuera del Dialog/Portal de Radix)
   // que es la que efectivamente se imprime — ver comentario en @media print más abajo.
   const docBody = (
     <>
@@ -218,8 +198,6 @@ export default function ReportsPage() {
   const [location,  setLocation]  = useState('')
   const [prefix,    setPrefix]    = useState('')
   const [range,     setRange]     = useState<DateRange | undefined>(undefined)
-  // El Calendar edita SOLO este borrador — el `range` real (el que dispara la búsqueda) recién
-  // se actualiza al confirmar con "Aplicar", así ajustar fechas no repite la petición de más.
   const [rangeOpen,   setRangeOpen]   = useState(false)
   const [stagedRange, setStagedRange] = useState<DateRange | undefined>(undefined)
   const [rows,      setRows]      = useState<TrxResponseDTO[]>([])
@@ -228,8 +206,7 @@ export default function ReportsPage() {
   const [selected,  setSelected]  = useState<TrxResponseDTO | null>(null)
   const [reload,    setReload]    = useState(0)
 
-  // Nombre de la ubicación (ej. "NCD" → "Nacederos"). El endpoint de transacciones solo
-  // trae el código; el nombre sale del endpoint de ubicaciones (mismo que usa el filtro FINCAS).
+ 
   const locationName = (code?: string | null) => (code ? (locations[code] ?? code) : '')
   const locationOptions = Object.entries(locations).map(([value, label]) => ({ value, label }))
   const supplierName = (id?: string) => (id ? (suppliers[id] ?? '') : '')
@@ -265,9 +242,6 @@ export default function ReportsPage() {
     })()
   }, [])
 
-  // Los 3 filtros son obligatorios ANTES de pedir nada — sin fetch parcial por prefix solo.
-  // location + prefix van directo a SearchTrx; la fecha necesita el rango COMPLETO (el backend
-  // ignora TrxDateFrom/To si falta uno de los dos — deben llegar juntos).
   const filtersReady = !!(location && prefix && range?.from && range?.to)
 
   useEffect(() => {
@@ -343,9 +317,7 @@ export default function ReportsPage() {
                 </div>
               </PopoverContent>
             </Popover>
-            {/* Fuera del trigger de Radix a propósito: anidado adentro, el click bubblea al
-                <button> del Popover (Radix compone su propio onClick ahí) y reabre/cierra en
-                vez de solo limpiar — un botón HERMANO no tiene ese problema. */}
+            {}
             {range?.from && (
               <button
                 type="button"
@@ -360,9 +332,7 @@ export default function ReportsPage() {
         </FilterField>
       </FilterBar>
 
-      {/* La tabla queda montada SIEMPRE (headers fijos desde que entrás al módulo, igual que
-          las TRX) — el mensaje de "faltan filtros" vs "sin resultados" lo resuelve el propio
-          emptyMessage de DataTable, nunca se reemplaza el shell por otra cosa. */}
+      {}
       {error ? (
         <ErrorState error={error} onRetry={() => setReload(k => k + 1)} />
       ) : (

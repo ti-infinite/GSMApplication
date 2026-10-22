@@ -48,21 +48,33 @@ function getDb(): Promise<IDBPDatabase<EngineDB>> {
 }
 
 // ── Data de resources (trx_data) — key = resourceId + params ───────
+// Espejo en memoria de lo ya leído/guardado: permite pintar el cache en el MISMO render
+// (IndexedDB es async). Se mantiene sincronizado en save/get/invalidate/clear.
+const memory = new Map<string, unknown>()
+
+export function peekResource<T = unknown>(key: string): T | undefined {
+  return memory.get(key) as T | undefined
+}
 export async function saveResource(key: string, data: unknown, module = ''): Promise<void> {
+  memory.set(key, data)
   const db = await getDb()
   await db.put('trx_data', { resourceId: key, module, data, updatedAt: Date.now() })
 }
 export async function getResource<T = unknown>(key: string): Promise<T | null> {
   const db  = await getDb()
   const rec = await db.get('trx_data', key)
-  return (rec?.data as T | undefined) ?? null
+  const data = (rec?.data as T | undefined) ?? null
+  if (data != null) memory.set(key, data)
+  return data
 }
 export async function invalidateResource(key: string): Promise<void> {
+  memory.delete(key)
   const db = await getDb()
   await db.delete('trx_data', key)
 }
 /** Invalida todas las variantes cacheadas de un resource (por prefijo del id). */
 export async function clearResourcePrefix(prefix: string): Promise<void> {
+  for (const k of [...memory.keys()]) if (k.startsWith(prefix)) memory.delete(k)
   const db   = await getDb()
   const keys = await db.getAllKeys('trx_data')
   await Promise.all(keys.filter(k => String(k).startsWith(prefix)).map(k => db.delete('trx_data', k)))

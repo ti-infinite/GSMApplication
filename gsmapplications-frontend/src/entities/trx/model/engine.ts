@@ -1,4 +1,4 @@
-import { saveResource, getResource } from '@/shared/lib/idb'
+import { saveResource, getResource, peekResource } from '@/shared/lib/idb'
 import { getValueByPath } from '@/shared/lib/pathResolver'
 import { operationsFetch } from '@/shared/lib/fetcher'
 import { DEFAULT_VALUE_SOURCES } from './valueSources'
@@ -28,6 +28,12 @@ function resolveParam(param: ResourceParameter, ctx: Context): string {
 function cacheKey(resource: Resource, params: Record<string, string>): string {
   const query = new URLSearchParams(params).toString()
   return query ? `${resource.id}::${query}` : resource.id
+}
+
+/** Cache de un resource para estos params, SIN esperar (solo lo que ya está en memoria). */
+export function peekCachedResource(resource: Resource, ctx: Context): unknown {
+  if (resource.cacheIn !== 'INDEXED_DB') return undefined
+  return peekResource(cacheKey(resource, resolveParams(resource, ctx)))
 }
 
 /**

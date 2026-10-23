@@ -13,3 +13,13 @@ export function ihFetch(path: string, init: RequestInit = {}): Promise<Response>
     },
   })
 }
+
+export class RelayError extends Error {
+  constructor(public status: number, message: string) {
+    super(message)
+  }
+}
+
+export function grossMarginFetch(path: string, init?: RequestInit): Promise<Response> {
+  return ihFetch(`/gross-margin-public${path}`, init)
+}

@@ -11,6 +11,8 @@ export type {
 } from './model/types'
 
 export { useSkuBuilder } from './model/useSkuBuilder'
+export { useSkuCatalog } from './model/useSkuCatalog'
+export type { SkuCatalog, UseSkuCatalogOptions } from './model/useSkuCatalog'
 export type { UseSkuBuilderResult, SkuBuilderOptions } from './model/useSkuBuilder'
 
 export { SkuParamFields } from './ui/SkuParamFields'

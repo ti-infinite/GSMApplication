@@ -12,9 +12,8 @@ const modules: Record<string, React.LazyExoticComponent<React.ComponentType>> = 
   'settings':  lazy(() => import('@/pages/settings/SettingsPage')),
   'productivity': lazy(() => import('@/pages/productivity/ProductivityPage')),
   'operations/products': lazy(() => import('@/pages/products/ProductsPage')),
-  // Operaciones — config-driven (motor TRX).
   'operations/requirements':       lazy(() => import('@/pages/requirements/RequirementsPage')),
-  'operations/purchase-order':     lazy(() => import('@/pages/purchase-orders/PurchaseOrderPage')),
+  'operations/purchase-order':     lazy(() => import('@/pages/purchaseOrders/PurchaseOrderPage')),
   'operations/reception':          lazy(() => import('@/pages/reception/ReceptionPage')),
   'operations/invoice':            lazy(() => import('@/pages/invoice/InvoicePage')),
   'operations/verification':       lazy(() => import('@/pages/verification/VerificationPage')),
@@ -30,6 +29,10 @@ const modules: Record<string, React.LazyExoticComponent<React.ComponentType>> = 
   'artificial-intelligence/order/metrics':   lazy(() => import('@/pages/ia/orders/MetricsPage')),
   'artificial-intelligence/order/upload':    lazy(() => import('@/pages/ia/orders/UploadPage')),
   'artificial-intelligence/purchase/chat':   lazy(() => import('@/pages/ia/purchase/ChatPage')),
+  'artificial-intelligence/audit/gross-margin':    lazy(() => import('@/pages/grossMargin/DashboardPage')),
+  'artificial-intelligence/quotes/quote-simulator': lazy(() => import('@/pages/grossMargin/QuoteSimulatorPage')),
+  'artificial-intelligence/audit/updates':         lazy(() => import('@/pages/grossMargin/UpdatesPage')),
+  'artificial-intelligence/quotes/reports':         lazy(() => import('@/pages/grossMargin/ReportsPage')),
 }
 
 function slugToTitle(slug: string): string {

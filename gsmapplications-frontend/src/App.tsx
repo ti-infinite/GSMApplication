@@ -8,6 +8,7 @@ import LoginPage from '@/pages/LoginPage'
 import DashboardPage from '@/pages/dashboard/DashboardPage'
 import ModulePage from '@/pages/ModulePage'
 import QueryProvider from '@/app/providers/QueryProvider'
+import { TooltipProvider } from '@/shared/ui/tooltip'
 import { Toaster } from 'sonner'
 import { getSavedLocale } from '@/shared/hooks/useLocale'
 import { isSessionActive } from '@/shared/lib/auth'
@@ -17,6 +18,7 @@ export default function App() {
   return (
     <ErrorBoundary>
       <QueryProvider>
+      <TooltipProvider delayDuration={150}>
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Navigate to={`/${defaultLocale}/login`} replace />} />
@@ -44,6 +46,7 @@ export default function App() {
         </Routes>
       </BrowserRouter>
       <Toaster richColors position="top-center" expand />
+      </TooltipProvider>
       </QueryProvider>
     </ErrorBoundary>
   )

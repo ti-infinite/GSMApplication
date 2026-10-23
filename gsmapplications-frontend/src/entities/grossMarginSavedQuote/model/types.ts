@@ -1,0 +1,54 @@
+export type SavedQuoteMode = "A" | "B" | "C" | null;
+
+export interface SavedQuoteRow {
+  Id: number;
+  QuoteName: string;
+  SavedAt: string; 
+  CreatedBy: string | null;
+  CalculatedSKU: string | null;
+  SKUMeasure: string | null;
+  Variety: string;
+  Customer: string;
+  Warehouse: string;
+  PackQuantity: number | null;
+  Mode: SavedQuoteMode;
+  OverridesJson: string | null;
+  Whs: string | null;
+  Oz: number | null;
+  Pk: number | null;
+  Herb: string | null;
+  Class: string | null;
+  Type: string | null;
+  Packaging: string | null;
+  LaborType: string | null;
+  BoxType: string | null;
+  Client: string | null;
+  LbCost: number | null;
+  Yield: number | null;
+  BaseCost: number | null;
+  Waste: number | null;
+  Labor: number | null;
+  ClamBag: number | null;
+  Sticker: number | null;
+  AdPack: number | null;
+  Box: number | null;
+  Transp: number | null;
+  Rebate: number | null;
+  Comm: number | null;
+  CommPct: number | null;
+  SuggestedMargin: number | null;
+  SuggestedPrice: number | null;
+  FinalPrice: number | null;
+  DynamicMargin: number | null;
+  ClientsPrice: number | null;
+  ClientsMargin: number | null;
+  FobPrice: number | null;
+  ProductPctSales: number | null;
+  LaborPctSales: number | null;
+  PackagingPctSales: number | null;
+  FreightPctSales: number | null;
+  CreatedAt: string;
+  UpdatedAt: string;
+}
+
+export type SavedQuoteCreateBody = Omit<SavedQuoteRow, "Id" | "CreatedAt" | "UpdatedAt">;

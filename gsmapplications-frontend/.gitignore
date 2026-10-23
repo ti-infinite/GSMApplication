@@ -30,6 +30,7 @@ yarn-error.log*
 src/shared/api/
 
 # ── Playwright
+/e2e/
 /test-results/
 /playwright-report/
 /blob-report/

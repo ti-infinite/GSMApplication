@@ -12,36 +12,38 @@ import { useVarietyDesegregations } from "@/entities/grossMarginVarietyDesegrega
 import { useYields } from "@/entities/grossMarginYield";
 import { recomputeSalesRow, type QuoteOverrides } from "./recompute";
 import type { QuoteScenario } from "./quoteScenarios";
-import { buildSyntheticBaseline, buildManualBaseline, isManualSku } from "./quoteSyntheticRow";
+import { buildSyntheticBaseline, buildManualBaseline, buildSkuMeasure, isManualSku } from "./quoteSyntheticRow";
+import { fetchPurchaseCost, type PurchaseCostLookup } from "../api/fetchPurchaseCost";
+import { savedQuoteToScenario, takeSavedQuoteForSimulator } from "./savedQuotes";
+import { estimateQuoteCosts, type EstimateTarget, type QuoteCostEstimates } from "./quoteCostEstimates";
 import {
   defaultPackQuantity,
   findCommissionForRow,
   findRebateForRow,
   findTransportCostForRow,
 } from "./quoteScenarioReferences";
-import type { NewVarietyShape } from "../ui/QuoteSimulatorNewCustomerPicker";
+import type { NewVarietyShape } from "../ui/QuoteSimulatorNewCustomerProductPicker";
 
-export type QuoteFlow = "existing" | "new-customer" | "new-variety";
 
-// A discriminated union replacing what used to be 3 separately-synced
-// booleans -- its shape makes invalid combinations (e.g. "manual entry
-// with a synthetic transport cost") unrepresentable.
+export type QuoteFlow = "existing" | "new-customer-product";
+
+
 type QuoteEntry =
   | { kind: "existing"; row: SalesRow }
-  | { kind: "new-customer-synthetic"; row: SalesRow; transportCost: TransportCostRow | null }
-  | { kind: "new-customer-manual"; row: SalesRow }
-  | { kind: "new-variety"; row: SalesRow; isExistingCustomer: boolean };
+  | { kind: "new-customer-synthetic"; row: SalesRow; transportCost: TransportCostRow | null; isExistingCustomer: boolean }
+  | {
+      kind: "new-customer-manual";
+      row: SalesRow;
+      isExistingCustomer: boolean;
+      estimates: QuoteCostEstimates | null;
+      estimateTarget: EstimateTarget | null;
+      shape: { measurementUnitValue: number; packQty: number | null; skuMeasure?: string; calculatedSku?: string | null } | null;
+      purchaseCostLookup: PurchaseCostLookup | undefined;
+      transportCost: TransportCostRow | null;
+    };
 
 function isNewCustomerEntry(entry: QuoteEntry): boolean {
-  switch (entry.kind) {
-    case "existing":
-      return false;
-    case "new-customer-synthetic":
-    case "new-customer-manual":
-      return true;
-    case "new-variety":
-      return !entry.isExistingCustomer;
-  }
+  return entry.kind !== "existing" && !entry.isExistingCustomer;
 }
 
 export function useQuoteSimulatorState(rows: SalesRow[], refreshKey?: number | string) {
@@ -53,49 +55,34 @@ export function useQuoteSimulatorState(rows: SalesRow[], refreshKey?: number | s
   const { varietyDesegregations: varietyDesegregation, isLoading: varietyDesegregationLoading } = useVarietyDesegregations();
   const { costReferences, isLoading: costReferencesLoading } = useCostReferences();
   const { yields, isLoading: yieldsLoading } = useYields();
-  // True only on a genuine cold load -- once any one of these has cached
-  // data they all do (same navigation lifecycle), so this never re-blanks
-  // the UI on an ordinary background revalidation.
+
   const isLoading =
     commissionsLoading && rebatesLoading && transportCostsLoading && varietyDesegregationLoading && costReferencesLoading && yieldsLoading;
 
   const [selectedEntry, setSelectedEntry] = useState<QuoteEntry | null>(null);
   const [overrides, setOverrides] = useState<QuoteOverrides>({});
-  // Bumped on every overrides reset and used as the Inputs Panel's React
-  // `key`, forcing a fresh remount so its local `texts`/`errors` state can't
-  // keep shadowing the newly-reset overrides/baseline.
+ 
   const [selectionGeneration, setSelectionGeneration] = useState(0);
-  // Lifted (not local to the inputs panel) so the target-margin solver offers
-  // exactly the same transport lever the inputs panel is currently showing.
+
   const [transportMode, setTransportMode] = useState<"direct" | "pallet">("direct");
-  // Quantity for the pack-pricing card -- defaults to the row's real case
-  // size, or 1 for mixed-herb rows (already whole-pack priced).
+
   const [packQuantity, setPackQuantity] = useState(1);
   const [quoteFlow, setQuoteFlow] = useState<QuoteFlow>("existing");
 
   const selectedRow = selectedEntry?.row ?? null;
   const isNewCustomerQuote = selectedEntry ? isNewCustomerEntry(selectedEntry) : false;
-  // Only a New Variety quote carries a user-built product code worth saving
-  // with its Cost Reference; existing rows let the relay resolve the code.
+ 
   const calculatedSkuForSave =
-    selectedEntry?.kind === "new-variety" && !isManualSku(selectedEntry.row.CalculatedSKU)
+    selectedEntry?.kind === "new-customer-manual" && !isManualSku(selectedEntry.row.CalculatedSKU)
       ? selectedEntry.row.CalculatedSKU
       : null;
 
-  // Kept as `loadReferenceData` (same name/shape the UI already calls as
-  // `onSaved` after "save as Cost Reference") -- now an invalidation instead
-  // of a manual refetch, since the 6 resources above are React Query-backed.
+ 
   const loadReferenceData = useCallback(() => {
     return queryClient.invalidateQueries({ queryKey: GROSS_MARGIN_REF_QUERY_KEY });
   }, [queryClient]);
 
-  // Compares the actual value, not a "have we rendered yet" boolean flag --
-  // a boolean ref survives React StrictMode's double-invocation of this
-  // effect in dev (the ref isn't reset between the two simulated passes),
-  // so it would read as "no longer first render" on the second pass and
-  // invalidate immediately on every real mount too. Comparing refreshKey
-  // itself is immune: both StrictMode passes see the same value, so neither
-  // looks like a genuine change.
+
   const previousRefreshKey = useRef(refreshKey);
   useEffect(() => {
     if (previousRefreshKey.current === refreshKey) return;
@@ -110,13 +97,16 @@ export function useQuoteSimulatorState(rows: SalesRow[], refreshKey?: number | s
   const rebate = useMemo(() => (selectedRow ? findRebateForRow(rebates, selectedRow) : null), [rebates, selectedRow]);
   const transportCost = useMemo(() => {
     if (!selectedEntry) return null;
-    // A new customer's name never matches a real DivisionTransportCost row,
-    // so use the synthetic estimate built alongside the synthetic baseline
-    // instead of the always-empty real lookup.
+
     if (selectedEntry.kind === "new-customer-synthetic") return selectedEntry.transportCost;
+
+    if (selectedEntry.kind === "new-customer-manual") {
+      return selectedEntry.transportCost ?? (isNewCustomerEntry(selectedEntry) ? null : findTransportCostForRow(transportCosts, selectedEntry.row));
+    }
     if (isNewCustomerEntry(selectedEntry)) return null;
     return findTransportCostForRow(transportCosts, selectedEntry.row);
   }, [transportCosts, selectedEntry]);
+  const estimates = selectedEntry?.kind === "new-customer-manual" ? selectedEntry.estimates : null;
   const costReference = useMemo(
     () =>
       selectedRow
@@ -163,9 +153,7 @@ export function useQuoteSimulatorState(rows: SalesRow[], refreshKey?: number | s
       setOverrides(scenario.overrides);
       setSelectionGeneration((g) => g + 1);
       setTransportMode(scenario.overrides.palletCostOverride !== undefined ? "pallet" : "direct");
-      // v2 scenarios remember the exact quantity the user had selected;
-      // v1 scenarios (saved before that field existed) fall back to the
-      // same default a fresh row-selection would use.
+
       setPackQuantity(scenario.packQuantity ?? defaultPackQuantity(nextRow));
       if (!live) {
         toast.warning(t("grossMargin.simulator.warnings.rowGone"));
@@ -174,66 +162,157 @@ export function useQuoteSimulatorState(rows: SalesRow[], refreshKey?: number | s
     [rows, t]
   );
 
-  const handleCreateNewCustomerQuote = useCallback(
-    (variety: string, warehouse: string, customerName: string) => {
-      const result = buildSyntheticBaseline(variety, warehouse, customerName, rows, transportCosts);
-      if (result) {
-        if (result.costFieldsDisagree.length > 0) {
-          toast.warning(t("grossMargin.simulator.warnings.costFieldsDisagree", { fields: result.costFieldsDisagree.join(", ") }));
+
+  const buildManualEntry = useCallback(
+    (
+      variety: string,
+      warehouse: string,
+      customerName: string,
+      isExistingCustomer: boolean,
+      shape: { measurementUnitValue: number; packQty: number | null; skuMeasure?: string; calculatedSku?: string | null },
+      purchaseCostLookup: PurchaseCostLookup | undefined,
+      flag: 0 | 1 | null
+    ): Extract<QuoteEntry, { kind: "new-customer-manual" }> => {
+      const calculatedSku = shape.calculatedSku && !isManualSku(shape.calculatedSku) ? shape.calculatedSku : null;
+      const target: EstimateTarget = {
+        variety,
+        warehouse,
+        customer: customerName,
+        isExistingCustomer,
+        calculatedSku,
+        measurementUnitValue: shape.measurementUnitValue,
+        packQty: shape.packQty,
+        flag,
+      };
+
+      const rawLookup = purchaseCostLookup ?? { flag: null, purchaseCost: null };
+      const lookup: PurchaseCostLookup =
+        flag !== null && rawLookup.purchaseCost !== null && rawLookup.flag !== flag
+          ? { flag, purchaseCost: null }
+          : flag !== null
+            ? { ...rawLookup, flag }
+            : rawLookup;
+      const est = estimateQuoteCosts(target, { rows, costReferences, transportCosts, yields }, lookup);
+      const row = buildManualBaseline(variety, warehouse, customerName, shape, lookup, est);
+      return {
+        kind: "new-customer-manual",
+        row,
+        isExistingCustomer,
+        estimates: est,
+        estimateTarget: target,
+        shape,
+        purchaseCostLookup,
+        transportCost: est.transportCostRow,
+      };
+    },
+    [rows, costReferences, transportCosts, yields]
+  );
+
+  const handoffConsumed = useRef(false);
+  useEffect(() => {
+    if (handoffConsumed.current || rows.length === 0) return;
+    const saved = takeSavedQuoteForSimulator();
+    if (!saved) return;
+    handoffConsumed.current = true;
+    handleLoadScenario(savedQuoteToScenario(saved));
+    toast.info(t("grossMargin.simulator.scenarios.reopened", { name: saved.QuoteName }));
+  }, [rows, handleLoadScenario, t]);
+
+
+  const handleCreateQuote = useCallback(
+    async (variety: string, warehouse: string, customerName: string, isExistingCustomer: boolean, shape: NewVarietyShape | null) => {
+      if (shape === null) {
+        const result = buildSyntheticBaseline(variety, warehouse, customerName, rows, transportCosts);
+        if (result) {
+          if (result.costFieldsDisagree.length > 0) {
+            toast.warning(t("grossMargin.simulator.warnings.costFieldsDisagree", { fields: result.costFieldsDisagree.join(", ") }));
+          }
+          setSelectedEntry({ kind: "new-customer-synthetic", row: result.row, transportCost: result.transportCost, isExistingCustomer });
+          setOverrides({});
+          setSelectionGeneration((g) => g + 1);
+          setTransportMode("direct");
+          setPackQuantity(defaultPackQuantity(result.row));
+          return;
         }
-        setSelectedEntry({ kind: "new-customer-synthetic", row: result.row, transportCost: result.transportCost });
+
+        const anyRowForVariety = rows.find((r) => r.Variety === variety && r.MeasurementUnitValue !== null);
+        if (!anyRowForVariety || anyRowForVariety.MeasurementUnitValue === null) {
+          toast.error(t("grossMargin.simulator.warnings.noDataForVariety", { variety }));
+          return;
+        }
+
+        const purchaseCostLookup = isManualSku(anyRowForVariety.CalculatedSKU)
+          ? undefined
+          : await fetchPurchaseCost(anyRowForVariety.CalculatedSKU, anyRowForVariety.SKUMeasure, warehouse);
+        const entry = buildManualEntry(
+          variety,
+          warehouse,
+          customerName,
+          isExistingCustomer,
+          {
+            measurementUnitValue: anyRowForVariety.MeasurementUnitValue,
+            packQty: anyRowForVariety.PackQty,
+            skuMeasure: anyRowForVariety.SKUMeasure,
+            calculatedSku: anyRowForVariety.CalculatedSKU,
+          },
+          purchaseCostLookup,
+          purchaseCostLookup?.flag ?? null
+        );
+        setSelectedEntry(entry);
         setOverrides({});
         setSelectionGeneration((g) => g + 1);
         setTransportMode("direct");
-        setPackQuantity(defaultPackQuantity(result.row));
+        setPackQuantity(defaultPackQuantity(entry.row));
         return;
       }
 
-      // No rows for this exact Variety+Warehouse -- fall through to a manual
-      // starting point, borrowing the package size from wherever else this
-      // Variety ships, since that's a property of the product, not the warehouse.
-      const anyRowForVariety = rows.find((r) => r.Variety === variety && r.MeasurementUnitValue !== null);
-      if (!anyRowForVariety || anyRowForVariety.MeasurementUnitValue === null) {
-        toast.error(t("grossMargin.simulator.warnings.noDataForVariety", { variety }));
-        return;
-      }
-      const manualRow = buildManualBaseline(variety, warehouse, customerName, {
-        measurementUnitValue: anyRowForVariety.MeasurementUnitValue,
-        packQty: anyRowForVariety.PackQty,
-        skuMeasure: anyRowForVariety.SKUMeasure,
+      const purchaseCostLookup = shape.calculatedSku
+        ? await fetchPurchaseCost(shape.calculatedSku, buildSkuMeasure(shape.calculatedSku, shape.measurementUnitValue), warehouse)
+        : undefined;
+
+      const entry = buildManualEntry(
+        variety,
+        warehouse,
+        customerName,
+        isExistingCustomer,
+        shape,
+        purchaseCostLookup,
+        shape.flag ?? purchaseCostLookup?.flag ?? null
+      );
+      setSelectedEntry(entry);
+      setOverrides({});
+      setSelectionGeneration((g) => g + 1);
+      setTransportMode("direct");
+      setPackQuantity(defaultPackQuantity(entry.row));
+    },
+    [rows, transportCosts, t, buildManualEntry]
+  );
+
+
+  const handleModeSelect = useCallback(
+    (newMode: "A" | "B") => {
+      const flag = newMode === "A" ? 1 : 0;
+      setSelectedEntry((entry) => {
+        if (!entry) return entry;
+
+        if (entry.kind === "new-customer-manual" && entry.shape) {
+          const rebuilt = buildManualEntry(
+            entry.row.Variety,
+            entry.row.Warehouse,
+            entry.row.Customer,
+            entry.isExistingCustomer,
+            entry.shape,
+            entry.purchaseCostLookup,
+            flag
+          );
+          return rebuilt;
+        }
+        return { ...entry, row: { ...entry.row, Flag: flag } };
       });
-      setSelectedEntry({ kind: "new-customer-manual", row: manualRow });
-      setOverrides({});
       setSelectionGeneration((g) => g + 1);
-      setTransportMode("direct");
-      setPackQuantity(defaultPackQuantity(manualRow));
     },
-    [rows, transportCosts, t]
+    [buildManualEntry]
   );
-
-  // The "New Variety" tab -- a brand-new product, never sold anywhere.
-  // Always manual, but unlike the "new customer" flow above, the customer
-  // picked here might be an EXISTING one, so `transportCost`'s useMemo can
-  // still try the real lookup (see isNewCustomerEntry above).
-  const handleCreateNewVarietyQuote = useCallback(
-    (variety: string, warehouse: string, customerName: string, isExistingCustomer: boolean, shape: NewVarietyShape) => {
-      const manualRow = buildManualBaseline(variety, warehouse, customerName, shape);
-      setSelectedEntry({ kind: "new-variety", row: manualRow, isExistingCustomer });
-      setOverrides({});
-      setSelectionGeneration((g) => g + 1);
-      setTransportMode("direct");
-      setPackQuantity(defaultPackQuantity(manualRow));
-    },
-    []
-  );
-
-  // Lets a "none"-mode row pick a hypothetical sourcing basis so the Inputs
-  // Panel's cost fields become enterable -- purely local state, never sent
-  // anywhere. Bumps selectionGeneration since this resets which fields apply.
-  const handleModeSelect = useCallback((newMode: "A" | "B") => {
-    setSelectedEntry((entry) => (entry ? { ...entry, row: { ...entry.row, Flag: newMode === "A" ? 1 : 0 } } : entry));
-    setSelectionGeneration((g) => g + 1);
-  }, []);
 
   const handleQuoteFlowChange = useCallback((flow: QuoteFlow) => {
     setQuoteFlow(flow);
@@ -264,11 +343,11 @@ export function useQuoteSimulatorState(rows: SalesRow[], refreshKey?: number | s
     children,
     inputs,
     result,
+    estimates,
     loadReferenceData,
     handleSelectRow,
     handleLoadScenario,
-    handleCreateNewCustomerQuote,
-    handleCreateNewVarietyQuote,
+    handleCreateQuote,
     handleModeSelect,
     handleQuoteFlowChange,
   };

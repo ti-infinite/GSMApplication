@@ -6,10 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/sha
 import { Button } from "@/shared/ui/button";
 import { getCurrentFieldValue, type QuoteOverrides, type RecomputeInputs, type SalesRowMode } from "../model/recompute";
 import { grossMarginFetch as relayFetch } from "@/shared/lib/ihAgent";
+import { ESTIMATE_KEY_BY_OVERRIDE, type FieldEstimate, type QuoteCostEstimates } from "../model/quoteCostEstimates";
 
-// purchaseCostOverride is deliberately excluded -- CostReference has no
-// purchase-cost column (Flag/PurchaseCost come from a real supplier match),
-// so that number stays a one-off estimate for this quote only.
+
 const COST_REFERENCE_FIELD_MAP: Record<string, string> = {
   packingOverride: "packing",
   stickerOverride: "sticker",
@@ -19,11 +18,7 @@ const COST_REFERENCE_FIELD_MAP: Record<string, string> = {
   labourAssemblerOverride: "labourAssembler",
 };
 
-// Offers to persist the packaging/labor/yield numbers typed into a "no cost
-// basis yet" quote as real CostReference/Yields rows, so the next quote for
-// this Variety+Warehouse starts from real data. Transport Cost is not
-// offered here -- DivisionTransportCost requires Type/Packaging values this
-// flow has no source for, and guessing them would fabricate categorical data.
+
 export function QuoteSimulatorSaveReferenceBanner({
   mode,
   variety,
@@ -32,6 +27,7 @@ export function QuoteSimulatorSaveReferenceBanner({
   overrides,
   avgUnitPriceBase,
   calculatedSku,
+  estimates,
   onSaved,
 }: {
   mode: SalesRowMode;
@@ -40,39 +36,56 @@ export function QuoteSimulatorSaveReferenceBanner({
   inputs: RecomputeInputs;
   overrides: QuoteOverrides;
   avgUnitPriceBase: number | null;
-  // Product code built in the New Variety flow (null for every other flow).
-  // Cost-Reference-only: never sent to /yields, since a wrong code could
-  // orphan a Yield row or collide with a real product's SKU (CalculatedSKU
-  // is Yields' primary key).
+
   calculatedSku: string | null;
+  // Comparable-product estimates behind the row (manual rows only). An
+  // estimated value the user never touched is NOT saved as a real reference
+  // unless they opt in below.
+  estimates?: QuoteCostEstimates | null;
   onSaved: () => void;
 }) {
   const { t } = useTranslation();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [includeEstimates, setIncludeEstimates] = useState(false);
 
   if (mode !== "A" && mode !== "B") return null;
 
-  // Box is the one exception to "CostReference columns are per-unit": SQL
-  // reads CostReference.Box as a whole-pack number and divides by PackQty
-  // at query time, so the per-unit boxOverride must be multiplied back up
-  // before saving, or the next quote would divide it by PackQty twice.
+  const isUntouchedEstimate = (overrideKey: string) => {
+    if (!estimates) return false;
+    if ((overrides as Record<string, number | undefined>)[overrideKey] !== undefined) return false;
+    const estKey = ESTIMATE_KEY_BY_OVERRIDE[overrideKey];
+    return estKey ? (estimates[estKey] as FieldEstimate).source === "estimated" : false;
+  };
+
+
   const packQty = inputs.baseline.PackQty && inputs.baseline.PackQty > 0 ? inputs.baseline.PackQty : 1;
   const costBody: Record<string, number> = {};
+  let skippedEstimates = 0;
   for (const [overrideKey, field] of Object.entries(COST_REFERENCE_FIELD_MAP)) {
     const value = getCurrentFieldValue(overrideKey, inputs, overrides, avgUnitPriceBase);
-    if (value !== null) costBody[field] = field === "box" ? value * packQty : value;
+    if (value === null) continue;
+    if (!includeEstimates && isUntouchedEstimate(overrideKey)) {
+      skippedEstimates++;
+      continue;
+    }
+    costBody[field] = field === "box" ? value * packQty : value;
   }
-  const yieldValue = mode === "B" ? getCurrentFieldValue("yieldOverride", inputs, overrides, avgUnitPriceBase) : null;
+  let yieldValue = mode === "B" ? getCurrentFieldValue("yieldOverride", inputs, overrides, avgUnitPriceBase) : null;
+  if (yieldValue !== null && !includeEstimates && isUntouchedEstimate("yieldOverride")) {
+    skippedEstimates++;
+    yieldValue = null;
+  }
+  const estimatedCount = includeEstimates
+    ? [...Object.keys(COST_REFERENCE_FIELD_MAP), "yieldOverride"].filter(isUntouchedEstimate).length
+    : skippedEstimates;
 
   const hasAnythingToSave = Object.keys(costBody).length > 0 || yieldValue !== null;
-  if (!hasAnythingToSave) return null;
+  if (!hasAnythingToSave && estimatedCount === 0) return null;
 
   async function handleSave() {
     setIsSubmitting(true);
     try {
-      // Named, not a flat array -- Cost Reference and Yield can genuinely
-      // fail independently, so reporting this as one flat "failed" would
-      // hide a real partial success.
+   
       const tasks: { label: string; promise: Promise<Response> }[] = [];
       if (Object.keys(costBody).length > 0) {
         const costReferenceBody: Record<string, unknown> = { variety, warehouse, ...costBody };
@@ -103,8 +116,7 @@ export function QuoteSimulatorSaveReferenceBanner({
             label: t.label,
             ok: res.ok,
             status: res.status,
-            // Reads the relay's own error shape directly (relayFetch calls
-            // it with no translation layer in between).
+          
             error: json.detail as string | undefined,
             info: json.info as string | undefined,
           };
@@ -163,8 +175,24 @@ export function QuoteSimulatorSaveReferenceBanner({
           </div>
         </div>
       </CardHeader>
-      <CardContent>
-        <Button onClick={handleSave} disabled={isSubmitting}>
+      <CardContent className="space-y-3">
+        {estimatedCount > 0 && (
+          <div className="space-y-1">
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                className="size-4 accent-primary"
+                checked={includeEstimates}
+                onChange={(e) => setIncludeEstimates(e.target.checked)}
+              />
+              {t("grossMargin.simulator.saveReference.includeEstimates", { n: estimatedCount })}
+            </label>
+            {!includeEstimates && (
+              <p className="text-xs text-muted-foreground">{t("grossMargin.simulator.saveReference.estimatesExcluded")}</p>
+            )}
+          </div>
+        )}
+        <Button onClick={handleSave} disabled={isSubmitting || !hasAnythingToSave}>
           {isSubmitting ? t("grossMargin.simulator.saveReference.saving") : t("grossMargin.simulator.saveReference.save")}
         </Button>
       </CardContent>

@@ -9,7 +9,7 @@ import {
   CardTitle,
   CardDescription,
 } from "@/shared/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/shared/ui/table";
+import { DataTable, type TableColumn } from "@/shared/ui/data-table";
 import { Input } from "@/shared/ui/input";
 import { Button } from "@/shared/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/shared/ui/popover";
@@ -137,6 +137,28 @@ export function RebateLogTable({ rows, onChanged }: { rows: RebateRow[]; onChang
   const { t } = useTranslation();
   const active = rows.filter((r) => r.Rebate !== 0);
 
+  const columns: TableColumn<RebateRow>[] = [
+    { key: "Customer", header: t("grossMargin.common.fields.customer"), sortable: true, render: (row) => row.Customer },
+    {
+      key: "Rebate",
+      header: t("grossMargin.updates.rebate.title"),
+      align: "right",
+      sortable: true,
+      render: (row) => <span className="font-mono tabular-nums">{formatCurrency(row.Rebate)}</span>,
+    },
+    {
+      key: "actions",
+      header: "",
+      align: "right",
+      render: (row) => (
+        <div className="flex items-center justify-end gap-0.5">
+          <EditPopover row={row} onSaved={onChanged} />
+          <ResetButton row={row} onReset={onChanged} />
+        </div>
+      ),
+    },
+  ];
+
   return (
     <Card>
       <CardHeader>
@@ -144,37 +166,13 @@ export function RebateLogTable({ rows, onChanged }: { rows: RebateRow[]; onChang
         <CardDescription>{t("grossMargin.updates.rebate.log.description")}</CardDescription>
       </CardHeader>
       <CardContent>
-        {active.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">
-            {t("grossMargin.updates.rebate.log.empty")}
-          </p>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{t("grossMargin.common.fields.customer")}</TableHead>
-                <TableHead className="text-right">{t("grossMargin.updates.rebate.title")}</TableHead>
-                <TableHead className="w-16" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {active.map((row) => (
-                <TableRow key={row.Customer}>
-                  <TableCell>{row.Customer}</TableCell>
-                  <TableCell className="text-right font-mono tabular-nums">
-                    {formatCurrency(row.Rebate)}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-0.5">
-                      <EditPopover row={row} onSaved={onChanged} />
-                      <ResetButton row={row} onReset={onChanged} />
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
+        <DataTable<RebateRow>
+          columns={columns}
+          data={active}
+          rowKey={(row) => row.Customer}
+          emptyMessage={t("grossMargin.updates.rebate.log.empty")}
+          pageSize={25}
+        />
       </CardContent>
     </Card>
   );

@@ -111,6 +111,9 @@
     "reports": "Reports"
   },
   "common": {
+    "rowsPerPage": "Rows per page",
+    "previous": "Previous",
+    "next": "Next",
     "swipeHint": "Swipe to browse",
     "open": "Open",
     "cancel": "Cancel",
@@ -938,8 +941,7 @@
     "simulator": {
       "flows": {
         "existing": "Existing sale",
-        "newCustomer": "New customer",
-        "newVariety": "New product"
+        "newCustomerProduct": "New customer / product"
       },
       "referenceOnFile": "Cost reference last updated {{date}}",
       "yieldOnFile": " · Yield last updated {{date}}",
@@ -950,18 +952,24 @@
         "varietyFirst": "Pick a variety first",
         "customerFirst": "Pick a customer first"
       },
+      "newCustomerProduct": {
+        "title": "New customer / product",
+        "description": "Quote a product for a customer, warehouse or product combination we don't have data for yet.",
+        "product": "Product",
+        "productExisting": "Existing",
+        "productNew": "New",
+        "productTypeAria": "Product type",
+        "buildBelow": "Build its code and name below."
+      },
       "newCustomer": {
-        "title": "New customer",
-        "description": "Quote a product we already sell to a customer we don't sell to yet.",
-        "newCustomerName": "New customer name",
         "shipsFrom": "Ships from already",
         "noDataYet": "No data yet, starts blank",
         "createQuote": "Create quote"
       },
       "newVariety": {
-        "title": "New product",
-        "description": "Quote a product we haven't sold before. Enter its details and costs.",
         "varietyName": "Variety name",
+        "nameSuggested": "Suggested from product code — edit if needed",
+        "catalogUnavailable": "Product code catalog is unavailable right now (the Operations service isn't responding). You can still create this quote — type the variety name by hand below.",
         "alreadyExists": "This product already exists. Use Existing sale or New customer.",
         "productCode": "Product code",
         "measurementUnit": "Measurement unit (e.g. oz)",
@@ -980,7 +988,10 @@
         "categoryPlaceholder": "Select a category",
         "subcategory": "Subcategory",
         "subcategoryPlaceholder": "Select a subcategory",
-        "param": "Select {{name}}"
+        "param": "Select {{name}}",
+        "salesCode": "Sales code",
+        "salesCodeHint": "Class + type + herb, the code the sales data uses. Packaging only shapes the name.",
+        "packingChip": "Packing: {{code}} (name only)"
       },
       "identity": {
         "quoting": "You're quoting",
@@ -1070,7 +1081,13 @@
         "decrease": "Decrease {{label}}",
         "noCostTitle": "No cost on file yet",
         "noCostDescription": "Tell us how this product is bought, then enter its costs.",
-        "sourcingQuestion": "How is it bought?"
+        "sourcingQuestion": "How is it bought?",
+        "entryPrice": "Price",
+        "entryMargin": "Margin",
+        "priceEntryAria": "List price entry mode",
+        "marginNeedsCost": "Enter costs first to set a margin",
+        "marginDerivedPrice": "List price set to {{price}} for a {{margin}} margin",
+        "sourcingAria": "Sourcing basis"
       },
       "fields": {
         "avgUnitPriceBase": "List price (before rebate and commission)",
@@ -1095,7 +1112,8 @@
       "fieldErrors": {
         "commissionRange": "Must be between 0% and 100%",
         "yieldPositive": "Must be greater than 0",
-        "nonNegative": "Can't be negative"
+        "nonNegative": "Can't be negative",
+        "marginBelow100": "Must be less than 100%"
       },
       "comparison": {
         "title": "All figures side by side",
@@ -1160,7 +1178,9 @@
         "load": "Load this quote",
         "delete": "Delete this quote",
         "storageFull": "Couldn't save. Your browser's local storage may be full.",
-        "serverSide": "Not available here."
+        "serverSide": "Not available here.",
+        "dbSaveFailed": "Saved on this device, but it couldn't be stored in the shared history: {{error}}",
+        "reopened": "Opened \"{{name}}\" from the saved quotes."
       },
       "saveReference": {
         "title": "Save these costs for next time?",
@@ -1173,7 +1193,9 @@
         "conflict": "{{items}} already on file and skipped. Edit it on the Updates page if needed.",
         "notSaved": "{{item}} wasn't saved: {{error}}",
         "unknownError": "unknown error",
-        "and": " and "
+        "and": " and ",
+        "includeEstimates": "Also save the {{n}} estimated value(s) as real cost references",
+        "estimatesExcluded": "Estimated values are not saved unless you tick the box above."
       },
       "charts": {
         "dollarTitle": "Dollar figures",
@@ -1230,12 +1252,51 @@
         "rowGone": "This sale is no longer in the current data. Showing the last known values.",
         "costFieldsDisagree": "Existing sales for this variety and warehouse disagree on: {{fields}}. We used the first match; double-check before quoting.",
         "noDataForVariety": "No data found for \"{{variety}}\". We can't determine its package size."
+      },
+      "estimates": {
+        "badge": "est. (n={{n}})",
+        "badgeTitle": "Estimated from {{n}} similar product(s): {{basis}}",
+        "noData": "no comparable data",
+        "panelNote": "Fields marked est. are estimates from similar products. Edit them if you know better.",
+        "priceHint": "Other customers pay a median of {{price}} for this product (n={{n}}).",
+        "usePrice": "Use as list price",
+        "basis": {
+          "exactProduct": "on file for this product",
+          "purchaseLookup": "real purchase cost on file",
+          "yieldTable": "yield on file",
+          "sameSkuMeasureWarehouseUnit": "same product and size bought packed at this warehouse",
+          "sameSkuWarehousePound": "same herb bought by the pound at this warehouse",
+          "sameSkuAnyWarehousePound": "same herb bought by the pound, any warehouse",
+          "sameSkuRows": "same herb, other sizes",
+          "sameHerbRows": "same herb, any class",
+          "packagingSizePackWarehouseHerb": "same herb, packaging, size, pack and warehouse",
+          "packagingSizePackWarehouse": "same packaging, size, pack and warehouse",
+          "packagingSizeWarehouse": "same packaging, size and warehouse",
+          "packagingSize": "same packaging and size",
+          "packagingWarehouse": "same packaging and warehouse",
+          "packaging": "same packaging",
+          "sizeWarehouse": "same size and warehouse",
+          "customerWarehouseSizePack": "this customer, same warehouse, size and pack",
+          "customerWarehouseSize": "this customer, same warehouse and size",
+          "customerSize": "this customer, same size",
+          "customerWarehouse": "this customer, same warehouse",
+          "warehouseSizePackPackaging": "other customers, same warehouse, size, pack and packaging",
+          "warehouseSizePack": "other customers, same warehouse, size and pack",
+          "warehouseSize": "other customers, same warehouse and size",
+          "warehouse": "other customers, same warehouse",
+          "size": "other customers, same size",
+          "sameVariety": "same product, other customers",
+          "sameSkuSizePack": "same herb, size and pack, other customers",
+          "sameSkuSize": "same herb and size, other customers",
+          "none": "no comparable data"
+        }
       }
     },
     "pages": {
       "dashboardTitle": "Gross Margin Dashboard",
       "simulatorTitle": "Quote Simulator",
-      "updatesTitle": "Updates"
+      "updatesTitle": "Updates",
+      "reportsTitle": "Reports"
     },
     "validation": {
       "required": "Required",
@@ -1419,6 +1480,34 @@
         "uploadFailed": "Failed to upload.",
         "commitSuccess": "{{created}} created, {{updated}} updated.",
         "commitSuccessWithErrors": "{{created}} created, {{updated}} updated, {{errored}} failed."
+      }
+    },
+    "reports": {
+      "title": "Saved quotes",
+      "description": "Every quote saved from the Quote Simulator. Open one to start a new quote from it.",
+      "quoteName": "Quote name",
+      "allCustomers": "All customers",
+      "allVarieties": "All varieties",
+      "reset": "Reset",
+      "loadError": "We couldn't load the saved quotes. We'll keep trying.",
+      "empty": "No quotes saved yet. Save one from the Quote Simulator and it will appear here.",
+      "noMatch": "No quotes match the current filters.",
+      "showing": "Showing {{shown}} of {{total}} quotes",
+      "open": "Open in simulator",
+      "columns": {
+        "savedAt": "Saved",
+        "name": "Name",
+        "pack": "Pack",
+        "price": "Price",
+        "margin": "Margin"
+      },
+      "details": {
+        "savedBy": "Saved by",
+        "size": "Size",
+        "sourcing": "Sourcing",
+        "baseCost": "Base cost",
+        "labour": "Labour",
+        "commission": "Commission"
       }
     }
   }

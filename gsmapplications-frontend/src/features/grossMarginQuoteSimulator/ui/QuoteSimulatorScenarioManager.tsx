@@ -15,11 +15,10 @@ import { buildRecomputeInputsForRow, defaultPackQuantity } from "../model/quoteS
 import { buildQuoteRowValues, type QuoteScenarioExportEntry } from "../model/quoteScenarioExport";
 import { formatPercent } from "@/shared/lib/format";
 import { grossMarginFetch as relayFetch } from "@/shared/lib/ihAgent";
+import { savedQuotesApi, useInvalidateSavedQuotes } from "@/entities/grossMarginSavedQuote";
+import { buildSavedQuoteBody } from "../model/savedQuotes";
 
-// Local-only (browser storage) scenario save/load -- explicitly not written
-// to NHUBEX. The Excel export is the one place these leave the browser:
-// each is resolved back into a full RecomputeResult right before being
-// sent to the server to become a workbook row.
+
 export function QuoteSimulatorScenarioManager({
   baseline,
   overrides,
@@ -39,13 +38,30 @@ export function QuoteSimulatorScenarioManager({
   rebates: RebateRow[];
   transportCosts: TransportCostRow[];
 }) {
-  // Lazy initializer -- reads localStorage once on mount without a
-  // separate effect+setState round-trip (avoids the cascading-render
-  // pattern React now warns about for effect-only state seeding).
+
   const { t, i18n } = useTranslation();
   const [scenarios, setScenarios] = useState<QuoteScenario[]>(() => listScenarios());
   const [name, setName] = useState("");
   const [isExporting, setIsExporting] = useState(false);
+  const invalidateSavedQuotes = useInvalidateSavedQuotes();
+
+
+  function toExportEntry(s: QuoteScenario): QuoteScenarioExportEntry {
+    const row = resolveScenarioRow(s, rows) ?? s.baselineSnapshot;
+    const inputs = buildRecomputeInputsForRow(row, commissions, rebates, transportCosts);
+    const result = recomputeSalesRow(inputs, s.overrides);
+    return {
+      name: s.name,
+      savedAt: s.savedAt,
+      mode: result.mode,
+      packQuantity: s.packQuantity ?? defaultPackQuantity(row),
+      inputs,
+      overrides: s.overrides,
+      row: result.row,
+      avgUnitPriceBase: result.avgUnitPriceBase,
+      commissionType: inputs.commission?.CommissionType ?? null,
+    };
+  }
 
   function refresh() {
     setScenarios(listScenarios());
@@ -68,6 +84,13 @@ export function QuoteSimulatorScenarioManager({
     toast.success(t("grossMargin.simulator.scenarios.saved", { name: name.trim() }));
     setName("");
     refresh();
+
+    savedQuotesApi
+      .create(buildSavedQuoteBody(toExportEntry(result.scenario), baseline))
+      .then(() => invalidateSavedQuotes())
+      .catch((err: unknown) => {
+        toast.warning(t("grossMargin.simulator.scenarios.dbSaveFailed", { error: err instanceof Error ? err.message : String(err) }));
+      });
   }
 
   function handleDelete(id: string, scenarioName: string) {
@@ -79,22 +102,7 @@ export function QuoteSimulatorScenarioManager({
   async function handleExport() {
     setIsExporting(true);
     try {
-      const entries: QuoteScenarioExportEntry[] = scenarios.map((s) => {
-        const row = resolveScenarioRow(s, rows) ?? s.baselineSnapshot;
-        const inputs = buildRecomputeInputsForRow(row, commissions, rebates, transportCosts);
-        const result = recomputeSalesRow(inputs, s.overrides);
-        return {
-          name: s.name,
-          savedAt: s.savedAt,
-          mode: result.mode,
-          packQuantity: s.packQuantity ?? defaultPackQuantity(row),
-          inputs,
-          overrides: s.overrides,
-          row: result.row,
-          avgUnitPriceBase: result.avgUnitPriceBase,
-          commissionType: inputs.commission?.CommissionType ?? null,
-        };
-      });
+      const entries: QuoteScenarioExportEntry[] = scenarios.map(toExportEntry);
       const quotes = entries.map((entry) => ({
         name: entry.name,
         savedAt: entry.savedAt,

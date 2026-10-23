@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { RotateCcw, SlidersHorizontal, DollarSign, ShoppingCart, ChevronUp, ChevronDown } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/shared/ui/card";
@@ -7,7 +8,17 @@ import { Field, FieldToggle } from "@/shared/ui/field";
 import { decimalInputProps } from "@/shared/lib/formValidation";
 import type { CommissionRow } from "@/entities/grossMarginCommission";
 import type { TransportCostRow } from "@/entities/grossMarginTransportCost";
-import { getCurrentFieldValue, type SalesRowMode, type QuoteOverrides, type RecomputeInputs } from "../model/recompute";
+import {
+  buildBootstrapPriceSuggestion,
+  getCurrentFieldValue,
+  type SalesRowMode,
+  type QuoteOverrides,
+  type RecomputeInputs,
+} from "../model/recompute";
+import { ESTIMATE_KEY_BY_OVERRIDE, hasEstimatedFields, type FieldEstimate, type QuoteCostEstimates } from "../model/quoteCostEstimates";
+import { decimalPlaces } from "../model/quoteFields";
+import { formatNumber, formatPercent } from "@/shared/lib/format";
+import { parseDecimal } from "@/shared/lib/formValidation";
 import {
   excludingPalletNegotiatedTransport,
   formatByFieldFormat,
@@ -17,18 +28,21 @@ import {
 } from "../model/quoteFields";
 import { formatCurrency } from "@/shared/lib/format";
 import { cn } from "@/shared/lib/utils";
+
+const PRICE_KEY = "avgUnitPriceBaseOverride";
+
+function roundToStep(value: number, step: string): number {
+  const factor = 10 ** decimalPlaces(step);
+  return Math.round(value * factor) / factor;
+}
 import { useQuoteFieldEditor } from "../model/useQuoteFieldEditor";
 
-// The real baseline for a field, shown as the input's placeholder and used
-// as the anchor the stepper below steps from. Always resolved with an empty
-// overrides object so it stays the true baseline while other fields are edited.
+
 function baselineValue(key: string, inputs: RecomputeInputs, avgUnitPriceBase: number | null): number | null {
   return getCurrentFieldValue(key, inputs, {}, avgUnitPriceBase);
 }
 
-// Hides the browser's own spin buttons -- their built-in stepping treats an
-// empty field as starting from 0 rather than the real baseline. The chevrons
-// rendered alongside replace them with baseline-aware stepping logic.
+
 const HIDE_NATIVE_SPINNER = "[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none";
 
 function Stepper({
@@ -74,6 +88,10 @@ export function QuoteSimulatorInputsPanel({
   transportMode,
   onTransportModeChange,
   onModeSelect,
+  sourcingSwitchable,
+  estimates,
+  currentGrossMargin,
+  finalUnitCost,
 }: {
   mode: SalesRowMode;
   commission: CommissionRow | null;
@@ -84,15 +102,85 @@ export function QuoteSimulatorInputsPanel({
   avgUnitPriceBase: number | null;
   transportMode: "direct" | "pallet";
   onTransportModeChange: (mode: "direct" | "pallet") => void;
-  // Lets a "none" row pick a hypothetical sourcing basis so cost fields
-  // become enterable. Purely local simulator state -- never writes back to
-  // the real Flag on any actual db_ai.Sales row.
+
   onModeSelect?: (mode: "A" | "B") => void;
+
+  sourcingSwitchable?: boolean;
+
+  estimates?: QuoteCostEstimates | null;
+
+  currentGrossMargin?: number | null;
+  finalUnitCost?: number | null;
 }) {
   const { t } = useTranslation();
   const { packQty, errors, wholePackFields, displayValue, setField, resetField, resetAll, toggleWholePack, stepValue } =
     useQuoteFieldEditor({ inputs, overrides, onChange, onTransportModeChange });
   const L = (key: string) => t(`grossMargin.simulator.fields.${key}`);
+
+
+  const marginEnabled = typeof finalUnitCost === "number" && finalUnitCost > 0;
+  const [priceEntry, setPriceEntry] = useState<"price" | "margin">("price");
+  const [marginDraft, setMarginDraft] = useState<string | null>(null);
+  const [marginError, setMarginError] = useState<string | null>(null);
+  useEffect(() => {
+    if (!marginEnabled && priceEntry === "margin") setPriceEntry("price");
+  }, [marginEnabled, priceEntry]);
+
+  function applyMargin(text: string, field: QuoteFieldMeta) {
+    setMarginDraft(text);
+    const parsed = parseDecimal(text);
+    if (parsed === null) {
+      setMarginError(null);
+      resetField(PRICE_KEY);
+      return;
+    }
+    if (typeof parsed !== "number") {
+      setMarginError(t("grossMargin.validation.notANumber"));
+      return;
+    }
+    const gm = parsed / 100;
+    if (gm >= 1) {
+      setMarginError(t("grossMargin.simulator.fieldErrors.marginBelow100"));
+      return;
+    }
+    const { [PRICE_KEY]: _ignored, ...others } = overrides;
+    const suggestion = buildBootstrapPriceSuggestion(inputs, others, gm);
+    const price = suggestion?.suggestedListPrice ?? null;
+    if (price === null || price <= 0) {
+      setMarginError(t("grossMargin.simulator.target.notReachable"));
+      return;
+    }
+    setMarginError(null);
+    setField(PRICE_KEY, String(roundToStep(price, field.step)), field);
+  }
+
+  function estimateFor(key: string): FieldEstimate | null {
+    if (!estimates) return null;
+    const estKey = ESTIMATE_KEY_BY_OVERRIDE[key];
+    return estKey ? (estimates[estKey] as FieldEstimate) : null;
+  }
+
+  function estimateBadge(key: string, text: string, base: number | null) {
+    const est = estimateFor(key);
+    if (!est || key === PRICE_KEY || text !== "") return null;
+    if (est.source === "estimated") {
+      return (
+        <span
+          title={t("grossMargin.simulator.estimates.badgeTitle", {
+            n: est.sampleSize,
+            basis: t(`grossMargin.simulator.estimates.basis.${est.basis}`),
+          })}
+          className="rounded bg-warning/15 px-1.5 py-0.5 text-[0.65rem] font-medium text-warning"
+        >
+          {t("grossMargin.simulator.estimates.badge", { n: est.sampleSize })}
+        </span>
+      );
+    }
+    if (est.source === "none" && base === null) {
+      return <span className="text-[0.65rem] text-muted-foreground">{t("grossMargin.simulator.estimates.noData")}</span>;
+    }
+    return null;
+  }
 
   const canNegotiatePallet =
     transportCost !== null &&
@@ -110,6 +198,73 @@ export function QuoteSimulatorInputsPanel({
     const base = baselineValue(f.key, inputs, avgUnitPriceBase);
     const displayBase = isWholePack && base !== null ? base * packQty! : base;
     const showPackToggle = !!(f.supportsWholePackEntry && packQty && packQty > 1);
+    const isPriceField = f.key === PRICE_KEY;
+    const marginMode = isPriceField && priceEntry === "margin" && marginEnabled;
+
+    if (marginMode) {
+      const marginText =
+        marginDraft ?? (typeof currentGrossMargin === "number" ? formatNumber(currentGrossMargin * 100, 1) : "");
+      return (
+        <Field
+          key={f.key}
+          label={f.label}
+          error={marginError}
+          labelEnd={
+            <div className="flex items-center gap-2">
+              <FieldToggle
+                value={priceEntry}
+                options={[
+                  { value: "price", label: t("grossMargin.simulator.inputs.entryPrice") },
+                  { value: "margin", label: t("grossMargin.simulator.inputs.entryMargin") },
+                ]}
+                onChange={(next) => {
+                  setPriceEntry(next);
+                  setMarginDraft(null);
+                  setMarginError(null);
+                }}
+                ariaLabel={t("grossMargin.simulator.inputs.priceEntryAria")}
+              />
+              {text !== "" && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    resetField(f.key);
+                    setMarginDraft(null);
+                    setMarginError(null);
+                  }}
+                  className="text-muted-foreground hover:text-foreground"
+                  title={t("grossMargin.simulator.inputs.resetToBaseline")}
+                >
+                  <RotateCcw className="size-3" />
+                </button>
+              )}
+            </div>
+          }
+        >
+          <div className="relative">
+            <Input
+              {...decimalInputProps}
+              value={marginText}
+              onChange={(e) => applyMargin(e.target.value, f)}
+              onBlur={() => setMarginDraft(null)}
+              placeholder={typeof currentGrossMargin === "number" ? formatNumber(currentGrossMargin * 100, 1) : "e.g. 30"}
+              aria-invalid={!!marginError}
+              className="pr-7"
+            />
+            <span className="pointer-events-none absolute inset-y-0 right-2.5 flex items-center text-sm text-muted-foreground">%</span>
+          </div>
+          {text !== "" && !marginError && typeof currentGrossMargin === "number" && (
+            <p className="text-xs text-muted-foreground">
+              {t("grossMargin.simulator.inputs.marginDerivedPrice", {
+                price: formatByFieldFormat(f.format, parseDecimal(text) as number | null),
+                margin: formatPercent(currentGrossMargin),
+              })}
+            </p>
+          )}
+        </Field>
+      );
+    }
+
     return (
       <Field
         key={f.key}
@@ -117,6 +272,25 @@ export function QuoteSimulatorInputsPanel({
         error={err}
         labelEnd={
           <div className="flex items-center gap-2">
+            {isPriceField &&
+              (marginEnabled ? (
+                <FieldToggle
+                  value={priceEntry}
+                  options={[
+                    { value: "price", label: t("grossMargin.simulator.inputs.entryPrice") },
+                    { value: "margin", label: t("grossMargin.simulator.inputs.entryMargin") },
+                  ]}
+                  onChange={(next) => {
+                    setPriceEntry(next);
+                    setMarginDraft(null);
+                    setMarginError(null);
+                  }}
+                  ariaLabel={t("grossMargin.simulator.inputs.priceEntryAria")}
+                />
+              ) : (
+                <span className="text-[0.65rem] text-muted-foreground">{t("grossMargin.simulator.inputs.marginNeedsCost")}</span>
+              ))}
+            {estimateBadge(f.key, text, base)}
             {showPackToggle && (
               <FieldToggle
                 value={isWholePack ? "pack" : "unit"}
@@ -158,6 +332,27 @@ export function QuoteSimulatorInputsPanel({
     );
   }
 
+  const priceEstimate = estimates?.avgUnitPrice ?? null;
+  const priceHint =
+    priceEstimate && priceEstimate.source === "estimated" && priceEstimate.value !== null && overrides.avgUnitPriceBaseOverride === undefined ? (
+      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+        <span>
+          {t("grossMargin.simulator.estimates.priceHint", { price: formatCurrency(priceEstimate.value), n: priceEstimate.sampleSize })}
+        </span>
+        <button
+          type="button"
+          onClick={() => {
+            const field = priceFields.find((pf) => pf.key === PRICE_KEY);
+            if (field && priceEstimate.value !== null) setField(PRICE_KEY, String(roundToStep(priceEstimate.value, field.step)), field);
+          }}
+          className="rounded-md border border-primary/30 bg-primary/10 px-2 py-0.5 text-[0.65rem] font-medium text-primary hover:bg-primary/20"
+        >
+          {t("grossMargin.simulator.estimates.usePrice")}
+        </button>
+      </div>
+    ) : null;
+  const estimatesNote = hasEstimatedFields(estimates) ? ` ${t("grossMargin.simulator.estimates.panelNote")}` : "";
+
   if (mode === "none") {
     return (
       <Card>
@@ -167,6 +362,7 @@ export function QuoteSimulatorInputsPanel({
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">{priceFields.map(fieldRow)}</div>
+          {priceHint}
           {onModeSelect && (
             <div className="space-y-2">
               <p className="text-xs font-medium text-muted-foreground">{t("grossMargin.simulator.inputs.sourcingQuestion")}</p>
@@ -204,7 +400,10 @@ export function QuoteSimulatorInputsPanel({
           </div>
           <div>
             <CardTitle>{t("grossMargin.simulator.inputs.title")}</CardTitle>
-            <CardDescription>{t("grossMargin.simulator.inputs.description")}</CardDescription>
+            <CardDescription>
+              {t("grossMargin.simulator.inputs.description")}
+              {estimatesNote}
+            </CardDescription>
           </div>
         </div>
         <Button variant="outline" size="sm" onClick={resetAll}>
@@ -219,6 +418,7 @@ export function QuoteSimulatorInputsPanel({
             {t("grossMargin.simulator.inputs.salesPrice")}
           </p>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">{priceFields.map(fieldRow)}</div>
+          {priceHint}
         </div>
         <div>
           <div className="mb-2 flex items-center justify-between">
@@ -226,6 +426,20 @@ export function QuoteSimulatorInputsPanel({
               <ShoppingCart className="size-3.5 text-[var(--chart-2)]" aria-hidden="true" />
               {t("grossMargin.simulator.inputs.purchaseCost")}
             </p>
+            <div className="flex items-center gap-2">
+            {sourcingSwitchable && onModeSelect && (mode === "A" || mode === "B") && (
+              <FieldToggle
+                value={mode}
+                options={[
+                  { value: "A", label: t("grossMargin.simulator.modes.A.plain") },
+                  { value: "B", label: t("grossMargin.simulator.modes.B.plain") },
+                ]}
+                onChange={(next) => {
+                  if (next !== mode) onModeSelect(next);
+                }}
+                ariaLabel={t("grossMargin.simulator.inputs.sourcingAria")}
+              />
+            )}
             {canNegotiatePallet && (
               <FieldToggle
                 value={transportMode}
@@ -237,6 +451,7 @@ export function QuoteSimulatorInputsPanel({
                 ariaLabel={t("grossMargin.simulator.inputs.transportAria")}
               />
             )}
+            </div>
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {costFields.map(fieldRow)}

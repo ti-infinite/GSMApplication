@@ -1,22 +1,17 @@
 import { recomputeSalesRow } from "./recompute";
 import type { SalesRow } from "@/entities/grossMarginSalesRow";
 import type { TransportCostRow } from "@/entities/grossMarginTransportCost";
+import type { PurchaseCostLookup } from "../api/fetchPurchaseCost";
+import type { QuoteCostEstimates } from "./quoteCostEstimates";
 
-// Builds a starting point for a customer who isn't in db_ai.Sales yet.
-// Cost-side fields are keyed by (Variety, Warehouse), so an existing
-// customer's row is a valid template to copy as-is; AvgUnitPrice and
-// Transport are customer-specific, so both get an averaged estimate instead.
+
 
 export interface SyntheticBaselineResult {
   row: SalesRow;
-  // Averaged from existing customers' TransportCostRow data for the same
-  // Warehouse+package size, so "Negotiate Pallet Cost" has a real starting
-  // number. null when there's nothing to average from.
+
   transportCost: TransportCostRow | null;
   templateRowCount: number;
-  // Cost fields that disagreed across the template rows found, surfaced as
-  // a warning instead of silently trusted (averaging them would fabricate
-  // a number the pipeline itself never computes that way).
+
   costFieldsDisagree: string[];
 }
 
@@ -95,9 +90,7 @@ export function buildSyntheticBaseline(
     }
   }
 
-  // A starting point, not a quote: AvgUnitPrice averages what OTHER
-  // customers already pay for this Variety+Warehouse, so the user has
-  // something to anchor to instead of a blank price.
+
   const partialRow: SalesRow = {
     ...template,
     Customer: customerName,
@@ -109,15 +102,13 @@ export function buildSyntheticBaseline(
     GrossMargin: null,
   };
 
-  // Reuse recomputeSalesRow (no overrides) rather than hand-rolling a second
-  // copy of the cost formula here.
+
   const row = recomputeSalesRow({ baseline: partialRow, commission: null, rebate: null, transportCost }, {}).row;
 
   return { row, transportCost, templateRowCount: templateRows.length, costFieldsDisagree };
 }
 
-// Placeholder code for a quote whose real product code isn't known. Never
-// sent to the relay: the save banner only forwards non-manual codes.
+
 export const MANUAL_SKU_PREFIX = "MANUAL-";
 export const isManualSku = (sku: string) => sku.startsWith(MANUAL_SKU_PREFIX);
 
@@ -127,16 +118,15 @@ export function buildSkuMeasure(calculatedSku: string, measurementUnitValue: num
   return `${calculatedSku}${measurementUnitValue.toFixed(4)}`;
 }
 
-// A fully-blank starting point for a Variety+Warehouse with zero existing
-// data -- every field starts null and the user fills them in by hand.
-// CalculatedSKU/SKUMeasure use the real product code when the New Variety
-// flow built one, otherwise a display-only placeholder; mixed-herb blends
-// are out of scope (IsMixedHerbWholePack always 0).
+
 export function buildManualBaseline(
   variety: string,
   warehouse: string,
   customerName: string,
-  shapeTemplate: { measurementUnitValue: number; packQty: number | null; skuMeasure?: string; calculatedSku?: string | null }
+  shapeTemplate: { measurementUnitValue: number; packQty: number | null; skuMeasure?: string; calculatedSku?: string | null },
+  purchaseCostLookup: PurchaseCostLookup = { flag: null, purchaseCost: null },
+ 
+  estimates?: QuoteCostEstimates | null
 ): SalesRow {
   const calculatedSku = shapeTemplate.calculatedSku ?? `${MANUAL_SKU_PREFIX}${variety}`;
   const skuMeasure =
@@ -144,7 +134,10 @@ export function buildManualBaseline(
     (shapeTemplate.calculatedSku
       ? buildSkuMeasure(calculatedSku, shapeTemplate.measurementUnitValue)
       : `${MANUAL_SKU_PREFIX}${variety}-${shapeTemplate.measurementUnitValue}`);
-  return {
+  const lookupHit = purchaseCostLookup.purchaseCost !== null;
+  const purchaseCost = lookupHit ? purchaseCostLookup.purchaseCost : (estimates?.purchaseCost.value ?? null);
+  const flag = lookupHit ? purchaseCostLookup.flag : (estimates?.purchaseCost.flag ?? purchaseCostLookup.flag);
+  const blank: SalesRow = {
     CalculatedSKU: calculatedSku,
     SKUMeasure: skuMeasure,
     Variety: variety,
@@ -154,20 +147,22 @@ export function buildManualBaseline(
     CommissionApplied: 0,
     MeasurementUnitValue: shapeTemplate.measurementUnitValue,
     PackQty: shapeTemplate.packQty,
-    PurchaseCost: null,
-    Flag: null,
-    Yield: null,
+    PurchaseCost: purchaseCost,
+    Flag: flag,
+    Yield: estimates?.yield.value ?? null,
     FinalPurPrice: null,
-    Packing: null,
-    Sticker: null,
-    Box: null,
-    LabourProd: null,
-    LabourRepack: null,
-    LabourAssembler: null,
-    Transport: null,
+    Packing: estimates?.packing.value ?? null,
+    Sticker: estimates?.sticker.value ?? null,
+    Box: estimates?.box.value ?? null,
+    LabourProd: estimates?.labourProd.value ?? null,
+    LabourRepack: estimates?.labourRepack.value ?? null,
+    LabourAssembler: estimates?.labourAssembler.value ?? null,
+    Transport: estimates?.transport.value ?? null,
     IsMixedHerbWholePack: 0,
     FinalUnitCost: null,
     CostRatio: null,
     GrossMargin: null,
   };
+  if (!estimates) return blank;
+  return recomputeSalesRow({ baseline: blank, commission: null, rebate: null, transportCost: null }, {}).row;
 }

@@ -3,8 +3,7 @@ import { Skeleton } from "@/shared/ui/skeleton";
 import type { SalesRow } from "@/entities/grossMarginSalesRow";
 import { useQuoteSimulatorState } from "../model/useQuoteSimulatorState";
 import { QuoteSimulatorRowPicker } from "./QuoteSimulatorRowPicker";
-import { QuoteSimulatorNewCustomerPicker } from "./QuoteSimulatorNewCustomerPicker";
-import { QuoteSimulatorNewVarietyPicker } from "./QuoteSimulatorNewVarietyPicker";
+import { QuoteSimulatorNewCustomerProductPicker } from "./QuoteSimulatorNewCustomerProductPicker";
 import { QuoteSimulatorIdentityBar } from "./QuoteSimulatorIdentityBar";
 import { QuoteSimulatorHeadline } from "./QuoteSimulatorHeadline";
 import { QuoteSimulatorPackPricing } from "./QuoteSimulatorPackPricing";
@@ -25,9 +24,7 @@ export function QuoteSimulatorTab({
   refreshKey,
 }: {
   rows: SalesRow[];
-  // Bumps whenever the page's sales data refetches, so reference data added
-  // elsewhere (the save banner, or another tab) reloads on the same beat.
-  // Optional so other callers can render this without wiring it up.
+
   refreshKey?: number | string;
 }) {
   const { t, i18n } = useTranslation();
@@ -54,11 +51,11 @@ export function QuoteSimulatorTab({
     children,
     inputs,
     result,
+    estimates,
     loadReferenceData,
     handleSelectRow,
     handleLoadScenario,
-    handleCreateNewCustomerQuote,
-    handleCreateNewVarietyQuote,
+    handleCreateQuote,
     handleModeSelect,
     handleQuoteFlowChange,
   } = useQuoteSimulatorState(rows, refreshKey);
@@ -85,17 +82,10 @@ export function QuoteSimulatorTab({
           </button>
           <button
             type="button"
-            onClick={() => handleQuoteFlowChange("new-customer")}
-            className={`rounded px-2.5 py-1.5 ${quoteFlow === "new-customer" ? "bg-muted font-medium" : "text-muted-foreground"}`}
+            onClick={() => handleQuoteFlowChange("new-customer-product")}
+            className={`rounded px-2.5 py-1.5 ${quoteFlow === "new-customer-product" ? "bg-muted font-medium" : "text-muted-foreground"}`}
           >
-            {t("grossMargin.simulator.flows.newCustomer")}
-          </button>
-          <button
-            type="button"
-            onClick={() => handleQuoteFlowChange("new-variety")}
-            className={`rounded px-2.5 py-1.5 ${quoteFlow === "new-variety" ? "bg-muted font-medium" : "text-muted-foreground"}`}
-          >
-            {t("grossMargin.simulator.flows.newVariety")}
+            {t("grossMargin.simulator.flows.newCustomerProduct")}
           </button>
         </div>
       </div>
@@ -103,11 +93,8 @@ export function QuoteSimulatorTab({
       {quoteFlow === "existing" && (
         <QuoteSimulatorRowPicker rows={rows} selected={selectedRow} onSelect={handleSelectRow} />
       )}
-      {quoteFlow === "new-customer" && (
-        <QuoteSimulatorNewCustomerPicker rows={rows} onCreate={handleCreateNewCustomerQuote} />
-      )}
-      {quoteFlow === "new-variety" && (
-        <QuoteSimulatorNewVarietyPicker rows={rows} onCreate={handleCreateNewVarietyQuote} />
+      {quoteFlow === "new-customer-product" && (
+        <QuoteSimulatorNewCustomerProductPicker rows={rows} onCreate={handleCreateQuote} />
       )}
 
       {selectedRow && inputs && result && (
@@ -165,6 +152,10 @@ export function QuoteSimulatorTab({
               transportMode={transportMode}
               onTransportModeChange={setTransportMode}
               onModeSelect={handleModeSelect}
+              sourcingSwitchable={estimates !== null}
+              estimates={estimates}
+              currentGrossMargin={result.row.GrossMargin}
+              finalUnitCost={result.row.FinalUnitCost}
             />
             <QuoteSimulatorComparisonTable actual={selectedRow} simulated={result.row} isNewCustomerQuote={isNewCustomerQuote} />
           </div>
@@ -178,6 +169,7 @@ export function QuoteSimulatorTab({
               overrides={overrides}
               avgUnitPriceBase={result.avgUnitPriceBase}
               calculatedSku={calculatedSkuForSave}
+              estimates={estimates}
               onSaved={loadReferenceData}
             />
           )}

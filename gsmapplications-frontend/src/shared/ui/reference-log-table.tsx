@@ -6,7 +6,7 @@ import { useFieldValidation } from "@/shared/lib/useFieldValidation";
 import { toast } from "sonner";
 import { Pencil, Trash2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/shared/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/shared/ui/table";
+import { DataTable, type TableColumn } from "@/shared/ui/data-table";
 import { Input } from "@/shared/ui/input";
 import { Button } from "@/shared/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/shared/ui/popover";
@@ -21,11 +21,7 @@ import {
 } from "@/shared/ui/dialog";
 import { formatNumber } from "@/shared/lib/format";
 
-// Shared by all 4 editable reference tables (Yields/CostReference/
-// ExtraCost/TransportCost) -- only the identity columns and editable
-// fields differ, supplied as config. The "Add a new row" form stays
-// per-table (*-card.tsx): the identity pickers differ too much to
-// generalize without becoming a leaky abstraction.
+
 
 export interface ReferenceEditableField {
   key: string;
@@ -53,19 +49,12 @@ export interface ReferenceLogTableProps<Row> {
   onDelete: (id: number) => Promise<unknown>;
   onChanged: () => void;
   emptyMessage?: string;
-  // Plain-text search over the identity columns (e.g. Customer, Variety,
-  // Supplier) -- lets you jump straight to the row(s) you're about to edit
-  // instead of scrolling a 56-row table looking for them.
+
   getSearchText: (row: Row) => string;
   searchPlaceholder?: string;
 }
 
-// The part of ReferenceLogTableProps that's purely descriptive of one
-// entity (labels, which fields are editable, the field-key -> row-property
-// mapping, delete-blast-radius copy) -- as opposed to `rows`/`onUpdate`/
-// `onDelete`/`onChanged`, which are runtime wiring the consuming tab still
-// owns (what data is loaded, how to persist, when to refresh). Each entity
-// exports one of these from its own ui/log-table-config.ts.
+
 export type ReferenceLogTableConfig<Row> = Omit<
   ReferenceLogTableProps<Row>,
   "rows" | "onUpdate" | "onDelete" | "onChanged"
@@ -107,8 +96,7 @@ function EditPopover<Row>({
     if (!validation.attemptSubmit()) return;
     setIsSaving(true);
     try {
-      // Parsed values: null only for a blank OPTIONAL field (a blank required
-      // field never gets here -- validation blocks it).
+     
       const values: Record<string, number | null> = { ...validation.values };
       await onUpdate(rowId(row), values);
       toast.success(t("grossMargin.common.updated"));
@@ -233,6 +221,47 @@ export function ReferenceLogTable<Row>({
     return rows.filter((row) => getSearchText(row).toLowerCase().includes(needle));
   }, [rows, search, getSearchText]);
 
+
+  const columns = useMemo<TableColumn<Row>[]>(
+    () => [
+      ...identityColumns.map<TableColumn<Row>>((c, i) => ({
+        key: `identity-${i}`,
+        header: c.label,
+        render: (row) => <span className="block max-w-64 whitespace-normal break-words">{c.render(row)}</span>,
+      })),
+      ...editableFields.map<TableColumn<Row>>((f) => ({
+        key: f.key,
+        header: f.label,
+        align: "right",
+        sortable: true,
+        sortValue: (row) => getFieldValue(row, f.key),
+        render: (row) => {
+          const value = getFieldValue(row, f.key);
+          return <span className="font-mono tabular-nums">{f.format ? f.format(value) : formatNumber(value, 3)}</span>;
+        },
+      })),
+      {
+        key: "actions",
+        header: "",
+        align: "right",
+        render: (row) => (
+          <div className="flex items-center justify-end gap-0.5" onClick={(e) => e.stopPropagation()}>
+            <EditPopover
+              row={row}
+              editableFields={editableFields}
+              getFieldValue={getFieldValue}
+              rowId={rowId}
+              onUpdate={onUpdate}
+              onSaved={onChanged}
+            />
+            <DeleteButton row={row} rowId={rowId} deleteWarning={deleteWarning} onDelete={onDelete} onDeleted={onChanged} />
+          </div>
+        ),
+      },
+    ],
+    [identityColumns, editableFields, getFieldValue, rowId, deleteWarning, onUpdate, onDelete, onChanged]
+  );
+
   return (
     <Card>
       <CardHeader>
@@ -247,75 +276,25 @@ export function ReferenceLogTable<Row>({
         <CardDescription>{description}</CardDescription>
       </CardHeader>
       <CardContent>
-        {rows.length > 0 && (
-          <Input
-            placeholder={searchPlaceholder ?? t("grossMargin.common.search")}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="mb-4 max-w-xs"
-          />
-        )}
-        {rows.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">{emptyMessage ?? t("grossMargin.common.noRowsYet")}</p>
-        ) : filteredRows.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">
-            {t("grossMargin.common.noRowsMatch", { search })}
-          </p>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                {identityColumns.map((c) => (
-                  <TableHead key={c.label}>{c.label}</TableHead>
-                ))}
-                {editableFields.map((f) => (
-                  <TableHead key={f.key} className="text-right">
-                    {f.label}
-                  </TableHead>
-                ))}
-                <TableHead className="w-16" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredRows.map((row) => (
-                <TableRow key={rowId(row)}>
-                  {identityColumns.map((c) => (
-                    <TableCell key={c.label} className="max-w-64 whitespace-normal">
-                      {c.render(row)}
-                    </TableCell>
-                  ))}
-                  {editableFields.map((f) => {
-                    const value = getFieldValue(row, f.key);
-                    return (
-                      <TableCell key={f.key} className="text-right font-mono tabular-nums">
-                        {f.format ? f.format(value) : formatNumber(value, 3)}
-                      </TableCell>
-                    );
-                  })}
-                  <TableCell>
-                    <div className="flex items-center gap-0.5">
-                      <EditPopover
-                        row={row}
-                        editableFields={editableFields}
-                        getFieldValue={getFieldValue}
-                        rowId={rowId}
-                        onUpdate={onUpdate}
-                        onSaved={onChanged}
-                      />
-                      <DeleteButton
-                        row={row}
-                        rowId={rowId}
-                        deleteWarning={deleteWarning}
-                        onDelete={onDelete}
-                        onDeleted={onChanged}
-                      />
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
+        <DataTable<Row>
+          columns={columns}
+          data={filteredRows}
+          rowKey={(row) => String(rowId(row))}
+          toolbar={
+            rows.length > 0 ? (
+              <Input
+                placeholder={searchPlaceholder ?? t("grossMargin.common.search")}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="max-w-xs"
+              />
+            ) : undefined
+          }
+          emptyMessage={
+            rows.length === 0 ? (emptyMessage ?? t("grossMargin.common.noRowsYet")) : t("grossMargin.common.noRowsMatch", { search })
+          }
+          pageSize={25}
+        />
       </CardContent>
     </Card>
   );

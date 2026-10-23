@@ -9,7 +9,7 @@ import {
   CardTitle,
   CardDescription,
 } from "@/shared/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/shared/ui/table";
+import { DataTable, type TableColumn } from "@/shared/ui/data-table";
 import { Input } from "@/shared/ui/input";
 import { Button } from "@/shared/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/shared/ui/popover";
@@ -110,11 +110,7 @@ function EditPopover({ row, onSaved }: { row: CommissionRow; onSaved: () => void
   );
 }
 
-// REWRITE (2026-10-08): "Reset" not "delete" -- nothing is removed from
-// db_ms.ClientAttributes, the row always exists once created; this just
-// writes it back to 0 (same convention as RebateLogTable's reset button --
-// the dashboard never issues a true DELETE against shared ERP data). Keeps
-// the row's current CommissionType, zeroes the amount.
+
 function ResetButton({ row, onReset }: { row: CommissionRow; onReset: () => void }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -168,6 +164,42 @@ export function CommissionLogTable({ rows, onChanged }: { rows: CommissionRow[];
   const { t } = useTranslation();
   const active = rows.filter((r) => r.CommissionAmount !== 0);
 
+  const columns: TableColumn<CommissionRow>[] = [
+    { key: "Customer", header: t("grossMargin.common.fields.customer"), sortable: true, render: (row) => row.Customer },
+    {
+      key: "CommissionType",
+      header: t("grossMargin.common.fields.type"),
+      sortable: true,
+      render: (row) => (
+        <span className="text-muted-foreground">
+          {row.CommissionType === "percent" ? t("grossMargin.common.percent") : t("grossMargin.common.fixedAmount")}
+        </span>
+      ),
+    },
+    {
+      key: "CommissionAmount",
+      header: t("grossMargin.common.fields.amount"),
+      align: "right",
+      sortable: true,
+      render: (row) => (
+        <span className="font-mono tabular-nums">
+          {row.CommissionType === "percent" ? formatPercent(row.CommissionAmount) : formatCurrency(row.CommissionAmount)}
+        </span>
+      ),
+    },
+    {
+      key: "actions",
+      header: "",
+      align: "right",
+      render: (row) => (
+        <div className="flex items-center justify-end gap-0.5">
+          <EditPopover row={row} onSaved={onChanged} />
+          <ResetButton row={row} onReset={onChanged} />
+        </div>
+      ),
+    },
+  ];
+
   return (
     <Card>
       <CardHeader>
@@ -175,43 +207,13 @@ export function CommissionLogTable({ rows, onChanged }: { rows: CommissionRow[];
         <CardDescription>{t("grossMargin.updates.commission.log.description")}</CardDescription>
       </CardHeader>
       <CardContent>
-        {active.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">
-            {t("grossMargin.updates.commission.log.empty")}
-          </p>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{t("grossMargin.common.fields.customer")}</TableHead>
-                <TableHead>{t("grossMargin.common.fields.type")}</TableHead>
-                <TableHead className="text-right">{t("grossMargin.common.fields.amount")}</TableHead>
-                <TableHead className="w-16" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {active.map((row) => (
-                <TableRow key={row.Customer}>
-                  <TableCell>{row.Customer}</TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {row.CommissionType === "percent" ? t("grossMargin.common.percent") : t("grossMargin.common.fixedAmount")}
-                  </TableCell>
-                  <TableCell className="text-right font-mono tabular-nums">
-                    {row.CommissionType === "percent"
-                      ? formatPercent(row.CommissionAmount)
-                      : formatCurrency(row.CommissionAmount)}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-0.5">
-                      <EditPopover row={row} onSaved={onChanged} />
-                      <ResetButton row={row} onReset={onChanged} />
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
+        <DataTable<CommissionRow>
+          columns={columns}
+          data={active}
+          rowKey={(row) => row.Customer}
+          emptyMessage={t("grossMargin.updates.commission.log.empty")}
+          pageSize={25}
+        />
       </CardContent>
     </Card>
   );

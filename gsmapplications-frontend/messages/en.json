@@ -109,7 +109,8 @@
     "purchase": "Purchase",
     "purchases": "Purchases",
     "purchase-chat": "Chat",
-    "reports": "Reports"
+    "reports": "Reports",
+    "logistics": "Logistics"
   },
   "common": {
     "rowsPerPage": "Rows per page",
@@ -504,6 +505,37 @@
     "pickFilters": "Complete the filters to see the data",
     "noOptionsForFilter": "No {{filter}} available for {{location}}.",
     "loadError": "Couldn't load the data"
+  },
+  "logistics": {
+    "title": "Logistics",
+    "subtitle": "Assign each shipment's carriers and confirm which one ships it.",
+    "filters": "Filters",
+    "whs": "WHS",
+    "division": "DC",
+    "allWhs": "All WHS",
+    "allDivisions": "All DCs",
+    "dateRange": "Ship date",
+    "selectDateRange": "Select a range",
+    "applyDateRange": "Apply",
+    "clearDateRange": "Clear date range",
+    "invoice": "Invoice",
+    "dateShip": "Ship date",
+    "pallets": "Pallets",
+    "carrierA": "Carrier A",
+    "carrierB": "Carrier B",
+    "confirmed": "Confirmed carrier",
+    "carrierPlaceholder": "Type or pick",
+    "unsaved": "Unsaved change",
+    "pendingChanges_one": "{{count}} shipment with unsaved changes",
+    "pendingChanges_other": "{{count}} shipments with unsaved changes",
+    "discard": "Discard",
+    "save": "Save changes",
+    "saving": "Saving…",
+    "saved_one": "{{count}} shipment updated",
+    "saved_other": "{{count}} shipments updated",
+    "saveFailed": "Could not save the changes. Try again.",
+    "pickFilters": "Select a date range to see shipments.",
+    "noResults": "No shipments for these filters."
   },
   "reports": {
     "title": "Reports",

@@ -123,7 +123,9 @@ export function Combobox({
     <>
       <div ref={containerRef}
         className={[
-          `flex items-center gap-2 rounded-lg border bg-card transition-all ${size === 'sm' ? 'px-3' : 'px-3.5'}`,
+          // Default size pinned to h-8 so a Combobox sitting next to an <Input>
+          // (same form row/grid) lines up instead of growing taller than it.
+          `flex items-center gap-2 rounded-lg border bg-card transition-all ${size === 'sm' ? 'px-3' : 'h-8 px-3.5'}`,
           disabled ? 'cursor-not-allowed opacity-50 border-border' : 'cursor-text border-border hover:border-ring',
           open ? 'border-ring ring-2 ring-ring' : '',
         ].join(' ')}
@@ -137,7 +139,7 @@ export function Combobox({
           value={displayValue}
           onChange={e => { if (!open) openDropdown(); setQuery(e.target.value) }}
           onFocus={() => { if (!open) openDropdown() }}
-          className={`min-w-0 flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none disabled:cursor-not-allowed ${size === 'sm' ? 'py-1.5' : 'py-2.5'}`}
+          className={`min-w-0 flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none disabled:cursor-not-allowed ${size === 'sm' ? 'py-1.5' : 'py-1'}`}
         />
 
         {value && !disabled && (
@@ -184,9 +186,9 @@ export function Combobox({
                     {renderOption ? renderOption(opt) : (
                       <>
                         {/* El popover mide lo mismo que el combo (ancho fijo del filtro) — un
-                            label largo no lo agranda, se envuelve a 2 líneas en vez de truncar. */}
-                        <p className="font-medium">{opt.label}</p>
-                        {opt.description && <p className="text-xs text-muted-foreground">{opt.description}</p>}
+                            label largo no lo agranda, se envuelve en vez de truncar. */}
+                        <p className="whitespace-normal break-words font-medium">{opt.label}</p>
+                        {opt.description && <p className="whitespace-normal break-words text-xs text-muted-foreground">{opt.description}</p>}
                       </>
                     )}
                   </div>

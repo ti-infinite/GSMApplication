@@ -1,15 +1,17 @@
 import { Fragment, useState, type ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ChevronUp, ChevronDown, ChevronsUpDown, ChevronLeft, ChevronRight, Inbox } from 'lucide-react'
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from './dropdown-menu'
 
 export interface TableColumn<T> {
   key:        string
-  header:     ReactNode   // texto normal, o un elemento (ej. "Agregar todos" clickeable en la columna del +)
+  header:     ReactNode   
   render?:    (row: T) => ReactNode
   sortable?:  boolean
-  align?:     'left' | 'center' | 'right'   // alineación de header + celda (default left)
-  mobileLabel?: string    // label in mobile card view
-  hideMobile?: boolean    // hide this column on mobile cards
+  align?:     'left' | 'center' | 'right' 
+  mobileLabel?: string
+  sortValue?: (row: T) => string | number | null | undefined  
+  hideMobile?: boolean    
 }
 
 const alignCls = (a?: 'left' | 'center' | 'right') => (a === 'center' ? 'text-center' : a === 'right' ? 'text-right' : 'text-left')
@@ -19,12 +21,13 @@ interface DataTableProps<T> {
   data:         T[]
   rowKey:       (row: T) => string
   emptyMessage?: string
-  mobileCard?:  (row: T) => ReactNode  // custom mobile card renderer
-  toolbar?:     ReactNode               // barra opcional DENTRO de la tabla (buscador, filtros…)
-  renderExpanded?: (row: T) => ReactNode  // fila full-width debajo (si devuelve truthy). Ej. comentario de rechazo.
-  pageSize?:    number                  // si se define → pagina la tabla (desktop + mobile) y es el default del selector; sin él, muestra todo
-  pageSizeOptions?: number[]            // opciones del selector "Filas por página" (default [10, 25, 50, 100])
-  loading?:     boolean                 // si true → filas skeleton (mantiene shell + columnas) en vez del emptyMessage
+  mobileCard?:  (row: T) => ReactNode  
+  toolbar?:     ReactNode               
+  renderExpanded?: (row: T) => ReactNode  
+  pageSize?:    number                  
+  pageSizeOptions?: number[]            
+  loading?:     boolean                 
+  onRowClick?:  (row: T) => void     
 }
 
 type SortDir = 'asc' | 'desc' | null
@@ -42,12 +45,13 @@ export function DataTable<T>({
   pageSize,
   pageSizeOptions = DEFAULT_PAGE_SIZE_OPTIONS,
   loading = false,
+  onRowClick,
 }: DataTableProps<T>) {
+  const { t } = useTranslation()
   const [sortKey, setSortKey] = useState<string | null>(null)
   const [sortDir, setSortDir] = useState<SortDir>(null)
   const [page,    setPage]    = useState(0)
-  // El `pageSize` prop es solo el DEFAULT inicial — a partir de ahí el usuario elige el suyo
-  // con el selector "Filas por página" (mejor visual: puede ver más o menos según prefiera).
+
   const [rowsPerPage, setRowsPerPage] = useState(pageSize ?? DEFAULT_PAGE_SIZE_OPTIONS[0])
 
   const handleSort = (key: string) => {
@@ -56,16 +60,21 @@ export function DataTable<T>({
     setSortKey(null); setSortDir(null)
   }
 
+  const sortCol = sortKey ? columns.find(c => c.key === sortKey) : undefined
   const sorted = sortKey && sortDir
     ? [...data].sort((a, b) => {
-        const aVal = String((a as Record<string, unknown>)[sortKey] ?? '')
-        const bVal = String((b as Record<string, unknown>)[sortKey] ?? '')
-        return sortDir === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal)
+        const aRaw = sortCol?.sortValue ? sortCol.sortValue(a) : (a as Record<string, unknown>)[sortKey]
+        const bRaw = sortCol?.sortValue ? sortCol.sortValue(b) : (b as Record<string, unknown>)[sortKey]
+        let cmp: number
+        if (typeof aRaw === 'number' && typeof bRaw === 'number') cmp = aRaw - bRaw
+        else if (aRaw == null && bRaw != null) cmp = 1
+        else if (bRaw == null && aRaw != null) cmp = -1
+        else cmp = String(aRaw ?? '').localeCompare(String(bRaw ?? ''), undefined, { numeric: true, sensitivity: 'base' })
+        return sortDir === 'asc' ? cmp : -cmp
       })
     : data
 
-  // Paginación (opt-in): si el caller pasó pageSize, corta las filas de la página actual —
-  // pero el TAMAÑO real de página es `rowsPerPage` (el selector), no el prop directo.
+
   const paginate  = pageSize != null && pageSize > 0
   const pageCount = paginate ? Math.max(1, Math.ceil(sorted.length / rowsPerPage)) : 1
   const safePage  = Math.min(page, pageCount - 1)
@@ -74,7 +83,7 @@ export function DataTable<T>({
   const pager = paginate ? (
     <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-card px-4 py-1 text-sm">
       <div className="flex items-center gap-2 text-muted-foreground">
-        <span>Filas por página</span>
+        <span>{t('common.rowsPerPage')}</span>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button type="button"
@@ -95,10 +104,10 @@ export function DataTable<T>({
         <span className="text-muted-foreground">{safePage * rowsPerPage + 1}–{Math.min(sorted.length, (safePage + 1) * rowsPerPage)} / {sorted.length}</span>
         {pageCount > 1 && (
           <div className="flex items-center gap-1">
-            <button type="button" disabled={safePage === 0} onClick={() => setPage(safePage - 1)} aria-label="Anterior"
+            <button type="button" disabled={safePage === 0} onClick={() => setPage(safePage - 1)} aria-label={t('common.previous')}
               className="rounded-md p-1 text-muted-foreground hover:bg-muted disabled:opacity-40"><ChevronLeft className="h-4 w-4" /></button>
             <span className="px-1 text-muted-foreground">{safePage + 1} / {pageCount}</span>
-            <button type="button" disabled={safePage >= pageCount - 1} onClick={() => setPage(safePage + 1)} aria-label="Siguiente"
+            <button type="button" disabled={safePage >= pageCount - 1} onClick={() => setPage(safePage + 1)} aria-label={t('common.next')}
               className="rounded-md p-1 text-muted-foreground hover:bg-muted disabled:opacity-40"><ChevronRight className="h-4 w-4" /></button>
           </div>
         )}
@@ -106,7 +115,6 @@ export function DataTable<T>({
     </div>
   ) : null
 
-  // flex-1: centra el ícono+mensaje en el espacio libre en vez de dejar un hueco vacío debajo.
   const empty = (
     <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 bg-card py-12">
       <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
@@ -116,7 +124,6 @@ export function DataTable<T>({
     </div>
   )
 
-  // sticky + bg-card opaco: con altura acotada (ej. el drawer), solo las filas scrollean.
   const head = (
     <thead className="sticky top-0 z-10 bg-card">
       <tr className="border-b border-border bg-muted/40">
@@ -137,7 +144,6 @@ export function DataTable<T>({
     </thead>
   )
 
-  // Filas huesos mientras la petición está en curso (loading). Mantiene columnas + toolbar.
   const skeletonBody = (
     <tbody className="divide-y divide-border">
       {Array.from({ length: 6 }).map((_, i) => (
@@ -178,7 +184,8 @@ export function DataTable<T>({
                   const expanded = renderExpanded?.(row)
                   return (
                     <Fragment key={rowKey(row)}>
-                      <tr className="transition-colors hover:bg-muted/30">
+                      <tr className={`transition-colors hover:bg-muted/30 ${onRowClick ? 'cursor-pointer' : ''}`}
+                        onClick={onRowClick ? () => onRowClick(row) : undefined}>
                         {columns.map(col => (
                           <td key={col.key} className={`px-4 py-1 text-foreground ${alignCls(col.align)}`}>
                             {col.render
@@ -211,7 +218,8 @@ export function DataTable<T>({
           paged.map(row => {
             const expanded = renderExpanded?.(row)
             return (
-              <div key={rowKey(row)} className="flex flex-col gap-2">
+              <div key={rowKey(row)} className={`flex flex-col gap-2 ${onRowClick ? 'cursor-pointer' : ''}`}
+                onClick={onRowClick ? () => onRowClick(row) : undefined}>
                 {mobileCard ? mobileCard(row) : <DefaultMobileCard row={row} columns={columns} />}
                 {expanded}
               </div>
@@ -239,7 +247,7 @@ function DefaultMobileCard<T>({ row, columns }: { row: T; columns: TableColumn<T
         {visible.map(col => (
           <div key={col.key}>
             <dt className="text-xs text-muted-foreground">{col.mobileLabel ?? col.header}</dt>
-            <dd className="text-sm font-medium text-foreground">
+            <dd className="text-sm font-medium break-words text-foreground">
               {col.render
                 ? col.render(row)
                 : String((row as Record<string, unknown>)[col.key] ?? '—')}

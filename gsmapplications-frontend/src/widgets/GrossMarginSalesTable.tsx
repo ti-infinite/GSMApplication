@@ -1,0 +1,438 @@
+import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
+import {
+  type ColumnDef,
+  type SortingState,
+  flexRender,
+  getCoreRowModel,
+  getFilteredRowModel,
+  getSortedRowModel,
+  useReactTable,
+} from "@tanstack/react-table";
+import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronLeft, ChevronRight, Download, Rows3, Table2 } from "lucide-react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/shared/ui/table";
+import { Input } from "@/shared/ui/input";
+import { Button } from "@/shared/ui/button";
+import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
+import { Field } from "@/shared/ui/field";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/shared/ui/dropdown-menu";
+import { AlarmsCell } from "@/entities/grossMarginSalesRow";
+import { grossMarginCellZone, type Zone } from "@/entities/grossMarginSalesRow";
+import { formatCurrency, formatPercent, formatNumber } from "@/shared/lib/format";
+import type { SalesRow } from "@/entities/grossMarginSalesRow";
+import { cn } from "@/shared/lib/utils";
+import { useSalesExport } from "./useGrossMarginSalesExport";
+
+type ColKind = "currency" | "percent" | "number" | "flag";
+
+// "core" columns are what Sales Explorer shows by default -- the numbers
+// most relevant to margin at a glance. "Full Breakdown" reveals every
+// remaining column in db_ai.Sales (21 total) for a full cost-buildup audit.
+const NUMERIC_COLUMNS: { key: keyof SalesRow; labelKey: string; kind: ColKind; core: boolean }[] = [
+  { key: "AvgUnitPrice", labelKey: "avgUnitPrice", kind: "currency", core: true },
+  { key: "FinalUnitCost", labelKey: "finalUnitCost", kind: "currency", core: true },
+  { key: "CostRatio", labelKey: "costRatio", kind: "percent", core: true },
+  { key: "GrossMargin", labelKey: "grossMargin", kind: "percent", core: true },
+  { key: "MeasurementUnitValue", labelKey: "measurementUnit", kind: "number", core: false },
+  { key: "FinalPurPrice", labelKey: "finalProductPrice", kind: "currency", core: false },
+  { key: "PurchaseCost", labelKey: "purchaseCost", kind: "currency", core: false },
+  { key: "Flag", labelKey: "source", kind: "flag", core: false },
+  { key: "Yield", labelKey: "yield", kind: "number", core: false },
+  { key: "Packing", labelKey: "packing", kind: "currency", core: false },
+  { key: "Sticker", labelKey: "sticker", kind: "currency", core: false },
+  { key: "Box", labelKey: "box", kind: "currency", core: false },
+  { key: "LabourProd", labelKey: "labourProd", kind: "currency", core: false },
+  { key: "LabourRepack", labelKey: "labourRepack", kind: "currency", core: false },
+  { key: "LabourAssembler", labelKey: "labourAssembler", kind: "currency", core: false },
+  { key: "Transport", labelKey: "transport", kind: "currency", core: false },
+];
+
+// Traffic-light background for the Sales Explorer's Gross Margin cell only
+// -- never relies on color alone, the exact percentage is always the
+// visible text too.
+const MARGIN_CELL_CLASSES: Record<Zone, string> = {
+  green: "bg-success/15 text-success",
+  yellow: "bg-warning/15 text-warning",
+  red: "bg-destructive/15 text-destructive",
+  unknown: "border border-border bg-muted text-muted-foreground",
+};
+
+const FLAG_LABEL_KEYS: Record<string, string> = {
+  "1": "grossMargin.dashboard.salesExplorer.source.unit",
+  "0": "grossMargin.dashboard.salesExplorer.source.pound",
+};
+
+const PAGE_SIZE_OPTIONS = [25, 50, 100, 200];
+
+const TEXT_COLUMNS: { key: keyof SalesRow; labelKey: string; core: boolean }[] = [
+  { key: "Variety", labelKey: "variety", core: true },
+  { key: "Customer", labelKey: "customer", core: true },
+  { key: "Warehouse", labelKey: "warehouse", core: true },
+  { key: "CalculatedSKU", labelKey: "sku", core: false },
+  { key: "SKUMeasure", labelKey: "skuMeasure", core: false },
+];
+
+// w-px forces these to shrink-to-fit their short currency/percent content
+// instead of stretching with the rest of the table (same trick as Alarms).
+const COMPACT_NUMERIC_KEYS: (keyof SalesRow)[] = ["AvgUnitPrice", "FinalUnitCost", "CostRatio", "GrossMargin"];
+
+// The only filters Sales Explorer exposes (2026-10-08, user instruction).
+// SKU and the numeric min/max ranges were removed because users weren't
+// applying them correctly; the columns themselves are still shown.
+const FILTER_COLUMNS = TEXT_COLUMNS.filter((col) =>
+  (["Customer", "Variety", "Warehouse"] as (keyof SalesRow)[]).includes(col.key)
+);
+
+function formatCell(value: number | null, kind: ColKind, flagLabel: (value: number) => string) {
+  if (kind === "flag") {
+    if (value === null) return <span className="text-muted-foreground">—</span>;
+    return (
+      <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+        {flagLabel(value)}
+      </span>
+    );
+  }
+  if (kind === "currency") return formatCurrency(value);
+  if (kind === "percent") return formatPercent(value);
+  return formatNumber(value, value !== null && Number.isInteger(value) ? 0 : 2);
+}
+
+function describeFilters(textFilters: Record<string, string>): string[] {
+  const lines: string[] = [];
+  for (const { key, labelKey } of FILTER_COLUMNS) {
+    const value = textFilters[key];
+    if (value) lines.push(`${labelKey} contains "${value}"`);
+  }
+  return lines;
+}
+
+export function SalesTable({ rows }: { rows: SalesRow[] }) {
+  const { t } = useTranslation();
+  const flagLabel = (value: number) => {
+    const key = FLAG_LABEL_KEYS[String(value)];
+    return key ? t(key) : String(value);
+  };
+  const columnLabel = (labelKey: string) => t(`grossMargin.dashboard.salesExplorer.columns.${labelKey}`);
+  const [isFullBreakdown, setIsFullBreakdown] = useState(false);
+  const { isExporting, exportToExcel } = useSalesExport();
+  const [sorting, setSorting] = useState<SortingState>([
+    { id: "AvgUnitPrice", desc: true },
+  ]);
+  const [textFilters, setTextFilters] = useState<Record<string, string>>({});
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(PAGE_SIZE_OPTIONS[0]);
+
+  const visibleTextColumns = useMemo(
+    () => (isFullBreakdown ? TEXT_COLUMNS : TEXT_COLUMNS.filter((c) => c.core)),
+    [isFullBreakdown]
+  );
+  const visibleNumericColumns = useMemo(
+    () => (isFullBreakdown ? NUMERIC_COLUMNS : NUMERIC_COLUMNS.filter((c) => c.core)),
+    [isFullBreakdown]
+  );
+
+  const filteredRows = useMemo(() => {
+    return rows.filter((row) => {
+      for (const { key } of FILTER_COLUMNS) {
+        const filterValue = textFilters[key];
+        if (filterValue) {
+          const cell = String(row[key] ?? "").toLowerCase();
+          if (!cell.includes(filterValue.toLowerCase())) return false;
+        }
+      }
+      return true;
+    });
+  }, [rows, textFilters]);
+
+  const columns = useMemo<ColumnDef<SalesRow>[]>(
+    () => [
+      ...visibleTextColumns.map(
+        (col): ColumnDef<SalesRow> => ({
+          id: col.key,
+          accessorKey: col.key,
+          header: columnLabel(col.labelKey),
+          cell: ({ getValue }) =>
+            // Variety names run long enough to push Cost Ratio/Gross Margin
+            // out of view -- capped and wrapped to keep the row height
+            // reasonable while letting the rest of the table stay compact.
+            col.key === "Variety" ? (
+              <span className="block max-w-[240px] whitespace-normal">{String(getValue() ?? "—")}</span>
+            ) : (
+              <span className="whitespace-nowrap">{String(getValue() ?? "—")}</span>
+            ),
+        })
+      ),
+      ...visibleNumericColumns.map(
+        (col): ColumnDef<SalesRow> => ({
+          id: col.key,
+          accessorKey: col.key,
+          header: columnLabel(col.labelKey),
+          cell: ({ getValue, row }) => {
+            const value = getValue() as number | null;
+            if (col.key === "GrossMargin") {
+              // No data = genuinely blank, not a "—" placeholder -- there's
+              // nothing to flag a zone for when the row has no margin at all.
+              if (value === null) return null;
+              const zone = grossMarginCellZone(value);
+              return (
+                <span
+                  className={cn(
+                    "inline-block w-full rounded-md px-2 py-1 text-center font-mono tabular-nums whitespace-nowrap",
+                    MARGIN_CELL_CLASSES[zone]
+                  )}
+                >
+                  {formatPercent(value)}
+                </span>
+              );
+            }
+            if (col.key === "AvgUnitPrice") {
+              return (
+                <div className="whitespace-nowrap">
+                  {value !== null && (
+                    <span className="font-mono tabular-nums">{formatCell(value, col.kind, flagLabel)}</span>
+                  )}
+                  {row.original.CommissionApplied === 1 && (
+                    <p className="text-[10px] leading-tight text-muted-foreground">{t("grossMargin.dashboard.salesExplorer.commissionApplied")}</p>
+                  )}
+                </div>
+              );
+            }
+            return value !== null ? (
+              <span className="font-mono tabular-nums whitespace-nowrap">{formatCell(value, col.kind, flagLabel)}</span>
+            ) : null;
+          },
+        })
+      ),
+      {
+        id: "alarms",
+        header: t("grossMargin.dashboard.salesExplorer.columns.alarms"),
+        enableSorting: false,
+        cell: ({ row }) => <AlarmsCell row={row.original} />,
+      },
+    ],
+    [visibleTextColumns, visibleNumericColumns]
+  );
+
+  const table = useReactTable({
+    data: filteredRows,
+    columns,
+    state: { sorting },
+    onSortingChange: setSorting,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+  });
+
+  const tableRows = table.getRowModel().rows;
+
+  // Paginated, not virtualized -- consistent with Cost Breakdown, this caps
+  // how much the table ever mounts at once (at most 200 rows x however many
+  // columns) instead of relying on windowed scroll.
+  const pageCount = Math.max(1, Math.ceil(tableRows.length / rowsPerPage));
+  const safePage = Math.min(page, pageCount - 1);
+  const pagedRows = tableRows.slice(safePage * rowsPerPage, safePage * rowsPerPage + rowsPerPage);
+
+  function toggleFullBreakdown() {
+    setIsFullBreakdown((v) => !v);
+  }
+
+  async function handleExport() {
+    // Export the rows in their current on-screen sort order, not raw
+    // filteredRows order, so the workbook matches what's visible.
+    const exportRows = table.getRowModel().rows.map((r) => r.original);
+    await exportToExcel(exportRows, {
+      lines: describeFilters(textFilters),
+      filteredCount: exportRows.length,
+      totalCount: rows.length,
+    });
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{t("grossMargin.dashboard.salesExplorer.title")}</CardTitle>
+        <CardDescription>
+          {isFullBreakdown
+            ? t("grossMargin.dashboard.salesExplorer.descriptionFull")
+            : t("grossMargin.dashboard.salesExplorer.descriptionCompact")}
+        </CardDescription>
+        <CardAction>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="outline" size="sm" onClick={handleExport} disabled={isExporting}>
+              <Download aria-hidden="true" />
+              {isExporting ? t("grossMargin.dashboard.salesExplorer.preparing") : t("grossMargin.dashboard.salesExplorer.exportExcel")}
+            </Button>
+            <Button
+              variant={isFullBreakdown ? "default" : "outline"}
+              size="sm"
+              onClick={toggleFullBreakdown}
+            >
+              {isFullBreakdown ? <Rows3 aria-hidden="true" /> : <Table2 aria-hidden="true" />}
+              {isFullBreakdown ? t("grossMargin.dashboard.salesExplorer.compactView") : t("grossMargin.dashboard.salesExplorer.fullBreakdown")}
+            </Button>
+          </div>
+        </CardAction>
+      </CardHeader>
+      <CardContent className="space-y-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        {FILTER_COLUMNS.map((col) => (
+          <Field key={col.key} label={columnLabel(col.labelKey)}>
+            <Input
+              placeholder={t("grossMargin.common.search")}
+              aria-label={t("grossMargin.dashboard.salesExplorer.filterAria", { label: columnLabel(col.labelKey) })}
+              value={textFilters[col.key] ?? ""}
+              onChange={(e) =>
+                setTextFilters((f) => ({ ...f, [col.key]: e.target.value }))
+              }
+              className="h-8 text-sm"
+            />
+          </Field>
+        ))}
+      </div>
+
+      <p className="text-xs text-muted-foreground">
+        {t("grossMargin.dashboard.salesExplorer.showing", { shown: filteredRows.length, total: rows.length })}
+        {isFullBreakdown ? t("grossMargin.dashboard.salesExplorer.columnsSuffix", { count: columns.length }) : ""}
+      </p>
+
+      <div className="overflow-hidden rounded-lg border">
+        <div className="overflow-x-auto">
+          <Table scrollContainer={false}>
+            <TableHeader className="bg-card">
+              {table.getHeaderGroups().map((headerGroup) => (
+                <TableRow key={headerGroup.id}>
+                  {headerGroup.headers.map((header, index) => {
+                    const sortState = header.column.getIsSorted();
+                    // The Variety column stays pinned during horizontal
+                    // scroll -- Full Breakdown has up to 21 columns.
+                    const isFirstColumn = index === 0;
+                    return (
+                      <TableHead
+                        key={header.id}
+                        className={cn(
+                          header.column.getCanSort() && "cursor-pointer select-none",
+                          isFirstColumn && "sticky left-0 z-10 border-r bg-card",
+                          (header.column.id === "alarms" ||
+                            COMPACT_NUMERIC_KEYS.includes(header.column.id as keyof SalesRow)) &&
+                            "w-px whitespace-nowrap"
+                        )}
+                        onClick={header.column.getToggleSortingHandler()}
+                        aria-sort={
+                          sortState === "asc"
+                            ? "ascending"
+                            : sortState === "desc"
+                            ? "descending"
+                            : "none"
+                        }
+                      >
+                        <span className="inline-flex items-center gap-1">
+                          {flexRender(header.column.columnDef.header, header.getContext())}
+                          {header.column.getCanSort() &&
+                            (sortState === "asc" ? (
+                              <ArrowUp className="size-3.5" aria-hidden="true" />
+                            ) : sortState === "desc" ? (
+                              <ArrowDown className="size-3.5" aria-hidden="true" />
+                            ) : (
+                              <ArrowUpDown className="size-3.5 text-muted-foreground/50" aria-hidden="true" />
+                            ))}
+                        </span>
+                      </TableHead>
+                    );
+                  })}
+                </TableRow>
+              ))}
+            </TableHeader>
+            <TableBody>
+              {tableRows.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={columns.length} className="h-24 text-center text-muted-foreground">
+                    {t("grossMargin.dashboard.salesExplorer.noRowsMatch")}
+                  </TableCell>
+                </TableRow>
+              ) : (
+                pagedRows.map((row) => (
+                  <TableRow key={row.id}>
+                    {row.getVisibleCells().map((cell, index) => (
+                      <TableCell
+                        key={cell.id}
+                        className={cn(
+                          index === 0 && "sticky left-0 z-10 border-r bg-card",
+                          (cell.column.id === "alarms" ||
+                            COMPACT_NUMERIC_KEYS.includes(cell.column.id as keyof SalesRow)) &&
+                            "w-px whitespace-nowrap"
+                        )}
+                      >
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+
+        {tableRows.length > 0 && (
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-card px-4 py-1 text-sm">
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <span>{t("grossMargin.common.rowsPerPage")}</span>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className="flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-sm text-foreground hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring"
+                  >
+                    {rowsPerPage} <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="min-w-20">
+                  {PAGE_SIZE_OPTIONS.map((n) => (
+                    <DropdownMenuItem key={n} onSelect={() => { setRowsPerPage(n); setPage(0); }}>
+                      {n}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-muted-foreground">
+                {safePage * rowsPerPage + 1}–{Math.min(tableRows.length, (safePage + 1) * rowsPerPage)} / {tableRows.length}
+              </span>
+              {pageCount > 1 && (
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    disabled={safePage === 0}
+                    onClick={() => setPage(safePage - 1)}
+                    aria-label={t("grossMargin.common.previous")}
+                    className="rounded-md p-1 text-muted-foreground hover:bg-muted disabled:opacity-40"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  <span className="px-1 text-muted-foreground">{safePage + 1} / {pageCount}</span>
+                  <button
+                    type="button"
+                    disabled={safePage >= pageCount - 1}
+                    onClick={() => setPage(safePage + 1)}
+                    aria-label={t("grossMargin.common.next")}
+                    className="rounded-md p-1 text-muted-foreground hover:bg-muted disabled:opacity-40"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+      </CardContent>
+    </Card>
+  );
+}

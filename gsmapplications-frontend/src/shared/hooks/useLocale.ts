@@ -1,4 +1,5 @@
 import { useNavigate, useParams } from 'react-router-dom'
+import Cookies from 'js-cookie'
 import i18n from '@/app/i18n'
 
 export const SUPPORTED_LOCALES = ['en', 'es'] as const
@@ -15,13 +16,29 @@ export function getSavedLocale(): Locale {
   return SUPPORTED_LOCALES.includes(saved as Locale) ? (saved as Locale) : 'en'
 }
 
+const tenantKey = (companyId: string) => `${STORAGE_KEY}:${companyId.toUpperCase()}`
+
+export function getTenantLocale(companyId: string): Locale | null {
+  try {
+    const saved = localStorage.getItem(tenantKey(companyId))
+    return saved && isSupportedLocale(saved) ? saved : null
+  } catch { return null }
+}
+
+export function saveLocale(locale: Locale, companyId?: string) {
+  try {
+    localStorage.setItem(STORAGE_KEY, locale)
+    if (companyId) localStorage.setItem(tenantKey(companyId), locale)
+  } catch { /* */ }
+}
+
 export function useLocale() {
   const { locale = 'en' } = useParams<{ locale: string }>()
   const navigate = useNavigate()
 
   async function switchLocale(next: Locale, basePath: string = '') {
     if (next === locale) return
-    localStorage.setItem(STORAGE_KEY, next)
+    saveLocale(next, Cookies.get('gsm_company'))
     await i18n.changeLanguage(next)
     const path = basePath || window.location.pathname.replace(`/${locale}/`, `/${next}/`)
     navigate(path, { replace: true })

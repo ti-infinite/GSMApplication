@@ -28,6 +28,7 @@ interface DataTableProps<T> {
   pageSizeOptions?: number[]            
   loading?:     boolean                 
   onRowClick?:  (row: T) => void     
+  onRowDoubleClick?: (row: T) => void   // doble click en fila/card (ej. entrar en edición inline)
 }
 
 type SortDir = 'asc' | 'desc' | null
@@ -46,6 +47,7 @@ export function DataTable<T>({
   pageSizeOptions = DEFAULT_PAGE_SIZE_OPTIONS,
   loading = false,
   onRowClick,
+  onRowDoubleClick,
 }: DataTableProps<T>) {
   const { t } = useTranslation()
   const [sortKey, setSortKey] = useState<string | null>(null)
@@ -185,7 +187,8 @@ export function DataTable<T>({
                   return (
                     <Fragment key={rowKey(row)}>
                       <tr className={`transition-colors hover:bg-muted/30 ${onRowClick ? 'cursor-pointer' : ''}`}
-                        onClick={onRowClick ? () => onRowClick(row) : undefined}>
+                        onClick={onRowClick ? () => onRowClick(row) : undefined}
+                        onDoubleClick={onRowDoubleClick ? () => onRowDoubleClick(row) : undefined}>
                         {columns.map(col => (
                           <td key={col.key} className={`px-4 py-1 text-foreground ${alignCls(col.align)}`}>
                             {col.render
@@ -219,7 +222,8 @@ export function DataTable<T>({
             const expanded = renderExpanded?.(row)
             return (
               <div key={rowKey(row)} className={`flex flex-col gap-2 ${onRowClick ? 'cursor-pointer' : ''}`}
-                onClick={onRowClick ? () => onRowClick(row) : undefined}>
+                onClick={onRowClick ? () => onRowClick(row) : undefined}
+                onDoubleClick={onRowDoubleClick ? () => onRowDoubleClick(row) : undefined}>
                 {mobileCard ? mobileCard(row) : <DefaultMobileCard row={row} columns={columns} />}
                 {expanded}
               </div>

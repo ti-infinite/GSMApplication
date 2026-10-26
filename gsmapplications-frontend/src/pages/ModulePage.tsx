@@ -35,7 +35,6 @@ const modules: Record<string, React.LazyExoticComponent<React.ComponentType>> = 
   'artificial-intelligence/quotes/quote-simulator': lazy(() => import('@/pages/grossMargin/QuoteSimulatorPage')),
   'artificial-intelligence/audit/updates':         lazy(() => import('@/pages/grossMargin/UpdatesPage')),
   'artificial-intelligence/quotes/reports':         lazy(() => import('@/pages/grossMargin/ReportsPage')),
-  'logistics':                                      lazy(() => import('@/pages/logistics/LogisticsPage')),
 }
 
 function slugToTitle(slug: string): string {

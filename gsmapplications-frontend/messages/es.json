@@ -553,7 +553,6 @@
       },
       "resolution": {
         "question": "¿Esto resolvió el problema?",
-        "hint": "Marca la alerta como resuelta para quitarla del panel de validación.",
         "yes": "Sí, resuelto",
         "no": "Aún no"
       },
@@ -1509,6 +1508,59 @@
         "baseCost": "Costo base",
         "labour": "Mano de obra",
         "commission": "Comisión"
+      }
+    }
+  },
+  "logistics": {
+    "title": "Logística",
+    "subtitle": "Asigne los transportistas de cada despacho y confirme cuál lo lleva.",
+    "table": {
+      "loadError": "No pudimos cargar los despachos. Seguiremos intentando.",
+      "empty": "Todavía no hay despachos para mostrar.",
+      "noMatch": "Ningún despacho coincide con los filtros actuales."
+    },
+    "filters": {
+      "toggle": "Filtros",
+      "searchInvoice": "Buscar factura",
+      "allWhs": "Todas las bodegas",
+      "allDcs": "Todos los DC",
+      "selectDateRange": "Seleccione un rango",
+      "applyDateRange": "Aplicar",
+      "clearDateRange": "Limpiar rango de fechas"
+    },
+    "columns": {
+      "invoice": "Factura",
+      "whs": "Bodega",
+      "dc": "DC",
+      "shipDate": "Fecha de despacho",
+      "deliveryDate": "Fecha de entrega",
+      "pallets": "Pallets",
+      "carrierA": "Transportista A",
+      "carrierB": "Transportista B",
+      "po": "PO"
+    },
+    "alarm": {
+      "title": "Por favor seleccione un transportista"
+    },
+    "edit": {
+      "edit": "Editar",
+      "save": "Guardar",
+      "cancel": "Cancelar",
+      "confirmThis": "Confirmar este transportista",
+      "carrierPlaceholder": "Transportista",
+      "tooLong": "El nombre del transportista debe tener menos de 100 caracteres",
+      "palletsInvalid": "Pallets debe ser un número de 0 o más",
+      "confirmNeedsCarrier": "Escriba el nombre del transportista antes de confirmarlo",
+      "saved": "{{invoice}} guardado",
+      "failed": "No pudimos guardar el despacho"
+    },
+    "details": {
+      "title": "Factura {{invoice}}",
+      "empty": "No se encontraron líneas de esta factura en IH Sales.",
+      "loadError": "No pudimos cargar las líneas de la factura.",
+      "columns": {
+        "description": "Descripción",
+        "quantity": "Cantidad"
       }
     }
   }

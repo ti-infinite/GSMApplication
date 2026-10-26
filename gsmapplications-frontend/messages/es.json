@@ -109,7 +109,8 @@
     "purchase": "Compras",
     "purchases": "Compras",
     "purchase-chat": "Chat",
-    "reports": "Reportes"
+    "reports": "Reportes",
+    "logistics": "Logística"
   },
   "common": {
     "rowsPerPage": "Filas por página",
@@ -503,6 +504,37 @@
     "pickFilters": "Completa los filtros para ver la información",
     "noOptionsForFilter": "No hay {{filter}} disponibles para {{location}}.",
     "loadError": "No se pudo cargar la información"
+  },
+  "logistics": {
+    "title": "Logística",
+    "subtitle": "Asigna los carriers de cada despacho y confirma con cuál sale.",
+    "filters": "Filtros",
+    "whs": "WHS",
+    "division": "DC",
+    "allWhs": "Todos los WHS",
+    "allDivisions": "Todos los DC",
+    "dateRange": "Fecha de despacho",
+    "selectDateRange": "Selecciona un rango",
+    "applyDateRange": "Aplicar",
+    "clearDateRange": "Limpiar rango de fechas",
+    "invoice": "Factura",
+    "dateShip": "Fecha despacho",
+    "pallets": "Pallets",
+    "carrierA": "Carrier A",
+    "carrierB": "Carrier B",
+    "confirmed": "Carrier confirmado",
+    "carrierPlaceholder": "Escribe o elige",
+    "unsaved": "Cambio sin guardar",
+    "pendingChanges_one": "{{count}} despacho con cambios sin guardar",
+    "pendingChanges_other": "{{count}} despachos con cambios sin guardar",
+    "discard": "Descartar",
+    "save": "Guardar cambios",
+    "saving": "Guardando…",
+    "saved_one": "{{count}} despacho actualizado",
+    "saved_other": "{{count}} despachos actualizados",
+    "saveFailed": "No se pudieron guardar los cambios. Intenta de nuevo.",
+    "pickFilters": "Selecciona un rango de fechas para ver los despachos.",
+    "noResults": "No hay despachos para estos filtros."
   },
   "reports": {
     "title": "Reportes",

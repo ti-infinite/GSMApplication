@@ -1,0 +1,50 @@
+// Mirrors db_srv.IHLogistics as served by the relay (gross-margin-relay/
+// logistics.py): one row per outbound invoice, plus PO / Lines / Qty pulled
+// from db_srv.IHSales for the same invoice.
+export interface LogisticsRow {
+  ID: number;
+  WHS: string | null;
+  Division: string | null; // customer / distribution centre
+  Invoice: string;
+  DateShip: string | null; // YYYY-MM-DD
+  Pallets: number | null;
+  CarrierA: string | null;
+  CarrierB: string | null;
+  ConfirmedCarrier: string | null; // the chosen carrier's name (equals CarrierA or CarrierB)
+  PO: string | null;
+  Lines: number | null;
+  Qty: number | null;
+  DeliveryDate: string | null; // YYYY-MM-DD, earliest delivery date of the invoice lines
+}
+
+/** One IHSales line of an invoice: what is being shipped and how much. */
+export interface LogisticsLine {
+  Row: number;
+  PO: string | null;
+  Code: string | null;
+  Description: string | null;
+  Qty: number | null;
+  Price: number | null;
+  Amount: number | null;
+  DateShip: string | null;
+  DeliveryDate: string | null;
+  Name: string | null;
+  Location: string | null;
+}
+
+export type CarrierSlot = "A" | "B";
+
+/** One save from the inline row editor. Carriers are always written; Pallets
+ *  and Confirmed are only applied by the relay when present. */
+export interface LogisticsUpdateBody {
+  CarrierA: string | null;
+  CarrierB: string | null;
+  Pallets?: number | null;
+  Confirmed?: CarrierSlot | null;
+}
+
+/** Full warehouse and customer lists from the ERP master data, for the filters. */
+export interface LogisticsFilters {
+  warehouses: { code: string; name: string }[];
+  customers: { name: string }[];
+}

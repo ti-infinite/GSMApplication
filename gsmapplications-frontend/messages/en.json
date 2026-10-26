@@ -109,7 +109,8 @@
     "purchase": "Purchase",
     "purchases": "Purchases",
     "purchase-chat": "Chat",
-    "reports": "Reports"
+    "reports": "Reports",
+    "logistics": "Logistics"
   },
   "common": {
     "rowsPerPage": "Rows per page",
@@ -505,6 +506,37 @@
     "noOptionsForFilter": "No {{filter}} available for {{location}}.",
     "loadError": "Couldn't load the data"
   },
+  "logistics": {
+    "title": "Logistics",
+    "subtitle": "Assign each shipment's carriers and confirm which one ships it.",
+    "filters": "Filters",
+    "whs": "WHS",
+    "division": "DC",
+    "allWhs": "All WHS",
+    "allDivisions": "All DCs",
+    "dateRange": "Ship date",
+    "selectDateRange": "Select a range",
+    "applyDateRange": "Apply",
+    "clearDateRange": "Clear date range",
+    "invoice": "Invoice",
+    "dateShip": "Ship date",
+    "pallets": "Pallets",
+    "carrierA": "Carrier A",
+    "carrierB": "Carrier B",
+    "confirmed": "Confirmed carrier",
+    "carrierPlaceholder": "Type or pick",
+    "unsaved": "Unsaved change",
+    "pendingChanges_one": "{{count}} shipment with unsaved changes",
+    "pendingChanges_other": "{{count}} shipments with unsaved changes",
+    "discard": "Discard",
+    "save": "Save changes",
+    "saving": "Saving…",
+    "saved_one": "{{count}} shipment updated",
+    "saved_other": "{{count}} shipments updated",
+    "saveFailed": "Could not save the changes. Try again.",
+    "pickFilters": "Select a date range to see shipments.",
+    "noResults": "No shipments for these filters."
+  },
   "reports": {
     "title": "Reports",
     "subtitle": "Browse the transaction history by type.",
@@ -554,7 +586,6 @@
       },
       "resolution": {
         "question": "Did this resolve the issue?",
-        "hint": "Mark the alert as resolved to remove it from the validation panel.",
         "yes": "Yes, resolved",
         "no": "Not yet"
       },
@@ -1510,6 +1541,59 @@
         "baseCost": "Base cost",
         "labour": "Labour",
         "commission": "Commission"
+      }
+    }
+  },
+  "logistics": {
+    "title": "Logistics",
+    "subtitle": "Assign each shipment's carriers and confirm which one ships it.",
+    "table": {
+      "loadError": "We couldn't load the shipments. We'll keep trying.",
+      "empty": "No shipments to show yet.",
+      "noMatch": "No shipments match the current filters."
+    },
+    "filters": {
+      "toggle": "Filters",
+      "searchInvoice": "Search invoice",
+      "allWhs": "All WHS",
+      "allDcs": "All DCs",
+      "selectDateRange": "Select a range",
+      "applyDateRange": "Apply",
+      "clearDateRange": "Clear date range"
+    },
+    "columns": {
+      "invoice": "Invoice",
+      "whs": "WHS",
+      "dc": "DC",
+      "shipDate": "Ship date",
+      "deliveryDate": "Delivery date",
+      "pallets": "Pallets",
+      "carrierA": "Carrier A",
+      "carrierB": "Carrier B",
+      "po": "PO"
+    },
+    "alarm": {
+      "title": "Please select a carrier"
+    },
+    "edit": {
+      "edit": "Edit",
+      "save": "Save",
+      "cancel": "Cancel",
+      "confirmThis": "Confirm this carrier",
+      "carrierPlaceholder": "Carrier",
+      "tooLong": "Carrier names must be under 100 characters",
+      "palletsInvalid": "Pallets must be a number of 0 or more",
+      "confirmNeedsCarrier": "Type the carrier's name before confirming it",
+      "saved": "{{invoice}} saved",
+      "failed": "We couldn't save the shipment"
+    },
+    "details": {
+      "title": "Invoice {{invoice}}",
+      "empty": "No lines found for this invoice in IH Sales.",
+      "loadError": "We couldn't load the invoice lines.",
+      "columns": {
+        "description": "Description",
+        "quantity": "Quantity"
       }
     }
   }

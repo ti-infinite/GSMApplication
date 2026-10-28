@@ -20,17 +20,16 @@ import {
   confirmedSlot,
   parseShipDate,
   useLogistics,
-  useLogisticsFilters,
+  useLocations,
   useUpdateLogisticsRow,
   type CarrierSlot,
   type LogisticsRow,
 } from "@/entities/logistics";
 import { LogisticsAlarmIcon, LogisticsLinesDialog } from "@/features/logisticsCarriers";
 
-const ALL = "all";
 const PAGE_SIZE = 25;
 const MAX_CARRIER_LENGTH = 100;
-const MAX_PALLETS = 9999999.999; // IHLogistics.Pallets is numeric(10,3)
+const MAX_PALLETS = 9999999.999; 
 
 interface Draft {
   pallets: string;
@@ -81,12 +80,12 @@ function Hint({ label, children }: { label: string; children: ReactNode }) {
 export function LogisticsTable() {
   const { t, i18n } = useTranslation();
   const { rows, isLoading, error, refetch } = useLogistics();
-  const { filters } = useLogisticsFilters();
+  const locations = useLocations();
   const updateRow = useUpdateLogisticsRow();
   const saving = updateRow.isPending;
 
   const [search, setSearch] = useState("");
-  const [warehouse, setWarehouse] = useState(ALL);
+  const [whs, setWhs] = useState("");
   const [dc, setDc] = useState("");
   const [range, setRange] = useState<DateRange | undefined>(defaultRange);
   const [stagedRange, setStagedRange] = useState<DateRange | undefined>(range);
@@ -96,12 +95,7 @@ export function LogisticsTable() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
 
-  // Warehouse options come from the ERP master data (all warehouses), not only
-  // from what is in the logistics table today.
-  const warehouseOptions = useMemo(
-    () => [{ value: ALL, label: t("logistics.filters.allWhs") }, ...filters.warehouses.map((w) => ({ value: w.code, label: w.name }))],
-    [filters.warehouses, t]
-  );
+  const whsOptions = useMemo(() => locations.map((l) => ({ value: l.code, label: l.name })), [locations]);
 
   const filtered = useMemo(() => {
     const needle = normalize(search);
@@ -110,7 +104,7 @@ export function LogisticsTable() {
     const to = range?.to ? new Date(range.to.getFullYear(), range.to.getMonth(), range.to.getDate()) : from;
     return rows.filter((r) => {
       if (needle && !normalize(r.Invoice).includes(needle) && !normalize(r.PO).includes(needle)) return false;
-      if (warehouse !== ALL && r.WHS !== warehouse) return false;
+      if (whs && r.WHS !== whs) return false;
       if (dcNeedle && !normalize(r.Division).includes(dcNeedle)) return false;
       if (from) {
         const ship = parseShipDate(r.DateShip);
@@ -118,7 +112,7 @@ export function LogisticsTable() {
       }
       return true;
     });
-  }, [rows, search, warehouse, dc, range]);
+  }, [rows, search, whs, dc, range]);
 
   const fmtDate = (iso: string | null) => {
     const d = parseShipDate(iso);
@@ -394,7 +388,7 @@ export function LogisticsTable() {
           </div>
         </FilterField>
         <FilterField label={t("logistics.columns.whs")} width="sm:w-60">
-          <Combobox value={warehouse} onChange={(v) => setWarehouse(v || ALL)} options={warehouseOptions} />
+          <Combobox value={whs} onChange={setWhs} options={whsOptions} placeholder={t("logistics.filters.allWhs")} />
         </FilterField>
         <FilterField label={t("logistics.columns.dc")} width="sm:w-60">
           <div className="relative">

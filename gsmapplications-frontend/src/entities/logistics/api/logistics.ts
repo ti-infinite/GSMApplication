@@ -1,9 +1,10 @@
 import { ihFetch, RelayError } from "@/shared/lib/ihAgent";
-import type { LogisticsFilters, LogisticsLine, LogisticsRow, LogisticsUpdateBody } from "../model/types";
+import { getFilteredLocations } from "@/shared/api/application/endpoints";
+import type { LocationDTOListApiResponse } from "@/shared/api/application/model";
+import type { LocationOption, LogisticsLine, LogisticsRow, LogisticsUpdateBody } from "../model/types";
 
 // ih-logistics service (EC2, behind Caddy `/logistics*`, which injects the API key):
 //   GET  /logistics               -> { rows: LogisticsRow[] }  ship dates from 30 days ago onward, upcoming included
-//   GET  /logistics/filters       -> LogisticsFilters
 //   PUT  /logistics/{id}          <- LogisticsUpdateBody -> { updated, row }
 //   GET  /logistics/{id}/lines    -> { rows: LogisticsLine[] }
 const BASE = "/logistics";
@@ -19,10 +20,6 @@ export const logisticsApi = {
     const res = await ihFetch(BASE);
     return (await parse<{ rows: LogisticsRow[] }>(res, "Failed to load logistics")).rows;
   },
-  async filters(): Promise<LogisticsFilters> {
-    const res = await ihFetch(`${BASE}/filters`);
-    return parse<LogisticsFilters>(res, "Failed to load filters");
-  },
   async update(id: number, body: LogisticsUpdateBody): Promise<LogisticsRow> {
     const res = await ihFetch(`${BASE}/${id}`, { method: "PUT", body: JSON.stringify(body) });
     return (await parse<{ row: LogisticsRow }>(res, "Failed to save the shipment")).row;
@@ -32,3 +29,11 @@ export const logisticsApi = {
     return (await parse<{ rows: LogisticsLine[] }>(res, "Failed to load invoice lines")).rows;
   },
 };
+
+// WHS filter: the user's locations from GSM (db_ms.Locations), filtered by tenant and permissions.
+// value = CodeLocation, the code stored in IHLogistics.WHS.
+export async function fetchLocations(): Promise<LocationOption[]> {
+  const res = await getFilteredLocations();
+  const list = (res.data as LocationDTOListApiResponse | undefined)?.data ?? [];
+  return list.filter((l) => l.codeLocation).map((l) => ({ code: l.codeLocation!, name: l.descr ?? l.codeLocation! }));
+}

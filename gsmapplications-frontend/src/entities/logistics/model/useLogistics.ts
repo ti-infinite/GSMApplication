@@ -1,6 +1,6 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { logisticsApi } from "../api/logistics";
-import type { CarrierSlot, LogisticsFilters, LogisticsLine, LogisticsRow, LogisticsUpdateBody } from "./types";
+import type { LogisticsFilters, LogisticsLine, LogisticsRow, LogisticsUpdateBody } from "./types";
 
 export const LOGISTICS_QUERY_KEY = ["logistics"] as const;
 const linesKey = (id: number) => ["logistics-lines", id] as const;
@@ -18,19 +18,19 @@ export function useLogistics() {
     rows: query.data ?? [],
     isLoading: query.isLoading,
     isFetching: query.isFetching,
-    error: query.error instanceof Error ? query.error.message : query.error ? String(query.error) : null,
+    error: query.error,
     refetch: query.refetch,
   };
 }
 
-/** Warehouse and customer lists for the filters (ERP master data). */
+/** Warehouse list for the WHS filter (ERP master data). */
 export function useLogisticsFilters() {
   const query = useQuery({
     queryKey: ["logistics-filters"],
     queryFn: logisticsApi.filters,
     staleTime: 30 * 60 * 1000,
   });
-  const empty: LogisticsFilters = { warehouses: [], customers: [] };
+  const empty: LogisticsFilters = { warehouses: [] };
   return { filters: query.data ?? empty, isLoading: query.isLoading };
 }
 
@@ -45,32 +45,21 @@ export function useLogisticsLines(id: number | null) {
   return {
     lines: (query.data ?? []) as LogisticsLine[],
     isLoading: query.isLoading,
-    error: query.error instanceof Error ? query.error.message : query.error ? String(query.error) : null,
+    error: query.error,
+    refetch: query.refetch,
   };
 }
 
-/** Writes that patch the cached row from the relay's response, so the table
- *  updates in place without a full reload. */
-export function useLogisticsMutations() {
+/** Saves one row and patches it into the cached list, so the table updates in
+ *  place without a full reload. */
+export function useUpdateLogisticsRow() {
   const queryClient = useQueryClient();
-
-  function patchRow(updated: LogisticsRow) {
-    queryClient.setQueryData<LogisticsRow[]>(LOGISTICS_QUERY_KEY, (rows) =>
-      rows ? rows.map((r) => (r.ID === updated.ID ? updated : r)) : rows
-    );
-  }
-
-  return {
-    async update(id: number, body: LogisticsUpdateBody) {
-      const row = await logisticsApi.update(id, body);
-      patchRow(row);
-      return row;
+  return useMutation({
+    mutationFn: ({ id, body }: { id: number; body: LogisticsUpdateBody }) => logisticsApi.update(id, body),
+    onSuccess: (updated) => {
+      queryClient.setQueryData<LogisticsRow[]>(LOGISTICS_QUERY_KEY, (rows) =>
+        rows ? rows.map((r) => (r.ID === updated.ID ? updated : r)) : rows
+      );
     },
-    async confirm(id: number, option: CarrierSlot | null) {
-      const row = await logisticsApi.confirm(id, option);
-      patchRow(row);
-      return row;
-    },
-    invalidate: () => queryClient.invalidateQueries({ queryKey: LOGISTICS_QUERY_KEY }),
-  };
+  });
 }

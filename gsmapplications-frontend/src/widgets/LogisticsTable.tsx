@@ -1,4 +1,4 @@
-import { useMemo, useState, type KeyboardEvent } from "react";
+import { useMemo, useState, type KeyboardEvent, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -12,6 +12,8 @@ import { Button } from "@/shared/ui/button";
 import { Combobox } from "@/shared/ui/combobox";
 import { Calendar } from "@/shared/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/shared/ui/popover";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui/tooltip";
+import { ErrorState } from "@/shared/components/ErrorState";
 import { formatNumber } from "@/shared/lib/format";
 import { decimalInputProps, parseDecimal } from "@/shared/lib/formValidation";
 import {
@@ -19,7 +21,7 @@ import {
   parseShipDate,
   useLogistics,
   useLogisticsFilters,
-  useLogisticsMutations,
+  useUpdateLogisticsRow,
   type CarrierSlot,
   type LogisticsRow,
 } from "@/entities/logistics";
@@ -28,6 +30,7 @@ import { LogisticsAlarmIcon, LogisticsLinesDialog } from "@/features/logisticsCa
 const ALL = "all";
 const PAGE_SIZE = 25;
 const MAX_CARRIER_LENGTH = 100;
+const MAX_PALLETS = 9999999.999; // IHLogistics.Pallets is numeric(10,3)
 
 interface Draft {
   pallets: string;
@@ -45,7 +48,7 @@ function draftFrom(row: LogisticsRow): Draft {
   };
 }
 
-// Default view: ship dates from 10 days ago to one month ahead. The relay
+// Default view: ship dates from 10 days ago to one month ahead. The service
 // serves a wider window (30 days back plus every future shipment), so the
 // picker can be widened to see the rest.
 function defaultRange(): DateRange {
@@ -57,6 +60,18 @@ function defaultRange(): DateRange {
   return { from, to };
 }
 
+// Case- and spacing-insensitive text for the search filters ("BIG  Y" matches "big y").
+const normalize = (value: string | null) => (value ?? "").replace(/\s+/g, " ").trim().toLowerCase();
+
+function Hint({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
+  );
+}
+
 // The Logistics page: every upcoming shipment (db_srv.IHLogistics) with its
 // pallet count, two carrier options and the confirmed one in green. A row is
 // edited in place (double-click or the pencil), the circle next to a carrier
@@ -65,13 +80,14 @@ function defaultRange(): DateRange {
 // invoice number opens the shipment's lines.
 export function LogisticsTable() {
   const { t, i18n } = useTranslation();
-  const { rows, isLoading, error } = useLogistics();
+  const { rows, isLoading, error, refetch } = useLogistics();
   const { filters } = useLogisticsFilters();
-  const { update } = useLogisticsMutations();
+  const updateRow = useUpdateLogisticsRow();
+  const saving = updateRow.isPending;
 
-  const [invoice, setInvoice] = useState("");
+  const [search, setSearch] = useState("");
   const [warehouse, setWarehouse] = useState(ALL);
-  const [customer, setCustomer] = useState(ALL);
+  const [dc, setDc] = useState("");
   const [range, setRange] = useState<DateRange | undefined>(defaultRange);
   const [stagedRange, setStagedRange] = useState<DateRange | undefined>(range);
   const [rangeOpen, setRangeOpen] = useState(false);
@@ -79,33 +95,30 @@ export function LogisticsTable() {
   const [selected, setSelected] = useState<LogisticsRow | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
-  const [saving, setSaving] = useState(false);
 
-  // Filter options come from the ERP master data (all warehouses, all
-  // customers), not only from what is in the logistics table today.
+  // Warehouse options come from the ERP master data (all warehouses), not only
+  // from what is in the logistics table today.
   const warehouseOptions = useMemo(
     () => [{ value: ALL, label: t("logistics.filters.allWhs") }, ...filters.warehouses.map((w) => ({ value: w.code, label: w.name }))],
     [filters.warehouses, t]
   );
-  // No "all" entry in the list: an empty selection means every DC, and the
-  // placeholder says so. The combobox filters as you type.
-  const customerOptions = useMemo(() => filters.customers.map((c) => ({ value: c.name.toUpperCase(), label: c.name })), [filters.customers]);
 
   const filtered = useMemo(() => {
-    const needle = invoice.trim().toLowerCase();
+    const needle = normalize(search);
+    const dcNeedle = normalize(dc);
     const from = range?.from ? new Date(range.from.getFullYear(), range.from.getMonth(), range.from.getDate()) : null;
     const to = range?.to ? new Date(range.to.getFullYear(), range.to.getMonth(), range.to.getDate()) : from;
     return rows.filter((r) => {
-      if (needle && !r.Invoice.toLowerCase().includes(needle)) return false;
+      if (needle && !normalize(r.Invoice).includes(needle) && !normalize(r.PO).includes(needle)) return false;
       if (warehouse !== ALL && r.WHS !== warehouse) return false;
-      if (customer !== ALL && (r.Division ?? "").trim().toUpperCase() !== customer) return false;
+      if (dcNeedle && !normalize(r.Division).includes(dcNeedle)) return false;
       if (from) {
         const ship = parseShipDate(r.DateShip);
         if (!ship || ship < from || (to && ship > to)) return false;
       }
       return true;
     });
-  }, [rows, invoice, warehouse, customer, range]);
+  }, [rows, search, warehouse, dc, range]);
 
   const fmtDate = (iso: string | null) => {
     const d = parseShipDate(iso);
@@ -144,7 +157,7 @@ export function LogisticsTable() {
     }
     const palletsText = draft.pallets.trim();
     const parsedPallets = palletsText === "" ? null : parseDecimal(palletsText);
-    if (typeof parsedPallets === "symbol" || (typeof parsedPallets === "number" && parsedPallets < 0)) {
+    if (typeof parsedPallets === "symbol" || (typeof parsedPallets === "number" && (parsedPallets < 0 || parsedPallets > MAX_PALLETS))) {
       toast.error(t("logistics.edit.palletsInvalid"));
       return;
     }
@@ -154,20 +167,15 @@ export function LogisticsTable() {
       toast.error(t("logistics.edit.confirmNeedsCarrier"));
       return;
     }
-    setSaving(true);
     try {
-      await update(row.ID, {
-        CarrierA: carrierA || null,
-        CarrierB: carrierB || null,
-        Pallets: pallets,
-        Confirmed: draft.confirmed,
+      await updateRow.mutateAsync({
+        id: row.ID,
+        body: { CarrierA: carrierA || null, CarrierB: carrierB || null, Pallets: pallets, Confirmed: draft.confirmed },
       });
       toast.success(t("logistics.edit.saved", { invoice: row.Invoice }));
       cancelEdit();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t("logistics.edit.failed"));
-    } finally {
-      setSaving(false);
     }
   }
 
@@ -222,17 +230,18 @@ export function LogisticsTable() {
       const chosen = draft.confirmed === slot;
       return (
         <div className="flex items-center gap-1.5" {...stop}>
-          <button
-            type="button"
-            onClick={() => toggleConfirmed(slot)}
-            disabled={!value.trim()}
-            aria-pressed={chosen}
-            aria-label={t("logistics.edit.confirmThis")}
-            title={t("logistics.edit.confirmThis")}
-            className={cn("shrink-0 rounded-full disabled:opacity-30", chosen ? "text-success" : "text-muted-foreground hover:text-foreground")}
-          >
-            {chosen ? <CheckCircle2 className="size-4" aria-hidden="true" /> : <Circle className="size-4" aria-hidden="true" />}
-          </button>
+          <Hint label={t("logistics.edit.confirmThis")}>
+            <button
+              type="button"
+              onClick={() => toggleConfirmed(slot)}
+              disabled={!value.trim()}
+              aria-pressed={chosen}
+              aria-label={t("logistics.edit.confirmThis")}
+              className={cn("shrink-0 rounded-full disabled:opacity-30", chosen ? "text-success" : "text-muted-foreground hover:text-foreground")}
+            >
+              {chosen ? <CheckCircle2 className="size-4" aria-hidden="true" /> : <Circle className="size-4" aria-hidden="true" />}
+            </button>
+          </Hint>
           <Input
             value={value}
             onChange={(e) => setDraftField(slot === "A" ? "carrierA" : "carrierB", e.target.value)}
@@ -245,12 +254,17 @@ export function LogisticsTable() {
       );
     }
     if (!name) return <span className="text-muted-foreground">—</span>;
-    if (!isConfirmed) return <span className="block max-w-40 truncate" title={name}>{name}</span>;
     return (
-      <span className="inline-flex max-w-44 items-center gap-1 rounded-md bg-success/15 px-2 py-0.5 font-semibold text-success" title={name}>
-        <Check className="size-3.5 shrink-0" aria-hidden="true" />
-        <span className="truncate">{name}</span>
-      </span>
+      <Hint label={name}>
+        {isConfirmed ? (
+          <span className="inline-flex max-w-44 items-center gap-1 rounded-md bg-success/15 px-2 py-0.5 font-semibold text-success">
+            <Check className="size-3.5 shrink-0" aria-hidden="true" />
+            <span className="truncate">{name}</span>
+          </span>
+        ) : (
+          <span className="block max-w-40 truncate">{name}</span>
+        )}
+      </Hint>
     );
   };
 
@@ -258,41 +272,44 @@ export function LogisticsTable() {
     <div className="flex items-center justify-end gap-0.5" {...stop}>
       {editingId === r.ID ? (
         <>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className="text-success hover:bg-success/10 hover:text-success"
-            onClick={() => saveEdit(r)}
-            disabled={saving}
-            aria-label={t("logistics.edit.save")}
-            title={t("logistics.edit.save")}
-          >
-            <Check className="size-4" aria-hidden="true" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className="text-muted-foreground hover:text-foreground"
-            onClick={cancelEdit}
-            disabled={saving}
-            aria-label={t("logistics.edit.cancel")}
-            title={t("logistics.edit.cancel")}
-          >
-            <X className="size-4" aria-hidden="true" />
-          </Button>
+          <Hint label={t("logistics.edit.save")}>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="text-success hover:bg-success/10 hover:text-success"
+              onClick={() => saveEdit(r)}
+              disabled={saving}
+              aria-label={t("logistics.edit.save")}
+            >
+              <Check className="size-4" aria-hidden="true" />
+            </Button>
+          </Hint>
+          <Hint label={t("logistics.edit.cancel")}>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="text-muted-foreground hover:text-foreground"
+              onClick={cancelEdit}
+              disabled={saving}
+              aria-label={t("logistics.edit.cancel")}
+            >
+              <X className="size-4" aria-hidden="true" />
+            </Button>
+          </Hint>
         </>
       ) : (
         <>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className="text-muted-foreground hover:text-foreground"
-            onClick={() => startEdit(r)}
-            aria-label={t("logistics.edit.edit")}
-            title={t("logistics.edit.edit")}
-          >
-            <Pencil className="size-3.5" aria-hidden="true" />
-          </Button>
+          <Hint label={t("logistics.edit.edit")}>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="text-muted-foreground hover:text-foreground"
+              onClick={() => startEdit(r)}
+              aria-label={t("logistics.edit.edit")}
+            >
+              <Pencil className="size-3.5" aria-hidden="true" />
+            </Button>
+          </Hint>
           <LogisticsAlarmIcon row={r} />
         </>
       )}
@@ -301,12 +318,20 @@ export function LogisticsTable() {
 
   const columns: TableColumn<LogisticsRow>[] = [
     { key: "Invoice", header: t("logistics.columns.invoice"), sortable: true, render: invoiceCell },
+    { key: "PO", header: t("logistics.columns.po"), sortable: true, render: (r) => r.PO ?? "—" },
     { key: "WHS", header: t("logistics.columns.whs"), sortable: true, render: (r) => r.WHS ?? "—" },
     {
       key: "Division",
       header: t("logistics.columns.dc"),
       sortable: true,
-      render: (r) => <span className="block max-w-72 truncate" title={r.Division ?? undefined}>{r.Division ?? "—"}</span>,
+      render: (r) =>
+        r.Division ? (
+          <Hint label={r.Division}>
+            <span className="block max-w-72 truncate">{r.Division}</span>
+          </Hint>
+        ) : (
+          "—"
+        ),
     },
     {
       key: "DateShip",
@@ -330,6 +355,7 @@ export function LogisticsTable() {
           </div>
           <p className="text-sm text-foreground break-words">{r.Division ?? "—"}</p>
           <p className="text-xs text-muted-foreground">
+            {r.PO ? `${t("logistics.columns.po")} ${r.PO} · ` : ""}
             {r.WHS} · {fmtDate(r.DateShip)}
           </p>
         </div>
@@ -355,22 +381,32 @@ export function LogisticsTable() {
   return (
     <>
       <FilterBar toggleLabel={t("logistics.filters.toggle")}>
-        <FilterField label={t("logistics.columns.invoice")} width="sm:w-60">
+        <FilterField label={t("logistics.filters.invoiceOrPo")} width="sm:w-60">
           <div className="relative">
             <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-            <Input placeholder={t("logistics.filters.searchInvoice")} value={invoice} onChange={(e) => setInvoice(e.target.value)} className="pl-8" />
+            <Input
+              placeholder={t("logistics.filters.searchInvoiceOrPo")}
+              aria-label={t("logistics.filters.searchInvoiceOrPo")}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-8"
+            />
           </div>
         </FilterField>
         <FilterField label={t("logistics.columns.whs")} width="sm:w-60">
           <Combobox value={warehouse} onChange={(v) => setWarehouse(v || ALL)} options={warehouseOptions} />
         </FilterField>
         <FilterField label={t("logistics.columns.dc")} width="sm:w-60">
-          <Combobox
-            value={customer === ALL ? "" : customer}
-            onChange={(v) => setCustomer(v || ALL)}
-            options={customerOptions}
-            placeholder={t("logistics.filters.allDcs")}
-          />
+          <div className="relative">
+            <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+            <Input
+              placeholder={t("logistics.filters.searchDc")}
+              aria-label={t("logistics.filters.searchDc")}
+              value={dc}
+              onChange={(e) => setDc(e.target.value)}
+              className="pl-8"
+            />
+          </div>
         </FilterField>
         <FilterField label={t("logistics.columns.shipDate")} width="sm:w-60">
           <div className="relative">
@@ -419,11 +455,9 @@ export function LogisticsTable() {
         </FilterField>
       </FilterBar>
 
-      {error && (
-        <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{t("logistics.table.loadError")}</div>
-      )}
-
-      {!error && (
+      {error ? (
+        <ErrorState error={error} onRetry={() => void refetch()} />
+      ) : (
         <DataTable<LogisticsRow>
           columns={columns}
           data={filtered}

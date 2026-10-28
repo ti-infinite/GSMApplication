@@ -1548,15 +1548,15 @@
     "title": "Logistics",
     "subtitle": "Assign each shipment's carriers and confirm which one ships it.",
     "table": {
-      "loadError": "We couldn't load the shipments. We'll keep trying.",
       "empty": "No shipments to show yet.",
       "noMatch": "No shipments match the current filters."
     },
     "filters": {
       "toggle": "Filters",
-      "searchInvoice": "Search invoice",
+      "invoiceOrPo": "Invoice / PO",
+      "searchInvoiceOrPo": "Search invoice or PO",
       "allWhs": "All WHS",
-      "allDcs": "All DCs",
+      "searchDc": "Search DC",
       "selectDateRange": "Select a range",
       "applyDateRange": "Apply",
       "clearDateRange": "Clear date range"
@@ -1590,7 +1590,6 @@
     "details": {
       "title": "Invoice {{invoice}}",
       "empty": "No lines found for this invoice in IH Sales.",
-      "loadError": "We couldn't load the invoice lines.",
       "columns": {
         "description": "Description",
         "quantity": "Quantity"

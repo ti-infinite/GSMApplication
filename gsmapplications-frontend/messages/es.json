@@ -1547,15 +1547,15 @@
     "title": "Logística",
     "subtitle": "Asigne los transportistas de cada despacho y confirme cuál lo lleva.",
     "table": {
-      "loadError": "No pudimos cargar los despachos. Seguiremos intentando.",
       "empty": "Todavía no hay despachos para mostrar.",
       "noMatch": "Ningún despacho coincide con los filtros actuales."
     },
     "filters": {
       "toggle": "Filtros",
-      "searchInvoice": "Buscar factura",
+      "invoiceOrPo": "Factura / PO",
+      "searchInvoiceOrPo": "Buscar factura o PO",
       "allWhs": "Todas las bodegas",
-      "allDcs": "Todos los DC",
+      "searchDc": "Buscar DC",
       "selectDateRange": "Seleccione un rango",
       "applyDateRange": "Aplicar",
       "clearDateRange": "Limpiar rango de fechas"
@@ -1589,7 +1589,6 @@
     "details": {
       "title": "Factura {{invoice}}",
       "empty": "No se encontraron líneas de esta factura en IH Sales.",
-      "loadError": "No pudimos cargar las líneas de la factura.",
       "columns": {
         "description": "Descripción",
         "quantity": "Cantidad"

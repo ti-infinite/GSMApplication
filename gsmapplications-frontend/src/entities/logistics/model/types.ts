@@ -1,6 +1,5 @@
-// Mirrors db_srv.IHLogistics as served by the relay (gross-margin-relay/
-// logistics.py): one row per outbound invoice, plus PO / Lines / Qty pulled
-// from db_srv.IHSales for the same invoice.
+// Mirrors db_srv.IHLogistics as served by ih-logistics: one row per outbound
+// invoice, plus PO / Lines / Qty pulled from db_srv.IHSales for the same invoice.
 export interface LogisticsRow {
   ID: number;
   WHS: string | null;
@@ -35,7 +34,7 @@ export interface LogisticsLine {
 export type CarrierSlot = "A" | "B";
 
 /** One save from the inline row editor. Carriers are always written; Pallets
- *  and Confirmed are only applied by the relay when present. */
+ *  and Confirmed are only applied by the service when present. */
 export interface LogisticsUpdateBody {
   CarrierA: string | null;
   CarrierB: string | null;
@@ -43,8 +42,7 @@ export interface LogisticsUpdateBody {
   Confirmed?: CarrierSlot | null;
 }
 
-/** Full warehouse and customer lists from the ERP master data, for the filters. */
+/** Full warehouse list from the ERP master data, for the WHS filter. */
 export interface LogisticsFilters {
   warehouses: { code: string; name: string }[];
-  customers: { name: string }[];
 }

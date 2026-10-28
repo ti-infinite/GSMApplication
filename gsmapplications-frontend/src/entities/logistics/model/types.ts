@@ -42,7 +42,8 @@ export interface LogisticsUpdateBody {
   Confirmed?: CarrierSlot | null;
 }
 
-/** Full warehouse list from the ERP master data, for the WHS filter. */
-export interface LogisticsFilters {
-  warehouses: { code: string; name: string }[];
+/** One option of the WHS filter: a GSM location. */
+export interface LocationOption {
+  code: string;
+  name: string;
 }

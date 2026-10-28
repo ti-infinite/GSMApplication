@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { logisticsApi } from "../api/logistics";
-import type { LogisticsFilters, LogisticsLine, LogisticsRow, LogisticsUpdateBody } from "./types";
+import { fetchLocations, logisticsApi } from "../api/logistics";
+import type { LogisticsLine, LogisticsRow, LogisticsUpdateBody } from "./types";
 
 export const LOGISTICS_QUERY_KEY = ["logistics"] as const;
 const linesKey = (id: number) => ["logistics-lines", id] as const;
@@ -23,15 +23,14 @@ export function useLogistics() {
   };
 }
 
-/** Warehouse list for the WHS filter (ERP master data). */
-export function useLogisticsFilters() {
+
+export function useLocations() {
   const query = useQuery({
-    queryKey: ["logistics-filters"],
-    queryFn: logisticsApi.filters,
+    queryKey: ["logistics-locations"],
+    queryFn: fetchLocations,
     staleTime: 30 * 60 * 1000,
   });
-  const empty: LogisticsFilters = { warehouses: [] };
-  return { filters: query.data ?? empty, isLoading: query.isLoading };
+  return query.data ?? [];
 }
 
 /** Lines of one invoice, fetched when its details dialog opens. */

@@ -3,6 +3,7 @@ import { Check } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/shared/ui/dialog";
 import { DataTable, type TableColumn } from "@/shared/ui/data-table";
 import { formatNumber } from "@/shared/lib/format";
+import { ErrorState } from "@/shared/components/ErrorState";
 import { confirmedSlot, parseShipDate, useLogisticsLines, type LogisticsLine, type LogisticsRow } from "@/entities/logistics";
 import { LogisticsAlarmIcon } from "./LogisticsAlarmIcon";
 
@@ -11,7 +12,7 @@ import { LogisticsAlarmIcon } from "./LogisticsAlarmIcon";
 // lines from IH Sales -- what is being shipped and how much of it.
 export function LogisticsLinesDialog({ row, onClose }: { row: LogisticsRow | null; onClose: () => void }) {
   const { t, i18n } = useTranslation();
-  const { lines, isLoading, error } = useLogisticsLines(row?.ID ?? null);
+  const { lines, isLoading, error, refetch } = useLogisticsLines(row?.ID ?? null);
   if (!row) return null;
 
   const fmtDate = (iso: string | null) => {
@@ -80,19 +81,17 @@ export function LogisticsLinesDialog({ row, onClose }: { row: LogisticsRow | nul
             ))}
           </dl>
 
-          {error && (
-            <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
-              {t("logistics.details.loadError")}
-            </div>
+          {error ? (
+            <ErrorState error={error} onRetry={() => void refetch()} />
+          ) : (
+            <DataTable<LogisticsLine>
+              columns={columns}
+              data={lines}
+              rowKey={(l) => String(l.Row)}
+              loading={isLoading}
+              emptyMessage={t("logistics.details.empty")}
+            />
           )}
-
-          <DataTable<LogisticsLine>
-            columns={columns}
-            data={lines}
-            rowKey={(l) => String(l.Row)}
-            loading={isLoading}
-            emptyMessage={t("logistics.details.empty")}
-          />
         </div>
       </DialogContent>
     </Dialog>

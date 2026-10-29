@@ -1,5 +1,4 @@
-// Mirrors db_srv.IHLogistics as served by ih-logistics: one row per outbound
-// invoice, plus PO / Lines / Qty pulled from db_srv.IHSales for the same invoice.
+// Mirrors db_srv.IHLogistics as served by ih-logistics: one row per outbound invoice.
 export interface LogisticsRow {
   ID: number;
   WHS: string | null;
@@ -11,9 +10,6 @@ export interface LogisticsRow {
   CarrierB: string | null;
   ConfirmedCarrier: string | null; // the chosen carrier's name (equals CarrierA or CarrierB)
   PO: string | null;
-  Lines: number | null;
-  Qty: number | null;
-  DeliveryDate: string | null; // YYYY-MM-DD, earliest delivery date of the invoice lines
 }
 
 /** One IHSales line of an invoice: what is being shipped and how much. */

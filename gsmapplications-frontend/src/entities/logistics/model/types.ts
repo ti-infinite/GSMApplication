@@ -15,16 +15,9 @@ export interface LogisticsRow {
 /** One IHSales line of an invoice: what is being shipped and how much. */
 export interface LogisticsLine {
   Row: number;
-  PO: string | null;
-  Code: string | null;
   Description: string | null;
   Qty: number | null;
-  Price: number | null;
-  Amount: number | null;
-  DateShip: string | null;
   DeliveryDate: string | null;
-  Name: string | null;
-  Location: string | null;
 }
 
 export type CarrierSlot = "A" | "B";

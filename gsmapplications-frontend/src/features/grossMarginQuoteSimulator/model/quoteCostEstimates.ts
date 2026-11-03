@@ -418,14 +418,6 @@ export function hasEstimatedFields(estimates: QuoteCostEstimates | null | undefi
   });
 }
 
-// ---------------------------------------------------------------------------
-// Existing sales rows: the same estimates, but only for the cost fields the
-// reference tables have not filled yet (a sale whose Cost Reference row is
-// missing or incomplete). The row's own values always win; an estimate only
-// fills a blank, so the person sees a plausible number instead of nothing
-// and can then save it as the real reference.
-// ---------------------------------------------------------------------------
-
 const MODE_A_FIELDS: (keyof SalesRow)[] = ["PurchaseCost", "Box", "LabourRepack", "LabourAssembler", "Transport"];
 const MODE_B_FIELDS: (keyof SalesRow)[] = ["PurchaseCost", "Yield", "Packing", "Sticker", "LabourProd", "LabourRepack", "Transport"];
 
@@ -448,7 +440,6 @@ const FILL: { field: keyof SalesRow; estimate: keyof QuoteCostEstimates }[] = [
   { field: "Transport", estimate: "transport" },
 ];
 
-/** The row with each blank cost replaced by its estimate (when there is one). */
 export function fillMissingFromEstimates(row: SalesRow, estimates: QuoteCostEstimates): SalesRow {
   const out: SalesRow = { ...row };
   for (const { field, estimate } of FILL) {
@@ -460,8 +451,7 @@ export function fillMissingFromEstimates(row: SalesRow, estimates: QuoteCostEsti
   return out;
 }
 
-/** Estimates restricted to the blanks of an existing row: fields the row
- *  already has are reported as "exact" so no badge shows on them. */
+
 export function estimatesForExistingRow(row: SalesRow, estimates: QuoteCostEstimates): QuoteCostEstimates {
   const out = { ...estimates };
   for (const { field, estimate } of FILL) {

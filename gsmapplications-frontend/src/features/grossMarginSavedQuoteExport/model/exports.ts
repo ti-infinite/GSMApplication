@@ -3,16 +3,7 @@ import type { SkuCatalog } from "@/entities/product";
 import { grossMarginFetch, RelayError } from "@/shared/lib/ihAgent";
 import { herbNameOf, inferPackaging } from "@/features/grossMarginQuoteSimulator/model/quoteCostEstimates";
 
-// The two downloads of the Reports page, both built from db_ai.SavedQuotes
-// rows (no simulator state needed, so any saved quote can be exported any
-// time):
-//   - full:   the 34-column "Quotes" sheet the relay already formats
-//             (POST /export/quote-scenarios), one row per saved quote
-//   - client: the price list a customer receives (POST /export/client-quotes),
-//             WHS / OZ / PK / HERB / CLASS / TYPE / PACKAGING / BOX TYPE /
-//             CLIENT / FINAL PRICE -- nothing about costs or margins
 
-// Same order as the relay's QUOTE_COLUMNS and the table's sheet columns.
 const SHEET_COLUMNS: (keyof SavedQuoteRow)[] = [
   "Whs", "Oz", "Pk", "Herb", "Class", "Type", "Packaging", "LaborType", "BoxType", "Client",
   "LbCost", "Yield", "BaseCost", "Waste", "Labor", "ClamBag", "Sticker", "AdPack", "Box", "Transp", "ExtraCosts",
@@ -40,7 +31,6 @@ export interface ClientQuoteRow {
   finalPrice: number | null;
 }
 
-// The customer sheet writes the packaging as a short word.
 const PACKAGING_LABEL: Record<string, string> = {
   CLAMSHELL: "CLAM",
   BAG: "BAG",
@@ -50,8 +40,6 @@ const PACKAGING_LABEL: Record<string, string> = {
   "POTTED HERBS": "POTTED",
 };
 
-/** Class letter and type name from a sales SKU such as CRBASI, using the
- *  operations SKU catalog (class = first letter, type = second letter). */
 export function decodeSalesSku(sku: string | null, catalog: SkuCatalog | null): { cls: string | null; type: string | null } {
   if (!sku || sku.length < 2) return { cls: null, type: null };
   const cls = sku[0].toUpperCase();

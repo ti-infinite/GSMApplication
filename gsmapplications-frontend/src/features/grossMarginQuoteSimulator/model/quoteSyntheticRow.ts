@@ -60,10 +60,6 @@ export function buildSyntheticBaseline(
 
   let transportCost: TransportCostRow | null = null;
   if (template.MeasurementUnitValue !== null) {
-    // Prefer an exact warehouse/pack-count match, else fall back to a NULL
-    // ("applies regardless of...") row -- a customer can have more than one
-    // DivisionTransportCost row per MeasurementUnitValue, so these must not
-    // be blended together.
     const matching = transportCosts.filter(
       (t) =>
         t.MeasurementUnitValue === template.MeasurementUnitValue &&
@@ -113,8 +109,6 @@ export function buildSyntheticBaseline(
 export const MANUAL_SKU_PREFIX = "MANUAL-";
 export const isManualSku = (sku: string) => sku.startsWith(MANUAL_SKU_PREFIX);
 
-// Mirrors how the sales data derives SKUMeasure from a product code and its
-// unit value: "CRBASI" + 16 -> "CRBASI16.0000" (always four decimals).
 export function buildSkuMeasure(calculatedSku: string, measurementUnitValue: number): string {
   return `${calculatedSku}${measurementUnitValue.toFixed(4)}`;
 }
@@ -159,7 +153,7 @@ export function buildManualBaseline(
     LabourRepack: estimates?.labourRepack.value ?? null,
     LabourAssembler: estimates?.labourAssembler.value ?? null,
     Transport: estimates?.transport.value ?? null,
-    ExtraCosts: null, // never estimated: extras are unpredictable by definition
+    ExtraCosts: null,
     IsMixedHerbWholePack: 0,
     FinalUnitCost: null,
     CostRatio: null,

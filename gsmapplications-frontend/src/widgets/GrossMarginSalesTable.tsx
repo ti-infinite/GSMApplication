@@ -32,9 +32,6 @@ import { useSalesExport } from "./useGrossMarginSalesExport";
 
 type ColKind = "currency" | "percent" | "number" | "flag";
 
-// "core" columns are what Sales Explorer shows by default -- the numbers
-// most relevant to margin at a glance. "Full Breakdown" reveals every
-// remaining column in db_ai.GMSales (22 total) for a full cost-buildup audit.
 const NUMERIC_COLUMNS: { key: keyof SalesRow; labelKey: string; kind: ColKind; core: boolean }[] = [
   { key: "AvgUnitPrice", labelKey: "avgUnitPrice", kind: "currency", core: true },
   { key: "FinalUnitCost", labelKey: "finalUnitCost", kind: "currency", core: true },
@@ -55,9 +52,7 @@ const NUMERIC_COLUMNS: { key: keyof SalesRow; labelKey: string; kind: ColKind; c
   { key: "ExtraCosts", labelKey: "extraCosts", kind: "currency", core: false },
 ];
 
-// Traffic-light background for the Sales Explorer's Gross Margin cell only
-// -- never relies on color alone, the exact percentage is always the
-// visible text too.
+
 const MARGIN_CELL_CLASSES: Record<Zone, string> = {
   green: "bg-success/15 text-success",
   yellow: "bg-warning/15 text-warning",
@@ -80,13 +75,8 @@ const TEXT_COLUMNS: { key: keyof SalesRow; labelKey: string; core: boolean }[] =
   { key: "SKUMeasure", labelKey: "skuMeasure", core: false },
 ];
 
-// w-px forces these to shrink-to-fit their short currency/percent content
-// instead of stretching with the rest of the table (same trick as Alarms).
 const COMPACT_NUMERIC_KEYS: (keyof SalesRow)[] = ["AvgUnitPrice", "FinalUnitCost", "CostRatio", "GrossMargin"];
 
-// The only filters Sales Explorer exposes (2026-10-08, user instruction).
-// SKU and the numeric min/max ranges were removed because users weren't
-// applying them correctly; the columns themselves are still shown.
 const FILTER_COLUMNS = TEXT_COLUMNS.filter((col) =>
   (["Customer", "Variety", "Warehouse"] as (keyof SalesRow)[]).includes(col.key)
 );
@@ -160,9 +150,6 @@ export function SalesTable({ rows }: { rows: SalesRow[] }) {
           accessorKey: col.key,
           header: columnLabel(col.labelKey),
           cell: ({ getValue }) =>
-            // Variety names run long enough to push Cost Ratio/Gross Margin
-            // out of view -- capped and wrapped to keep the row height
-            // reasonable while letting the rest of the table stay compact.
             col.key === "Variety" ? (
               <span className="block max-w-[240px] whitespace-normal">{String(getValue() ?? "—")}</span>
             ) : (
@@ -178,8 +165,6 @@ export function SalesTable({ rows }: { rows: SalesRow[] }) {
           cell: ({ getValue, row }) => {
             const value = getValue() as number | null;
             if (col.key === "GrossMargin") {
-              // No data = genuinely blank, not a "—" placeholder -- there's
-              // nothing to flag a zone for when the row has no margin at all.
               if (value === null) return null;
               const zone = grossMarginCellZone(value);
               return (
@@ -232,10 +217,6 @@ export function SalesTable({ rows }: { rows: SalesRow[] }) {
   });
 
   const tableRows = table.getRowModel().rows;
-
-  // Paginated, not virtualized -- consistent with Cost Breakdown, this caps
-  // how much the table ever mounts at once (at most 200 rows x however many
-  // columns) instead of relying on windowed scroll.
   const pageCount = Math.max(1, Math.ceil(tableRows.length / rowsPerPage));
   const safePage = Math.min(page, pageCount - 1);
   const pagedRows = tableRows.slice(safePage * rowsPerPage, safePage * rowsPerPage + rowsPerPage);
@@ -245,8 +226,7 @@ export function SalesTable({ rows }: { rows: SalesRow[] }) {
   }
 
   async function handleExport() {
-    // Export the rows in their current on-screen sort order, not raw
-    // filteredRows order, so the workbook matches what's visible.
+
     const exportRows = table.getRowModel().rows.map((r) => r.original);
     await exportToExcel(exportRows, {
       lines: describeFilters(textFilters),
@@ -311,8 +291,6 @@ export function SalesTable({ rows }: { rows: SalesRow[] }) {
                 <TableRow key={headerGroup.id}>
                   {headerGroup.headers.map((header, index) => {
                     const sortState = header.column.getIsSorted();
-                    // The Variety column stays pinned during horizontal
-                    // scroll -- Full Breakdown has up to 21 columns.
                     const isFirstColumn = index === 0;
                     return (
                       <TableHead

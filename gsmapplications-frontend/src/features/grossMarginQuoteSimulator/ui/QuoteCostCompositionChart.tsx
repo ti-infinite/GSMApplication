@@ -5,9 +5,6 @@ import { formatCurrency } from "@/shared/lib/format";
 import { sumTreatingNullAsZero } from "@/entities/grossMarginSalesRow";
 import type { SalesRow } from "@/entities/grossMarginSalesRow";
 
-// Same 4-category taxonomy as the radar chart / Cost Breakdown tab, in $
-// this time instead of %, plus a 5th stack for Extra costs (2026-11-02:
-// they are in FinalUnitCost but belong to no zone, so they get --chart-5).
 function toStack(row: SalesRow, label: string, keys: Record<"purchaseCost" | "packing" | "labour" | "transport" | "extraCosts", string>) {
   return {
     label,

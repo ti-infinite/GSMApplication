@@ -22,13 +22,12 @@ export interface LogisticsLine {
 
 export type CarrierSlot = "A" | "B";
 
-/** One save from the inline row editor. Carriers are always written; Pallets
- *  and Confirmed are only applied by the service when present. */
+/** One save from the inline row editor: replaces all four editable columns. */
 export interface LogisticsUpdateBody {
   CarrierA: string | null;
   CarrierB: string | null;
-  Pallets?: number | null;
-  Confirmed?: CarrierSlot | null;
+  Pallets: number | null;
+  Confirmed: CarrierSlot | null;
 }
 
 /** One option of the WHS filter: a GSM location. */

@@ -2,7 +2,7 @@ import { grossMarginFetch } from "@/shared/lib/ihAgent";
 
 export interface SupplierPurchaseCost {
   supplier: string;
-  avgPrice: number; // transaction-weighted landed price for this supplier
+  avgPrice: number;
   transactions: number;
 }
 
@@ -13,8 +13,6 @@ export interface PurchaseSuppliersLookup {
 
 const NONE: PurchaseSuppliersLookup = { flag: null, suppliers: [] };
 
-/** Per-supplier averages behind GET /purchase-cost, same precedence (unit
- *  rows by SKUMeasure first, else pound rows by CalculatedSKU). */
 export async function fetchPurchaseSuppliers(calculatedSku: string, skuMeasure: string, warehouse: string): Promise<PurchaseSuppliersLookup> {
   try {
     const params = new URLSearchParams({ calculatedSku, skuMeasure, warehouse });
@@ -27,7 +25,6 @@ export async function fetchPurchaseSuppliers(calculatedSku: string, skuMeasure: 
   }
 }
 
-/** Transaction-weighted average of the chosen suppliers, as /purchase-cost does over all of them. */
 export function weightedAverage(suppliers: SupplierPurchaseCost[]): number | null {
   const weight = suppliers.reduce((sum, s) => sum + Math.max(s.transactions, 0), 0);
   if (suppliers.length === 0) return null;

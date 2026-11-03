@@ -1,6 +1,3 @@
-// Mirrors db_ai.Sales exactly (see gross-margin-pipeline/sql/15_sales.sql).
-// Nullable columns reflect real "not yet gathered" data -- never coerce these
-// to 0 anywhere outside model/alarms.ts's documented FinalUnitCost convention.
 export interface SalesRow {
   CalculatedSKU: string;
   SKUMeasure: string;
@@ -10,10 +7,6 @@ export interface SalesRow {
   AvgUnitPrice: number | null;
   CommissionApplied: 0 | 1;
   MeasurementUnitValue: number | null;
-  // The variety's real case size (MasterVarieties.Qty, e.g. 6 for a "6 PK"
-  // Basil). Per-unit dollar figures use it to get a case/pack price;
-  // informational only for mixed-herb rows, whose figures are already
-  // whole-pack totals (see IsMixedHerbWholePack).
   PackQty: number | null;
   PurchaseCost: number | null;
   Flag: 0 | 1 | null;
@@ -26,15 +19,7 @@ export interface SalesRow {
   LabourRepack: number | null;
   LabourAssembler: number | null;
   Transport: number | null;
-  // ExtraCosts (2026-11-02): the unpredictable extras of the product (an
-  // extra label, a surcharge...) as ONE per-unit amount, from
-  // db_ai.CostReference.ExtraCosts. Blank = $0 in FinalUnitCost. Optional
-  // on the type only so rows served before the pipeline rebuild still parse.
   ExtraCosts?: number | null;
-  // Mixed-herb rows only. When 1, every dollar figure on this row
-  // (AvgUnitPrice, FinalPurPrice, Box, Transport, FinalUnitCost) is a
-  // WHOLE-PACK total, not a per-unit figure like every other row -- drives
-  // the dashboard's "whole-pack total" disclaimer.
   IsMixedHerbWholePack: 0 | 1;
   FinalUnitCost: number | null;
   CostRatio: number | null;

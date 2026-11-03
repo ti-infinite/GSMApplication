@@ -1,10 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { LogisticsTable } from "@/widgets/LogisticsTable";
 
-// Logistics: upcoming shipments with their pallet count and carrier options,
-// the confirmed carrier in green, an alarm when the ship date is near with
-// nothing confirmed, and the invoice lines from IH Sales. Data comes from
-// db_srv.IHLogistics through the relay (see entities/logistics).
 export default function LogisticsPage() {
   const { t } = useTranslation();
   return (

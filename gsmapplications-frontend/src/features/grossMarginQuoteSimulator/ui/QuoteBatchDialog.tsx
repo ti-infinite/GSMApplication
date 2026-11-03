@@ -22,13 +22,6 @@ import { getCostFields, type QuoteFieldMeta } from "../model/quoteFields";
 import { buildSavedQuoteBody } from "../model/savedQuotes";
 import type { QuoteScenarioExportEntry } from "../model/quoteScenarioExport";
 
-// One quote, several customers. The quote on screen (its product, warehouse,
-// pack and every change made so far) is the base; each customer added here
-// gets a row where the things that differ between customers -- transport,
-// rebate, commission, list price -- start from that customer's own reference
-// data and can be adjusted. Any other field can still be changed for one
-// customer under "More". Saving writes one saved quote per customer, named
-// "<name> · <customer>", so they show up in Reports as separate rows.
 
 type PerCustomer = Record<string, QuoteOverrides>;
 
@@ -87,8 +80,6 @@ export function QuoteBatchDialog({
       const row: SalesRow = { ...baseline, Customer: customer };
       const inputs = buildRecomputeInputsForRow(row, commissions, rebates, transportCosts);
       const own = perCustomer[customer] ?? {};
-      // Transport starts from the customer's own reference when it has one;
-      // the base quote's transport would otherwise carry over silently.
       const transportRef = findTransportCostForRow(transportCosts, row);
       const defaults: QuoteOverrides = {};
       if (customer !== baseline.Customer && transportRef?.TransportUnitCost != null && own[TRANSPORT_KEY] === undefined && overrides[TRANSPORT_KEY] === undefined) {

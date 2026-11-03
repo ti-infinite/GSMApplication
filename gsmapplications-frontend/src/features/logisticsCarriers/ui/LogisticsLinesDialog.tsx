@@ -3,6 +3,7 @@ import { Check } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/shared/ui/dialog";
 import { DataTable, type TableColumn } from "@/shared/ui/data-table";
 import { formatNumber } from "@/shared/lib/format";
+import { ErrorState } from "@/shared/components/ErrorState";
 import { confirmedSlot, parseShipDate, useLogisticsLines, type LogisticsLine, type LogisticsRow } from "@/entities/logistics";
 import { LogisticsAlarmIcon } from "./LogisticsAlarmIcon";
 
@@ -11,7 +12,7 @@ import { LogisticsAlarmIcon } from "./LogisticsAlarmIcon";
 // lines from IH Sales -- what is being shipped and how much of it.
 export function LogisticsLinesDialog({ row, onClose }: { row: LogisticsRow | null; onClose: () => void }) {
   const { t, i18n } = useTranslation();
-  const { lines, isLoading, error } = useLogisticsLines(row?.ID ?? null);
+  const { lines, isLoading, error, refetch } = useLogisticsLines(row?.ID ?? null);
   if (!row) return null;
 
   const fmtDate = (iso: string | null) => {
@@ -19,6 +20,8 @@ export function LogisticsLinesDialog({ row, onClose }: { row: LogisticsRow | nul
     return d ? d.toLocaleDateString(i18n.language, { dateStyle: "medium" }) : "—";
   };
   const confirmed = confirmedSlot(row);
+  const deliveryDates = lines.map((l) => l.DeliveryDate).filter((d): d is string => d !== null).sort();
+  const deliveryDate = deliveryDates[0] ?? null;
 
   const columns: TableColumn<LogisticsLine>[] = [
     { key: "Row", header: "#", align: "right", hideMobile: true, render: (l) => <span className="text-muted-foreground">{l.Row}</span> },
@@ -52,7 +55,7 @@ export function LogisticsLinesDialog({ row, onClose }: { row: LogisticsRow | nul
   const facts: { label: string; value: React.ReactNode }[] = [
     { label: t("logistics.columns.dc"), value: row.Division ?? "—" },
     { label: t("logistics.columns.whs"), value: row.WHS ?? "—" },
-    { label: t("logistics.columns.deliveryDate"), value: fmtDate(row.DeliveryDate) },
+    { label: t("logistics.columns.deliveryDate"), value: fmtDate(deliveryDate) },
     { label: t("logistics.columns.po"), value: row.PO ?? "—" },
     { label: t("logistics.columns.carrierA"), value: carrier("A") },
     { label: t("logistics.columns.carrierB"), value: carrier("B") },
@@ -80,19 +83,17 @@ export function LogisticsLinesDialog({ row, onClose }: { row: LogisticsRow | nul
             ))}
           </dl>
 
-          {error && (
-            <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
-              {t("logistics.details.loadError")}
-            </div>
+          {error ? (
+            <ErrorState error={error} onRetry={() => void refetch()} />
+          ) : (
+            <DataTable<LogisticsLine>
+              columns={columns}
+              data={lines}
+              rowKey={(l) => String(l.Row)}
+              loading={isLoading}
+              emptyMessage={t("logistics.details.empty")}
+            />
           )}
-
-          <DataTable<LogisticsLine>
-            columns={columns}
-            data={lines}
-            rowKey={(l) => String(l.Row)}
-            loading={isLoading}
-            emptyMessage={t("logistics.details.empty")}
-          />
         </div>
       </DialogContent>
     </Dialog>

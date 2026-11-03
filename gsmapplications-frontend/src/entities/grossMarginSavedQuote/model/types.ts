@@ -33,6 +33,7 @@ export interface SavedQuoteRow {
   AdPack: number | null;
   Box: number | null;
   Transp: number | null;
+  ExtraCosts: number | null;
   Rebate: number | null;
   Comm: number | null;
   CommPct: number | null;

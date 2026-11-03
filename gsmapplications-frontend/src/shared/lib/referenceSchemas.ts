@@ -133,7 +133,7 @@ export const costReferenceSchema: ReferenceTableSchema = {
   sheetName: "Cost Reference",
   label: "Cost Reference",
   description:
-    "Packing/Sticker/Box/Labour costs per Variety + Warehouse. Leave a cost column blank for \"not applicable\" -- never enter 0 to mean unknown.",
+    "Packing/Sticker/Box/Labour/Extra costs per Variety + Warehouse (Extra Costs = one per-unit amount for the unpredictable extras: an extra label, a surcharge...). Leave a cost column blank for \"not applicable\" -- never enter 0 to mean unknown.",
   naturalKeyColumns: ["variety", "warehouse"],
   columns: [
     { key: "variety", header: "Variety", type: "string", required: true, example: "BASIL - CLAMSHELL 0.5 OZ 6 PK Conventional" },
@@ -144,6 +144,7 @@ export const costReferenceSchema: ReferenceTableSchema = {
     { key: "labourProd", header: "Labour (Prod)", type: "number", required: false, example: "" },
     { key: "labourRepack", header: "Labour (Repack)", type: "number", required: false, example: "" },
     { key: "labourAssembler", header: "Labour (Assembler)", type: "number", required: false, example: "" },
+    { key: "extraCosts", header: "Extra Costs", type: "number", required: false, example: "" },
   ],
   exampleRow: {
     Variety: "BASIL - CLAMSHELL 0.5 OZ 6 PK Conventional",
@@ -154,6 +155,7 @@ export const costReferenceSchema: ReferenceTableSchema = {
     "Labour (Prod)": "",
     "Labour (Repack)": "",
     "Labour (Assembler)": 0.03,
+    "Extra Costs": "",
   },
   parseRow(cells) {
     const errors: string[] = [];
@@ -163,7 +165,7 @@ export const costReferenceSchema: ReferenceTableSchema = {
     if (!warehouse) errors.push("Warehouse is required.");
 
     const data: Record<string, unknown> = { variety, warehouse };
-    for (const key of ["packing", "sticker", "box", "labourProd", "labourRepack", "labourAssembler"] as const) {
+    for (const key of ["packing", "sticker", "box", "labourProd", "labourRepack", "labourAssembler", "extraCosts"] as const) {
       const header = costReferenceSchema.columns.find((c) => c.key === key)!.header;
       const n = cellToNumber(cells[header]);
       if (n !== null) {
@@ -428,6 +430,7 @@ const FIELD_RULES: Record<string, Record<string, NumberRule[]>> = {
     labourProd: [{ kind: "nonNegative" }],
     labourRepack: [{ kind: "nonNegative" }],
     labourAssembler: [{ kind: "nonNegative" }],
+    extraCosts: [{ kind: "nonNegative" }],
   },
   "extra-cost": {
     measureUnit: [{ kind: "required" }, { kind: "positive" }],

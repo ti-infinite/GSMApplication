@@ -1,18 +1,22 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
-import { ExternalLink, Search, X } from "lucide-react";
+import { Download, ExternalLink, FileSpreadsheet, Search, X } from "lucide-react";
+import { toast } from "sonner";
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 import { DataTable, type TableColumn } from "@/shared/ui/data-table";
 import { Input } from "@/shared/ui/input";
 import { Button } from "@/shared/ui/button";
 import { Combobox } from "@/shared/ui/combobox";
 import { Field } from "@/shared/ui/field";
+import { Checkbox } from "@/shared/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/shared/ui/dialog";
 import { formatCurrency, formatNumber, formatPercent } from "@/shared/lib/format";
 import { useLocale } from "@/shared/hooks/useLocale";
 import { useSavedQuotes, type SavedQuoteRow } from "@/entities/grossMarginSavedQuote";
 import { stashSavedQuoteForSimulator } from "@/features/grossMarginQuoteSimulator/model/savedQuotes";
+import { useSkuCatalog } from "@/entities/product";
+import { ClientExportDialog, downloadClientExport, downloadFullExport } from "@/features/grossMarginSavedQuoteExport";
 
 const ALL = "all";
 const PAGE_SIZE = 25;
@@ -29,6 +33,12 @@ export function SavedQuotesTable() {
   const [variety, setVariety] = useState(ALL);
   const [warehouse, setWarehouse] = useState(ALL);
   const [selected, setSelected] = useState<SavedQuoteRow | null>(null);
+  // Quotes ticked for download (by Id). Both downloads use only these.
+  const [checked, setChecked] = useState<Set<number>>(() => new Set());
+  const [exporting, setExporting] = useState<"full" | "client" | null>(null);
+  const [clientDialogOpen, setClientDialogOpen] = useState(false);
+  // Only needed to decode class/type for the client sheet; cached app-wide.
+  const { catalog } = useSkuCatalog({ includeSkuDefinitions: false });
 
   const customers = useMemo(() => Array.from(new Set(savedQuotes.map((q) => q.Customer))).sort(), [savedQuotes]);
   const varieties = useMemo(() => Array.from(new Set(savedQuotes.map((q) => q.Variety))).sort(), [savedQuotes]);
@@ -61,6 +71,61 @@ export function SavedQuotesTable() {
 
   const formatDate = (iso: string) => new Date(iso).toLocaleString(i18n.language, { dateStyle: "medium", timeStyle: "short" });
 
+  const allFilteredChecked = filtered.length > 0 && filtered.every((q) => checked.has(q.Id));
+  function toggleOne(id: number, on: boolean) {
+    setChecked((prev) => {
+      const next = new Set(prev);
+      if (on) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }
+  function toggleAllFiltered(on: boolean) {
+    setChecked((prev) => {
+      const next = new Set(prev);
+      for (const q of filtered) {
+        if (on) next.add(q.Id);
+        else next.delete(q.Id);
+      }
+      return next;
+    });
+  }
+  const checkedQuotes = savedQuotes.filter((q) => checked.has(q.Id));
+
+  async function runFullExport() {
+    if (checkedQuotes.length === 0) return;
+    setExporting("full");
+    try {
+      await downloadFullExport(checkedQuotes);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("grossMargin.reports.downloadFailed"));
+    } finally {
+      setExporting(null);
+    }
+  }
+
+  async function runClientExport(clientName: string, contactName: string) {
+    if (checkedQuotes.length === 0) return;
+    setExporting("client");
+    try {
+      await downloadClientExport(checkedQuotes, catalog, clientName, contactName);
+      setClientDialogOpen(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("grossMargin.reports.downloadFailed"));
+    } finally {
+      setExporting(null);
+    }
+  }
+
+  // Prefill the proposal's client when every ticked quote is for the same customer.
+  const sharedCustomer = checkedQuotes.length > 0 && checkedQuotes.every((q) => q.Customer === checkedQuotes[0].Customer) ? checkedQuotes[0].Customer : "";
+
+  const rowCheckbox = (q: SavedQuoteRow) => (
+    <span onClick={(e) => e.stopPropagation()} className="inline-flex">
+      <Checkbox checked={checked.has(q.Id)} onCheckedChange={(v) => toggleOne(q.Id, v === true)} aria-label={t("grossMargin.reports.selectColumn")} />
+    </span>
+  );
+
   const openButton = (q: SavedQuoteRow) => (
     <Button
       variant="outline"
@@ -76,6 +141,20 @@ export function SavedQuotesTable() {
   );
 
   const columns: TableColumn<SavedQuoteRow>[] = [
+    {
+      key: "select",
+      header: (
+        <Checkbox
+          checked={allFilteredChecked}
+          onCheckedChange={(v) => toggleAllFiltered(v === true)}
+          aria-label={t("grossMargin.reports.selectAll")}
+          disabled={filtered.length === 0}
+        />
+      ),
+      align: "center",
+      hideMobile: true,
+      render: rowCheckbox,
+    },
     {
       key: "savedAt",
       header: t("grossMargin.reports.columns.savedAt"),
@@ -141,7 +220,10 @@ export function SavedQuotesTable() {
   const mobileCard = (q: SavedQuoteRow) => (
     <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
       <div className="flex items-start justify-between gap-3">
-        <p className="font-medium text-foreground break-words">{q.QuoteName}</p>
+        <div className="flex items-start gap-2">
+          {rowCheckbox(q)}
+          <p className="font-medium text-foreground break-words">{q.QuoteName}</p>
+        </div>
         <span className="shrink-0 text-xs text-muted-foreground">{formatDate(q.SavedAt)}</span>
       </div>
       <p className="mt-1 text-sm text-foreground break-words">{q.Variety}</p>
@@ -172,14 +254,24 @@ export function SavedQuotesTable() {
         <CardHeader>
           <CardTitle>{t("grossMargin.reports.title")}</CardTitle>
           <CardDescription>{t("grossMargin.reports.description")}</CardDescription>
-          {hasActiveFilters && (
-            <CardAction>
-              <Button variant="ghost" size="sm" className="h-8" onClick={resetFilters}>
-                <X aria-hidden="true" />
-                {t("grossMargin.reports.reset")}
+          <CardAction>
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              {hasActiveFilters && (
+                <Button variant="ghost" size="sm" className="h-8" onClick={resetFilters}>
+                  <X aria-hidden="true" />
+                  {t("grossMargin.reports.reset")}
+                </Button>
+              )}
+              <Button variant="outline" size="sm" className="h-8" onClick={runFullExport} disabled={checkedQuotes.length === 0 || exporting !== null}>
+                <Download aria-hidden="true" />
+                {exporting === "full" ? t("grossMargin.reports.preparing") : t("grossMargin.reports.downloadFull")}
               </Button>
-            </CardAction>
-          )}
+              <Button size="sm" className="h-8" onClick={() => setClientDialogOpen(true)} disabled={checkedQuotes.length === 0 || exporting !== null}>
+                <FileSpreadsheet aria-hidden="true" />
+                {exporting === "client" ? t("grossMargin.reports.preparing") : t("grossMargin.reports.downloadClient")}
+              </Button>
+            </div>
+          </CardAction>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -220,7 +312,7 @@ export function SavedQuotesTable() {
 
           {!error && savedQuotes.length > 0 && (
             <p className="text-xs text-muted-foreground">
-              {t("grossMargin.reports.showing", { shown: filtered.length, total: savedQuotes.length })}
+              {t("grossMargin.reports.showing", { shown: filtered.length, total: savedQuotes.length })} · {t("grossMargin.reports.downloadHint")}
             </p>
           )}
 
@@ -240,6 +332,15 @@ export function SavedQuotesTable() {
       </Card>
 
       <SavedQuoteDetails quote={selected} onClose={() => setSelected(null)} onOpen={openInSimulator} />
+      {clientDialogOpen && (
+        <ClientExportDialog
+          defaultClient={sharedCustomer}
+          quoteCount={checkedQuotes.length}
+          busy={exporting === "client"}
+          onConfirm={runClientExport}
+          onClose={() => setClientDialogOpen(false)}
+        />
+      )}
     </>
   );
 }
@@ -271,6 +372,7 @@ function SavedQuoteDetails({
     { label: t("grossMargin.simulator.fields.sticker"), value: money(quote.Sticker) },
     { label: t("grossMargin.simulator.fields.box"), value: money(quote.Box) },
     { label: t("grossMargin.simulator.fields.transport"), value: money(quote.Transp) },
+    { label: t("grossMargin.simulator.fields.extraCosts"), value: money(quote.ExtraCosts ?? null) },
     { label: t("grossMargin.simulator.fields.rebate"), value: money(quote.Rebate) },
     { label: t("grossMargin.reports.details.commission"), value: quote.CommPct !== null ? pct(quote.CommPct) : money(quote.Comm) },
     { label: t("grossMargin.reports.columns.price"), value: money(quote.ClientsPrice) },

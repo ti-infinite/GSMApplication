@@ -1,9 +1,6 @@
 import type { CarrierSlot, LogisticsRow } from "./types";
 
-// How far ahead of the ship date a shipment without a confirmed carrier
-// raises the alarm. 5 = from five days before the ship date (by then it is
-// already late to be booking a truck), on the day itself, and every day
-// after until a carrier is confirmed. One place to change.
+// Five days before the ship date it is already late to book a truck.
 export const ALARM_LEAD_DAYS = 5;
 
 export type CarrierStatus = "confirmed" | "alarm" | "pending";
@@ -24,8 +21,7 @@ export function daysUntilShip(row: LogisticsRow, today = new Date()): number | n
   return Math.round((ship.getTime() - start.getTime()) / 86_400_000);
 }
 
-/** Which option is confirmed, if any. Confirmation is stored as the carrier's
- *  name, so it is matched back to its slot here. */
+// The confirmation is stored as the carrier's name, so it is matched back to its slot.
 export function confirmedSlot(row: LogisticsRow): CarrierSlot | null {
   if (!row.ConfirmedCarrier) return null;
   if (row.CarrierA && row.ConfirmedCarrier === row.CarrierA) return "A";

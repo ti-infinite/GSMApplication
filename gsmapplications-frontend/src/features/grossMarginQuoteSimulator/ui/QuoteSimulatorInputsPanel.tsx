@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { QuoteSupplierPicker } from "./QuoteSupplierPicker";
 import { RotateCcw, SlidersHorizontal, DollarSign, ShoppingCart, ChevronUp, ChevronDown } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/shared/ui/card";
@@ -30,6 +31,7 @@ import { formatCurrency } from "@/shared/lib/format";
 import { cn } from "@/shared/lib/utils";
 
 const PRICE_KEY = "avgUnitPriceBaseOverride";
+const PURCHASE_KEY = "purchaseCostOverride";
 
 function roundToStep(value: number, step: string): number {
   const factor = 10 ** decimalPlaces(step);
@@ -291,6 +293,13 @@ export function QuoteSimulatorInputsPanel({
                 <span className="text-[0.65rem] text-muted-foreground">{t("grossMargin.simulator.inputs.marginNeedsCost")}</span>
               ))}
             {estimateBadge(f.key, text, base)}
+            {f.key === PURCHASE_KEY && (
+              <QuoteSupplierPicker
+                baseline={inputs.baseline}
+                mode={mode}
+                onApply={(value) => setField(f.key, String(roundToStep(value, f.step)), f)}
+              />
+            )}
             {showPackToggle && (
               <FieldToggle
                 value={isWholePack ? "pack" : "unit"}

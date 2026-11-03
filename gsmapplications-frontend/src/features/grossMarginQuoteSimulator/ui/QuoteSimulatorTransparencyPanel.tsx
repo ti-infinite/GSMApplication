@@ -29,6 +29,7 @@ export function QuoteSimulatorTransparencyPanel({
           { label: T("blendedPurchaseWholePack"), value: row.FinalPurPrice },
           { label: T("boxWholePack"), value: row.Box },
           { label: T("transportWholePack"), value: row.Transport },
+          { label: T("extraCostsWholePack"), value: row.ExtraCosts ?? null },
         ]
       : [
           { label: T("finalPurchasePrice"), value: row.FinalPurPrice },
@@ -39,6 +40,7 @@ export function QuoteSimulatorTransparencyPanel({
           { label: T("labourRepack"), value: row.LabourRepack },
           { label: T("labourAssembler"), value: row.LabourAssembler },
           { label: T("transport"), value: row.Transport },
+          { label: T("extraCosts"), value: row.ExtraCosts ?? null },
         ];
 
   const applicableTerms = costTerms.filter((term) => term.value !== null);

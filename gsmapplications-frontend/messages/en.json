@@ -509,33 +509,54 @@
   "logistics": {
     "title": "Logistics",
     "subtitle": "Assign each shipment's carriers and confirm which one ships it.",
-    "filters": "Filters",
-    "whs": "WHS",
-    "division": "DC",
-    "allWhs": "All WHS",
-    "allDivisions": "All DCs",
-    "dateRange": "Ship date",
-    "selectDateRange": "Select a range",
-    "applyDateRange": "Apply",
-    "clearDateRange": "Clear date range",
-    "invoice": "Invoice",
-    "dateShip": "Ship date",
-    "pallets": "Pallets",
-    "carrierA": "Carrier A",
-    "carrierB": "Carrier B",
-    "confirmed": "Confirmed carrier",
-    "carrierPlaceholder": "Type or pick",
-    "unsaved": "Unsaved change",
-    "pendingChanges_one": "{{count}} shipment with unsaved changes",
-    "pendingChanges_other": "{{count}} shipments with unsaved changes",
-    "discard": "Discard",
-    "save": "Save changes",
-    "saving": "Saving…",
-    "saved_one": "{{count}} shipment updated",
-    "saved_other": "{{count}} shipments updated",
-    "saveFailed": "Could not save the changes. Try again.",
-    "pickFilters": "Select a date range to see shipments.",
-    "noResults": "No shipments for these filters."
+    "table": {
+      "empty": "No shipments to show yet.",
+      "noMatch": "No shipments match the current filters."
+    },
+    "filters": {
+      "toggle": "Filters",
+      "allWhs": "All WHS",
+      "selectDateRange": "Select a range",
+      "applyDateRange": "Apply",
+      "clearDateRange": "Clear date range",
+      "invoiceOrPo": "Invoice / PO",
+      "searchInvoiceOrPo": "Search invoice or PO",
+      "searchDc": "Search DC"
+    },
+    "columns": {
+      "invoice": "Invoice",
+      "whs": "WHS",
+      "dc": "DC",
+      "shipDate": "Ship date",
+      "deliveryDate": "Delivery date",
+      "pallets": "Pallets",
+      "carrierA": "Carrier A",
+      "carrierB": "Carrier B",
+      "po": "PO"
+    },
+    "alarm": {
+      "title": "Please select a carrier"
+    },
+    "edit": {
+      "edit": "Edit",
+      "save": "Save",
+      "cancel": "Cancel",
+      "confirmThis": "Confirm this carrier",
+      "carrierPlaceholder": "Carrier",
+      "tooLong": "Carrier names must be under 100 characters",
+      "palletsInvalid": "Pallets must be a number of 0 or more",
+      "confirmNeedsCarrier": "Type the carrier's name before confirming it",
+      "saved": "{{invoice}} saved",
+      "failed": "We couldn't save the shipment"
+    },
+    "details": {
+      "title": "Invoice {{invoice}}",
+      "empty": "No lines found for this invoice in IH Sales.",
+      "columns": {
+        "description": "Description",
+        "quantity": "Quantity"
+      }
+    }
   },
   "reports": {
     "title": "Reports",
@@ -819,6 +840,7 @@
         "labourProd": "Labour (Prod)",
         "labourRepack": "Labour (Repack)",
         "labourAssembler": "Labour (Assembler)",
+        "extraCosts": "Extra costs",
         "amount": "Amount"
       }
     },
@@ -911,6 +933,7 @@
           "labourRepack": "Labour (Repack)",
           "labourAssembler": "Labour (Assembler)",
           "transport": "Transport",
+          "extraCosts": "Extra costs",
           "variety": "Variety",
           "customer": "Customer",
           "warehouse": "Warehouse",
@@ -972,6 +995,19 @@
       }
     },
     "simulator": {
+      "suppliers": {
+        "transactions": "Purchases",
+        "button": "Suppliers",
+        "title": "Purchase cost by supplier",
+        "description": "The purchase cost averages every supplier of this product at this warehouse. Untick the ones you do not want counted and apply.",
+        "supplier": "Supplier",
+        "pricePerLb": "$/lb",
+        "priceUnit": "$/unit",
+        "empty": "No purchases on record for this product at this warehouse.",
+        "average": "Average of {{count}} selected:",
+        "apply": "Use as purchase cost",
+        "basisMismatch": "These prices are on a different basis than this quote (per pound vs. packed). Check before applying."
+      },
       "flows": {
         "existing": "Existing sale",
         "newCustomerProduct": "New customer / product"
@@ -1129,6 +1165,8 @@
         "commissionPercent": "Commission %",
         "transport": "Transport",
         "transportWholePack": "Transport (whole pack)",
+        "extraCosts": "Extra costs",
+        "extraCostsWholePack": "Extra costs (whole pack)",
         "purchaseCost": "Purchase cost",
         "purchaseCostPerLb": "Purchase cost ($/lb)",
         "box": "Box",
@@ -1188,7 +1226,9 @@
           "labourProd": "Labour (Prod)",
           "labourRepack": "Labour (Repack)",
           "labourAssembler": "Labour (Assembler)",
-          "transport": "Transport"
+          "transport": "Transport",
+          "extraCosts": "Extra costs",
+          "extraCostsWholePack": "Extra costs (whole pack)"
         }
       },
       "scenarios": {
@@ -1216,6 +1256,7 @@
         "reopened": "Opened \"{{name}}\" from the saved quotes."
       },
       "saveReference": {
+        "updateDescription": "{{variety}} at {{warehouse}} already has a cost reference with blanks. Save to fill them in with the values below.",
         "title": "Save these costs for next time?",
         "description": "The next quote for {{variety}} at {{warehouse}} will start from these costs. The purchase price is not saved.",
         "save": "Save cost reference",
@@ -1255,7 +1296,8 @@
           "purchaseCost": "Purchase cost",
           "packing": "Packing + Sticker + Box",
           "labour": "Labour",
-          "transport": "Transport"
+          "transport": "Transport",
+          "extraCosts": "Extra costs"
         }
       },
       "drivers": {
@@ -1323,6 +1365,29 @@
           "sameSkuSize": "same herb and size, other customers",
           "none": "no comparable data"
         }
+      },
+      "batch": {
+        "open": "Several customers",
+        "title": "Quote for several customers",
+        "description": "Same product and costs for every customer below; adjust what differs per customer.",
+        "name": "Quote name",
+        "addExisting": "Add a customer",
+        "addNew": "Or type a new one",
+        "addNewPlaceholder": "New customer name",
+        "add": "Add",
+        "remove": "Remove",
+        "commission": "Commission",
+        "listPrice": "List price",
+        "finalPrice": "Price for {{packQty}}",
+        "margin": "Margin",
+        "more": "More",
+        "moreHint": "Costs for {{customer}} only. Leave blank to keep the shared value.",
+        "hint": "Blank cells use the shared quote. Transport starts from each customer's transport reference when there is one.",
+        "empty": "Add at least one customer.",
+        "count": "{{count}} customer(s)",
+        "saveAll": "Save {{count}} quote(s)",
+        "saved": "{{count}} quote(s) saved, named {{name}} followed by the customer",
+        "failed": "Could not save for: {{customers}}"
       }
     },
     "pages": {
@@ -1401,7 +1466,7 @@
       },
       "costReference": {
         "title": "Cost Reference",
-        "description": "Packing, sticker, box and labour cost per unit for each variety and warehouse. Leave blank what doesn't apply.",
+        "description": "Packing, sticker, box and labour cost per unit for each variety and warehouse. Leave blank what doesn't apply. Extra costs is one per-unit amount for the unpredictable extras of a product (an extra label, a surcharge...). It counts in every sourcing mode.",
         "conflict": "A cost reference already exists for this combination. See the table below.",
         "failed": "Failed to add cost reference.",
         "success": "Cost reference added for {{variety}} at {{warehouse}}.",
@@ -1410,7 +1475,7 @@
           "title": "Cost Reference log",
           "description": "Cost references in place by variety and warehouse.",
           "empty": "No cost references yet.",
-          "deleteWarning": "This changes the packing, sticker, box and labour costs for every customer buying {{variety}} from {{warehouse}}, not just one row.",
+          "deleteWarning": "This changes the packing, sticker, box, labour and extra costs for every customer buying {{variety}} from {{warehouse}}, not just one row.",
           "searchPlaceholder": "Search variety or warehouse…"
         }
       },
@@ -1541,58 +1606,22 @@
         "baseCost": "Base cost",
         "labour": "Labour",
         "commission": "Commission"
-      }
-    }
-  },
-  "logistics": {
-    "title": "Logistics",
-    "subtitle": "Assign each shipment's carriers and confirm which one ships it.",
-    "table": {
-      "empty": "No shipments to show yet.",
-      "noMatch": "No shipments match the current filters."
-    },
-    "filters": {
-      "toggle": "Filters",
-      "invoiceOrPo": "Invoice / PO",
-      "searchInvoiceOrPo": "Search invoice or PO",
-      "allWhs": "All WHS",
-      "searchDc": "Search DC",
-      "selectDateRange": "Select a range",
-      "applyDateRange": "Apply",
-      "clearDateRange": "Clear date range"
-    },
-    "columns": {
-      "invoice": "Invoice",
-      "whs": "WHS",
-      "dc": "DC",
-      "shipDate": "Ship date",
-      "deliveryDate": "Delivery date",
-      "pallets": "Pallets",
-      "carrierA": "Carrier A",
-      "carrierB": "Carrier B",
-      "po": "PO"
-    },
-    "alarm": {
-      "title": "Please select a carrier"
-    },
-    "edit": {
-      "edit": "Edit",
-      "save": "Save",
-      "cancel": "Cancel",
-      "confirmThis": "Confirm this carrier",
-      "carrierPlaceholder": "Carrier",
-      "tooLong": "Carrier names must be under 100 characters",
-      "palletsInvalid": "Pallets must be a number of 0 or more",
-      "confirmNeedsCarrier": "Type the carrier's name before confirming it",
-      "saved": "{{invoice}} saved",
-      "failed": "We couldn't save the shipment"
-    },
-    "details": {
-      "title": "Invoice {{invoice}}",
-      "empty": "No lines found for this invoice in IH Sales.",
-      "columns": {
-        "description": "Description",
-        "quantity": "Quantity"
+      },
+      "selectAll": "Select all",
+      "downloadFull": "Download full Excel",
+      "downloadClient": "Download client sheet",
+      "downloadHint": "Tick the quotes to include, then choose a download.",
+      "downloadFailed": "We couldn't build the file",
+      "preparing": "Preparing…",
+      "selectColumn": "Select",
+      "clientExport": {
+        "title": "Client sheet",
+        "description": "A branded price proposal with the {{count}} ticked quote(s). Tell us who it is for.",
+        "client": "Client",
+        "clientPlaceholder": "Company or customer name",
+        "contact": "Contact person (optional)",
+        "contactPlaceholder": "Who will receive it",
+        "confirm": "Download sheet"
       }
     }
   }

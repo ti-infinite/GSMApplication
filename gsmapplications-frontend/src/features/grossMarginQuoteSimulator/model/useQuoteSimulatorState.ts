@@ -15,7 +15,14 @@ import type { QuoteScenario } from "./quoteScenarios";
 import { buildSyntheticBaseline, buildManualBaseline, buildSkuMeasure, isManualSku } from "./quoteSyntheticRow";
 import { fetchPurchaseCost, type PurchaseCostLookup } from "../api/fetchPurchaseCost";
 import { savedQuoteToScenario, takeSavedQuoteForSimulator } from "./savedQuotes";
-import { estimateQuoteCosts, type EstimateTarget, type QuoteCostEstimates } from "./quoteCostEstimates";
+import {
+  estimateQuoteCosts,
+  estimatesForExistingRow,
+  fillMissingFromEstimates,
+  rowHasMissingCosts,
+  type EstimateTarget,
+  type QuoteCostEstimates,
+} from "./quoteCostEstimates";
 import {
   defaultPackQuantity,
   findCommissionForRow,
@@ -106,7 +113,31 @@ export function useQuoteSimulatorState(rows: SalesRow[], refreshKey?: number | s
     if (isNewCustomerEntry(selectedEntry)) return null;
     return findTransportCostForRow(transportCosts, selectedEntry.row);
   }, [transportCosts, selectedEntry]);
-  const estimates = selectedEntry?.kind === "new-customer-manual" ? selectedEntry.estimates : null;
+  // An existing sale with blank costs (no Cost Reference yet, or an
+  // incomplete one) gets the same comparable-product estimates a new product
+  // gets, limited to the blanks. The DB row stays what "current" shows; the
+  // filled copy is what the scenario starts from.
+  const existingEstimates = useMemo(() => {
+    if (!selectedEntry || selectedEntry.kind !== "existing" || !rowHasMissingCosts(selectedEntry.row)) return null;
+    const row = selectedEntry.row;
+    const target: EstimateTarget = {
+      variety: row.Variety,
+      warehouse: row.Warehouse,
+      customer: row.Customer,
+      isExistingCustomer: true,
+      calculatedSku: row.CalculatedSKU,
+      measurementUnitValue: row.MeasurementUnitValue ?? 0,
+      packQty: row.PackQty,
+      flag: row.Flag,
+    };
+    const est = estimateQuoteCosts(target, { rows, costReferences, transportCosts, yields });
+    return estimatesForExistingRow(row, est);
+  }, [selectedEntry, rows, costReferences, transportCosts, yields]);
+  const estimates = selectedEntry?.kind === "new-customer-manual" ? selectedEntry.estimates : existingEstimates;
+  const baselineForInputs = useMemo(
+    () => (selectedRow && existingEstimates ? fillMissingFromEstimates(selectedRow, existingEstimates) : selectedRow),
+    [selectedRow, existingEstimates]
+  );
   const costReference = useMemo(
     () =>
       selectedRow
@@ -124,8 +155,8 @@ export function useQuoteSimulatorState(rows: SalesRow[], refreshKey?: number | s
   );
 
   const inputs = useMemo(
-    () => (selectedRow ? { baseline: selectedRow, commission, rebate, transportCost } : null),
-    [selectedRow, commission, rebate, transportCost]
+    () => (baselineForInputs ? { baseline: baselineForInputs, commission, rebate, transportCost } : null),
+    [baselineForInputs, commission, rebate, transportCost]
   );
 
   const result = useMemo(() => (inputs ? recomputeSalesRow(inputs, overrides) : null), [inputs, overrides]);
@@ -139,7 +170,7 @@ export function useQuoteSimulatorState(rows: SalesRow[], refreshKey?: number | s
   }, []);
 
   const handleLoadScenario = useCallback(
-    (scenario: QuoteScenario) => {
+    (scenario: QuoteScenario, options: { silent?: boolean } = {}) => {
       const live = rows.find(
         (r) =>
           r.CalculatedSKU === scenario.baselineIdentity.calculatedSKU &&
@@ -155,7 +186,9 @@ export function useQuoteSimulatorState(rows: SalesRow[], refreshKey?: number | s
       setTransportMode(scenario.overrides.palletCostOverride !== undefined ? "pallet" : "direct");
 
       setPackQuantity(scenario.packQuantity ?? defaultPackQuantity(nextRow));
-      if (!live) {
+      // A quote reopened from Reports always carries its own snapshot, so
+      // falling back to it is expected there, not something to warn about.
+      if (!live && !options.silent) {
         toast.warning(t("grossMargin.simulator.warnings.rowGone"));
       }
     },
@@ -214,7 +247,7 @@ export function useQuoteSimulatorState(rows: SalesRow[], refreshKey?: number | s
     const saved = takeSavedQuoteForSimulator();
     if (!saved) return;
     handoffConsumed.current = true;
-    handleLoadScenario(savedQuoteToScenario(saved));
+    handleLoadScenario(savedQuoteToScenario(saved), { silent: true });
     toast.info(t("grossMargin.simulator.scenarios.reopened", { name: saved.QuoteName }));
   }, [rows, handleLoadScenario, t]);
 

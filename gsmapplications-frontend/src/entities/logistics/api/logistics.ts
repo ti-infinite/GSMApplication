@@ -3,30 +3,37 @@ import { getFilteredLocations } from "@/shared/api/application/endpoints";
 import type { LocationDTOListApiResponse } from "@/shared/api/application/model";
 import type { LocationOption, LogisticsLine, LogisticsRow, LogisticsUpdateBody } from "../model/types";
 
-// ih-logistics service (EC2, behind Caddy `/logistics*`, which injects the API key):
-//   GET  /logistics               -> { rows: LogisticsRow[] }  ship dates from 30 days ago onward, upcoming included
-//   PUT  /logistics/{id}          <- LogisticsUpdateBody -> { updated, row }
-//   GET  /logistics/{id}/lines    -> { rows: LogisticsLine[] }
+// ih-logistics service (EC2, behind Caddy `/logistics*`, which injects the API key).
+// Every response is the same envelope as the GSM .NET APIs: { success, message, data, errorType, traceId }.
+//   GET  /logistics               -> data: LogisticsRow[]  ship dates from 30 days ago onward, upcoming included
+//   PUT  /logistics/{id}          <- LogisticsUpdateBody -> data: LogisticsRow
+//   GET  /logistics/{id}/lines    -> data: LogisticsLine[]
 const BASE = "/logistics";
 
+interface IhApiResponse<T> {
+  success: boolean;
+  message: string;
+  data: T | null;
+}
+
 async function parse<T>(res: Response, fallback: string): Promise<T> {
-  const json = await res.json().catch(() => null);
-  if (!res.ok) throw new RelayError(res.status, json?.detail ?? fallback);
-  return json as T;
+  const json = (await res.json().catch(() => null)) as IhApiResponse<T> | null;
+  if (!res.ok || !json?.success) throw new RelayError(res.status, json?.message || fallback);
+  return json.data as T;
 }
 
 export const logisticsApi = {
   async list(): Promise<LogisticsRow[]> {
     const res = await ihFetch(BASE);
-    return (await parse<{ rows: LogisticsRow[] }>(res, "Failed to load logistics")).rows;
+    return parse<LogisticsRow[]>(res, "Failed to load logistics");
   },
   async update(id: number, body: LogisticsUpdateBody): Promise<LogisticsRow> {
     const res = await ihFetch(`${BASE}/${id}`, { method: "PUT", body: JSON.stringify(body) });
-    return (await parse<{ row: LogisticsRow }>(res, "Failed to save the shipment")).row;
+    return parse<LogisticsRow>(res, "Failed to save the shipment");
   },
   async lines(id: number): Promise<LogisticsLine[]> {
     const res = await ihFetch(`${BASE}/${id}/lines`);
-    return (await parse<{ rows: LogisticsLine[] }>(res, "Failed to load invoice lines")).rows;
+    return parse<LogisticsLine[]>(res, "Failed to load invoice lines");
   },
 };
 

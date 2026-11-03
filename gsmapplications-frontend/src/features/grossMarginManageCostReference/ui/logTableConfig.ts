@@ -3,7 +3,7 @@ import type { ReferenceLogTableConfig } from "@/shared/ui/reference-log-table";
 import { getFieldRules } from "@/shared/lib/referenceSchemas";
 import type { CostReferenceRow } from "@/entities/grossMarginCostReference";
 
-const COST_KEYS = ["packing", "sticker", "box", "labourProd", "labourRepack", "labourAssembler"] as const;
+const COST_KEYS = ["packing", "sticker", "box", "labourProd", "labourRepack", "labourAssembler", "extraCosts"] as const;
 
 function getFieldValue(row: CostReferenceRow, key: string): number | null {
   switch (key) {
@@ -19,6 +19,8 @@ function getFieldValue(row: CostReferenceRow, key: string): number | null {
       return row.LabourRepack;
     case "labourAssembler":
       return row.LabourAssembler;
+    case "extraCosts":
+      return row.ExtraCosts;
     default:
       return null;
   }

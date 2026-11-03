@@ -5,17 +5,7 @@ import type { TransportCostRow } from "@/entities/grossMarginTransportCost";
 import { ratioOrNull, sumTreatingNullAsZero } from "@/entities/grossMarginSalesRow";
 import { THRESHOLDS } from "@/shared/lib/thresholds";
 
-// Quote Simulator's pure math core -- ports sql/15_sales.sql's Final/
-// WithTotal CTEs into TypeScript so edits recompute GrossMargin instantly,
-// client-side. Anchored on the baseline's own already-resolved fields, so
-// zero-override reproduction is exact by construction.
-
 export type SalesRowMode = "A" | "B" | "C" | "none";
-// A = Flag=1, bought pre-packaged by the unit (supplier already packaged it).
-// B = Flag=0, bought raw by the pound (we do production ourselves).
-// C = IsMixedHerbWholePack=1, a blend -- every dollar figure on the row is
-//     a whole-pack total, not per-unit.
-// none = Flag is null, no purchase-cost basis matched at all.
 
 export function getSalesRowMode(row: SalesRow): SalesRowMode {
   if (row.IsMixedHerbWholePack === 1) return "C";
@@ -25,11 +15,10 @@ export function getSalesRowMode(row: SalesRow): SalesRowMode {
 }
 
 export interface QuoteOverrides {
-  // Price side, universal across all modes.
-  avgUnitPriceBaseOverride?: number; // pre-Rebate, pre-Commission "list" price
-  rebateOverride?: number; // flat $ per unit
-  commissionPercentOverride?: number; // fraction 0-1, only meaningful if the matched Commission is percent-type
-  commissionValueOverride?: number; // flat $, only meaningful if the matched Commission is value-type
+  avgUnitPriceBaseOverride?: number; 
+  rebateOverride?: number; 
+  commissionPercentOverride?: number; 
+  commissionValueOverride?: number;
 
   // Cost side -- Mode A.
   purchaseCostOverride?: number; // = FinalPurPrice directly, no Yield involved
@@ -44,31 +33,23 @@ export interface QuoteOverrides {
   // Cost side -- shared by A/B/C.
   boxOverride?: number;
   labourAssemblerOverride?: number; // A/B only -- Mode C's is folded into FinalPurPrice already
-
-  // Transport -- either edit the $ directly, or (when a matching
-  // TransportCostRow with a non-null TransportUnitCost exists) negotiate
-  // the underlying PalletCost and let TransportUnitCost recompute for real.
   transportOverride?: number;
   palletCostOverride?: number;
-
-  // Cost side -- Mode C only, opaque whole-pack total (see the Context note
-  // in the plan on why per-child editing isn't in this version).
+  extraCostsOverride?: number;
   mixedHerbFinalPurPriceOverride?: number;
 }
 
 export interface RecomputeInputs {
   baseline: SalesRow;
-  commission: CommissionRow | null; // matched on (Customer, Variety); null if none on file
-  rebate: RebateRow | null; // matched on Customer; null if none on file
-  transportCost: TransportCostRow | null; // matched on (Customer=DivisionName, MeasurementUnitValue); null if none on file
+  commission: CommissionRow | null; 
+  rebate: RebateRow | null; 
+  transportCost: TransportCostRow | null; 
 }
 
 export interface RecomputeResult {
   row: SalesRow;
   mode: SalesRowMode;
-  /** Reconstructed pre-Rebate, pre-Commission price -- the real "starting" number for the price-side inputs. */
   avgUnitPriceBase: number | null;
-  /** Transport unit cost actually used, whether direct or PalletCost-derived -- useful for the transparency panel. */
   transportUnitCostUsed: number | null;
   warnings: string[];
 }
@@ -79,8 +60,6 @@ function reconstructAvgUnitPriceBase(
   rebate: RebateRow | null
 ): number | null {
   if (baseline.AvgUnitPrice === null) return null;
-  // Invert SalesWithCommission's own order (sql/15_sales.sql): Commission
-  // was subtracted from the Rebate-adjusted price, so undo Commission first.
   let afterRebate = baseline.AvgUnitPrice;
   if (commission) {
     if (commission.CommissionType === "value") {
@@ -105,10 +84,6 @@ function recomputeAvgUnitPrice(
   const rebateAmount = overrides.rebateOverride ?? rebate?.Rebate ?? 0;
   const afterRebate = base - rebateAmount;
 
-  // Type comes from the matched CommissionRow when there is one; otherwise
-  // from whichever override key the user actually typed into -- lets a row
-  // with no commission on file still be modeled ("what if we started
-  // charging one"), not just tuned once one already exists.
   const commissionType =
     commission?.CommissionType ??
     (overrides.commissionValueOverride !== undefined
@@ -128,7 +103,6 @@ function recomputeAvgUnitPrice(
   return afterRebate;
 }
 
-/** Transport: direct $ override wins if present; else negotiate via PalletCost when possible; else baseline. */
 function resolveTransport(
   baseline: SalesRow,
   transportCost: TransportCostRow | null,
@@ -151,10 +125,6 @@ function resolveTransport(
       packQtyForWholePack !== null ? unitCost * packQtyForWholePack : unitCost;
     return { transport, transportUnitCostUsed: unitCost };
   }
-  // A real existing row's baseline.Transport already reflects the SQL
-  // pipeline's own join, so this is a no-op for it. A manual-entry row has
-  // no template to copy Transport from, so it falls back to a matched
-  // TransportCostRow's TransportUnitCost (already per-unit) instead of staying blank.
   const transportUnitCost = transportCost?.TransportUnitCost ?? null;
   const fallbackTransport =
     baseline.Transport ??
@@ -174,10 +144,6 @@ export function recomputeSalesRow(inputs: RecomputeInputs, overrides: QuoteOverr
   const avgUnitPriceBase = reconstructAvgUnitPriceBase(baseline, commission, rebate);
   const avgUnitPrice = recomputeAvgUnitPrice(avgUnitPriceBase, commission, rebate, overrides);
 
-  // Back out the row's own whole-pack multiplier only for the Mode C
-  // PalletCost-negotiation display path -- optional context, never
-  // load-bearing (resolveTransport falls back to baseline.Transport
-  // whenever this isn't cleanly derivable).
   const packQtyForWholePack =
     mode === "C" && baseline.Transport !== null && transportCost?.TransportUnitCost
       ? baseline.Transport / transportCost.TransportUnitCost
@@ -200,60 +166,50 @@ export function recomputeSalesRow(inputs: RecomputeInputs, overrides: QuoteOverr
     packQtyForWholePack
   );
 
+  const extraCosts: number | null = overrides.extraCostsOverride ?? baseline.ExtraCosts ?? null;
+
   if (mode === "A") {
     purchaseCost = overrides.purchaseCostOverride ?? baseline.PurchaseCost;
     finalPurPrice = purchaseCost;
     box = overrides.boxOverride ?? baseline.Box;
     labourRepack = overrides.labourRepackOverride ?? baseline.LabourRepack;
     labourAssembler = overrides.labourAssemblerOverride ?? baseline.LabourAssembler;
-    // Packing/Sticker/LabourProd stay null -- structurally N/A for this mode.
   } else if (mode === "B") {
     purchaseCost = overrides.purchaseCostOverride ?? baseline.PurchaseCost;
     yieldVal = overrides.yieldOverride ?? baseline.Yield;
     if (yieldVal !== null && yieldVal > 0 && purchaseCost !== null && baseline.MeasurementUnitValue !== null) {
       finalPurPrice = (purchaseCost * baseline.MeasurementUnitValue) / yieldVal;
     } else {
-      finalPurPrice = null; // mirrors SQL: missing/zero Yield = no cost basis, never a guessed value
+      finalPurPrice = null;
     }
     packing = overrides.packingOverride ?? baseline.Packing;
     sticker = overrides.stickerOverride ?? baseline.Sticker;
     labourProd = overrides.labourProdOverride ?? baseline.LabourProd;
     box = overrides.boxOverride ?? baseline.Box;
     labourAssembler = overrides.labourAssemblerOverride ?? baseline.LabourAssembler;
-    // LabourRepack applies to Flag=0 (Mode B) too, not just Flag=1 -- not
-    // structurally N/A here, matching sql/15_sales.sql.
     labourRepack = overrides.labourRepackOverride ?? baseline.LabourRepack;
   } else if (mode === "C") {
     finalPurPrice = overrides.mixedHerbFinalPurPriceOverride ?? baseline.FinalPurPrice;
     box = overrides.boxOverride ?? baseline.Box;
-    // Packing/Sticker/LabourProd/LabourRepack/LabourAssembler all stay null
-    // -- already folded per-child into FinalPurPrice by the SQL pipeline.
   } else {
-    // mode === "none": no purchase-cost basis at all, matches SQL's ELSE NULL.
+    // mode === "none"
     finalPurPrice = null;
   }
 
   const finalUnitCost =
     finalPurPrice === null
       ? null
-      : finalPurPrice + sumTreatingNullAsZero(packing, sticker, box, labourProd, labourRepack, labourAssembler, transport);
+      : finalPurPrice + sumTreatingNullAsZero(packing, sticker, box, labourProd, labourRepack, labourAssembler, transport, extraCosts);
 
-  // A zero-or-negative price makes Cost Ratio/Gross Margin meaningless, not
-  // just undefined -- a negative denominator would flip the ratio's sign
-  // into a plausible-looking percentage, so this must be explicit rather
-  // than relying on ratioOrNull's plain "denominator === 0" check.
   const priceUsable = avgUnitPrice !== null && avgUnitPrice > 0;
   const costRatio = priceUsable ? ratioOrNull(finalUnitCost, avgUnitPrice) : null;
   const grossMargin =
     priceUsable && finalUnitCost !== null ? (avgUnitPrice - finalUnitCost) / avgUnitPrice : null;
 
   if (avgUnitPrice !== null && avgUnitPrice <= 0) {
-    warnings.push("priceNotPositive"); // grossMargin.simulator.warnings.* code
+    warnings.push("priceNotPositive");
   }
 
-  // Presence check, not truthiness -- an explicit $0/0% override is still a
-  // real commission association (matches sql/15_sales.sql's existence
-  // check, not a non-zero check).
   const commissionApplied: 0 | 1 =
     overrides.commissionValueOverride !== undefined ||
     overrides.commissionPercentOverride !== undefined ||
@@ -274,6 +230,7 @@ export function recomputeSalesRow(inputs: RecomputeInputs, overrides: QuoteOverr
     LabourRepack: labourRepack,
     LabourAssembler: labourAssembler,
     Transport: transport,
+    ExtraCosts: extraCosts,
     FinalUnitCost: finalUnitCost,
     CostRatio: costRatio,
     GrossMargin: grossMargin,
@@ -298,10 +255,7 @@ export interface DriverImpact {
 }
 
 /**
- * Each active override's own isolated effect on Gross Margin -- this field
- * changed alone, with every other field held at its real baseline value.
- * Deliberately not sequential/order-dependent: a user moving several
- * levers at once shouldn't need to know what order they're summed in.
+ * Each active override's own isolated effect on Gross Margin 
  */
 export function buildDriverImpacts(
   inputs: RecomputeInputs,
@@ -339,9 +293,7 @@ export function buildDriverImpacts(
 
 /**
  * The "current effective value" of an override field: whatever the user has
- * already set, else the row's own baseline value. This is the anchor
- * sensitivity analysis shifts ±X% around -- "what matters most NEXT," not
- * "what mattered from a totally untouched baseline."
+ * already set, else the row's own baseline value.
  */
 export function getCurrentFieldValue(
   key: string,
@@ -378,11 +330,11 @@ export function getCurrentFieldValue(
     case "boxOverride":
       return baseline.Box;
     case "transportOverride":
-      // Same fallback as resolveTransport above: a manual-entry row has no
-      // baseline.Transport, so fall back to the matched TransportCostRow.
       return baseline.Transport ?? transportCost?.TransportUnitCost ?? null;
     case "palletCostOverride":
       return transportCost?.PalletCost ?? null;
+    case "extraCostsOverride":
+      return baseline.ExtraCosts ?? null;
     case "mixedHerbFinalPurPriceOverride":
       return baseline.FinalPurPrice;
     default:
@@ -402,20 +354,17 @@ function marginAtOverride(
 /**
  * Generic bracket-expand-then-bisect root search -- shared mechanics behind
  * every "what value gets me to a target metric" search in this file.
- * Numeric, not closed-form, since several levers divide rather than add
- * into the final metric. Grows `hi` via `growHi` until the target is
- * bracketed, then bisects `bisectIterations` times.
  */
 function bisectSearch(params: {
   lo: number;
   hi: number;
   step: number;
   growHi: (step: number) => number;
-  advanceLo: boolean; // false for findAvgUnitPriceBaseForTarget: lo stays pinned at 0 (price can't be negative), never tracks the bracket
-  guardNonPositiveHi: boolean; // true for direction === -1 searches: clamp hi to lo/2 instead of crossing zero
+  advanceLo: boolean;
+  guardNonPositiveHi: boolean;
   evaluate: (value: number) => number | null;
   shortOfTarget: (metric: number) => boolean;
-  nullSentinel: number; // what a null evaluation counts as -- always "still short," direction-dependent
+  nullSentinel: number;
   bisectIterations?: number;
 }): number | null {
   const { evaluate, shortOfTarget, nullSentinel, advanceLo, guardNonPositiveHi, growHi } = params;
@@ -430,11 +379,11 @@ function bisectSearch(params: {
     hi = growHi(step);
     if (guardNonPositiveHi && hi <= 0) {
       hi = lo / 2;
-      if (hi < 1e-6) return null; // would require a negative/zero value -- unreachable
+      if (hi < 1e-6) return null;
     }
     iterations++;
   }
-  if (shortOfTarget(metricOf(hi))) return null; // not sensitive enough to this field within a sane range
+  if (shortOfTarget(metricOf(hi))) return null;
 
   for (let i = 0; i < bisectIterations; i++) {
     const mid = (lo + hi) / 2;
@@ -444,10 +393,6 @@ function bisectSearch(params: {
   return (lo + hi) / 2;
 }
 
-/**
- * The value of `key`, moving away from `start` in `direction`, at which
- * GrossMargin first crosses below `threshold`.
- */
 function findCeiling(
   inputs: RecomputeInputs,
   overrides: QuoteOverrides,
@@ -477,9 +422,7 @@ function avgUnitPriceAtOverride(inputs: RecomputeInputs, overrides: QuoteOverrid
 /**
  * Inverts "what List Price produces this exact net AvgUnitPrice" by
  * searching through recomputeSalesRow itself, so it can't drift out of
- * sync with recomputeAvgUnitPrice's real logic. AvgUnitPrice rises
- * monotonically with avgUnitPriceBaseOverride for both commission types,
- * so a plain bracket-expand-then-bisect search is safe.
+ * sync with recomputeAvgUnitPrice's real logic.
  */
 function findAvgUnitPriceBaseForTarget(
   inputs: RecomputeInputs,
@@ -492,28 +435,21 @@ function findAvgUnitPriceBaseForTarget(
     hi: targetAvgUnitPrice + step,
     step,
     growHi: (s) => targetAvgUnitPrice + s,
-    advanceLo: false, // lo stays pinned at $0 -- a price can't be negative
+    advanceLo: false,
     guardNonPositiveHi: false,
     evaluate: (v) => avgUnitPriceAtOverride(inputs, overrides, v),
     shortOfTarget: (price) => price < targetAvgUnitPrice,
     nullSentinel: -Infinity,
-    bisectIterations: 60, // finer precision than the other two searches -- price sensitivity matters more here
+    bisectIterations: 60,
   });
 }
 
 export interface BootstrapPriceSuggestion {
   finalUnitCost: number;
-  requiredAvgUnitPrice: number; // the net (post-Rebate/Commission) price needed to hit the target margin
-  suggestedListPrice: number | null; // the avgUnitPriceBaseOverride to apply; null if unreachable (e.g. target margin >= 100%)
+  requiredAvgUnitPrice: number;
+  suggestedListPrice: number | null;
 }
 
-/**
- * "There's no current price yet, but the cost side is known -- what
- * starting List Price would hit the target margin?" Solves closed-form on
- * the cost side, then inverts through the real Rebate/Commission logic via
- * findAvgUnitPriceBaseForTarget. Returns a single suggestion, not a
- * multi-lever list -- there's no "current" state to hold other levers at yet.
- */
 export function buildBootstrapPriceSuggestion(
   inputs: RecomputeInputs,
   overrides: QuoteOverrides,
@@ -543,10 +479,7 @@ export interface HeadroomResult {
 }
 
 /**
- * "How much room do I have to negotiate this lever before it hurts?" --
- * for each field, the concrete value at which Gross Margin crosses the 20%
- * and 10% floors, holding every other override fixed. Ranked
- * tightest-room-first.
+ * "How much room do I have to negotiate this lever before it hurts?"
  */
 export function buildNegotiationHeadroom(
   inputs: RecomputeInputs,
@@ -588,9 +521,7 @@ export function buildNegotiationHeadroom(
   });
 }
 
-// Same domain rules the inputs panel enforces on typed values -- imported
-// here (not re-declared) so the solver can never suggest a value the field
-// itself would reject as invalid.
+// Same domain rules the inputs panel enforces on typed values
 function isSuggestionInDomain(key: string, value: number): boolean {
   if (key === "commissionPercentOverride") return value >= 0 && value < 1;
   if (key === "yieldOverride") return value > 0;
@@ -600,8 +531,6 @@ function isSuggestionInDomain(key: string, value: number): boolean {
 /**
  * Same bracket-expand-then-bisect approach as findCeiling, generalized to
  * search toward an arbitrary target margin in whichever direction gets
- * there, rather than always "margin falls below a floor." `increasing`
- * says which way margin moves as the field moves in `direction`.
  */
 function findValueForTarget(
   inputs: RecomputeInputs,
@@ -638,9 +567,7 @@ export interface TargetMarginSuggestion {
 /**
  * "If I only moved THIS lever, what value hits my target margin exactly?" --
  * one independent single-variable suggestion per field, holding every other
- * override fixed. Deliberately not a joint multi-variable optimizer: a real
- * negotiation is "which ONE thing could I ask for." Ranked by smallest
- * relative change first.
+ * override fixed.
  */
 export function buildTargetMarginSuggestions(
   inputs: RecomputeInputs,

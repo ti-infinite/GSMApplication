@@ -47,9 +47,7 @@ function draftFrom(row: LogisticsRow): Draft {
   };
 }
 
-// Default view: ship dates from 10 days ago to one month ahead. The service
-// serves a wider window (30 days back plus every future shipment), so the
-// picker can be widened to see the rest.
+// Narrower than what the service sends (30 days back plus every future shipment); the picker widens it.
 function defaultRange(): DateRange {
   const today = new Date();
   const from = new Date(today);
@@ -71,12 +69,6 @@ function Hint({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-// The Logistics page: every upcoming shipment (db_srv.IHLogistics) with its
-// pallet count, two carrier options and the confirmed one in green. A row is
-// edited in place (double-click or the pencil), the circle next to a carrier
-// marks it as the confirmed one, and the warning triangle at the right end
-// flags shipments close to their ship date with nothing confirmed. The
-// invoice number opens the shipment's lines.
 export function LogisticsTable() {
   const { t, i18n } = useTranslation();
   const { rows, isLoading, error, refetch } = useLogistics();

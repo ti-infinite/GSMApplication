@@ -8,7 +8,8 @@ import { QuoteSimulatorIdentityBar } from "./QuoteSimulatorIdentityBar";
 import { QuoteSimulatorHeadline } from "./QuoteSimulatorHeadline";
 import { QuoteSimulatorPackPricing } from "./QuoteSimulatorPackPricing";
 import { QuoteSimulatorInputsPanel } from "./QuoteSimulatorInputsPanel";
-import { QuoteSimulatorSaveReferenceBanner } from "./QuoteSimulatorSaveReferenceBanner";
+import { QuoteSimulatorSaveReferenceBanner, hasCostReferenceEdits } from "./QuoteSimulatorSaveReferenceBanner";
+import { hasEstimatedFields } from "../model/quoteCostEstimates";
 import { QuoteSimulatorTargetSolver } from "./QuoteSimulatorTargetSolver";
 import { QuoteSimulatorComparisonTable } from "./QuoteSimulatorComparisonTable";
 import { QuoteSimulatorTransparencyPanel } from "./QuoteSimulatorTransparencyPanel";
@@ -160,8 +161,9 @@ export function QuoteSimulatorTab({
             <QuoteSimulatorComparisonTable actual={selectedRow} simulated={result.row} isNewCustomerQuote={isNewCustomerQuote} />
           </div>
 
-          {costReference === null && result.row.FinalUnitCost !== null && (
+          {(costReference === null || hasEstimatedFields(estimates) || hasCostReferenceEdits(overrides)) && result.row.FinalUnitCost !== null && (
             <QuoteSimulatorSaveReferenceBanner
+              costReference={costReference}
               mode={result.mode}
               variety={selectedRow.Variety}
               warehouse={selectedRow.Warehouse}

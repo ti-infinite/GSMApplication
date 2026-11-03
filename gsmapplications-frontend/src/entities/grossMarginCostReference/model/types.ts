@@ -12,6 +12,7 @@ export interface CostReferenceRow {
   LabourProd: number | null;
   LabourRepack: number | null;
   LabourAssembler: number | null;
+  ExtraCosts: number | null;
   CreatedAt: string;
   UpdatedAt: string;
 }

@@ -12,6 +12,7 @@ export const costReferenceApi = makeResourceClient<
     labourProd?: number;
     labourRepack?: number;
     labourAssembler?: number;
+    extraCosts?: number;
     // Manual override -- used instead of the relay's live NHUBEX derivation
     // when provided. Never validated against NHUBEX; the caller is
     // responsible for correctness.
@@ -24,5 +25,6 @@ export const costReferenceApi = makeResourceClient<
     labourProd?: number;
     labourRepack?: number;
     labourAssembler?: number;
+    extraCosts?: number;
   }
 >("/cost-reference");

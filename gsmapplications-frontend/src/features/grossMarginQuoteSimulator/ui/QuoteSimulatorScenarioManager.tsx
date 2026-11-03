@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { Trash2, FolderOpen, Download } from "lucide-react";
+import { Trash2, FolderOpen, Users } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/shared/ui/card";
 import { Input } from "@/shared/ui/input";
 import { Button } from "@/shared/ui/button";
@@ -12,11 +12,11 @@ import type { TransportCostRow } from "@/entities/grossMarginTransportCost";
 import { recomputeSalesRow, type QuoteOverrides } from "../model/recompute";
 import { deleteScenario, listScenarios, resolveScenarioRow, saveScenario, type QuoteScenario } from "../model/quoteScenarios";
 import { buildRecomputeInputsForRow, defaultPackQuantity } from "../model/quoteScenarioReferences";
-import { buildQuoteRowValues, type QuoteScenarioExportEntry } from "../model/quoteScenarioExport";
+import type { QuoteScenarioExportEntry } from "../model/quoteScenarioExport";
 import { formatPercent } from "@/shared/lib/format";
-import { grossMarginFetch as relayFetch } from "@/shared/lib/ihAgent";
 import { savedQuotesApi, useInvalidateSavedQuotes } from "@/entities/grossMarginSavedQuote";
 import { buildSavedQuoteBody } from "../model/savedQuotes";
+import { QuoteBatchDialog } from "./QuoteBatchDialog";
 
 
 export function QuoteSimulatorScenarioManager({
@@ -42,8 +42,8 @@ export function QuoteSimulatorScenarioManager({
   const { t, i18n } = useTranslation();
   const [scenarios, setScenarios] = useState<QuoteScenario[]>(() => listScenarios());
   const [name, setName] = useState("");
-  const [isExporting, setIsExporting] = useState(false);
   const invalidateSavedQuotes = useInvalidateSavedQuotes();
+  const [batchOpen, setBatchOpen] = useState(false);
 
 
   function toExportEntry(s: QuoteScenario): QuoteScenarioExportEntry {
@@ -99,39 +99,6 @@ export function QuoteSimulatorScenarioManager({
     refresh();
   }
 
-  async function handleExport() {
-    setIsExporting(true);
-    try {
-      const entries: QuoteScenarioExportEntry[] = scenarios.map(toExportEntry);
-      const quotes = entries.map((entry) => ({
-        name: entry.name,
-        savedAt: entry.savedAt,
-        values: buildQuoteRowValues(entry),
-      }));
-      const res = await relayFetch("/export/quoteScenarios", {
-        method: "POST",
-        body: JSON.stringify({ quotes }),
-      });
-      if (!res.ok) {
-        toast.error(t("grossMargin.simulator.scenarios.exportFailed"));
-        return;
-      }
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `infinite-herbs-saved-quotes-${new Date().toISOString().slice(0, 10)}.xlsx`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    } catch {
-      toast.error(t("grossMargin.common.serverUnreachable"));
-    } finally {
-      setIsExporting(false);
-    }
-  }
-
   return (
     <Card>
       <CardHeader className="flex flex-row items-start justify-between gap-3">
@@ -139,10 +106,6 @@ export function QuoteSimulatorScenarioManager({
           <CardTitle>{t("grossMargin.simulator.scenarios.title")}</CardTitle>
           <CardDescription>{t("grossMargin.simulator.scenarios.description")}</CardDescription>
         </div>
-        <Button variant="outline" size="sm" onClick={handleExport} disabled={isExporting || scenarios.length === 0}>
-          <Download aria-hidden="true" />
-          {isExporting ? t("grossMargin.simulator.scenarios.preparing") : t("grossMargin.simulator.scenarios.download")}
-        </Button>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex gap-2">
@@ -150,7 +113,23 @@ export function QuoteSimulatorScenarioManager({
           <Button onClick={handleSave} disabled={!name.trim()}>
             {t("grossMargin.simulator.scenarios.saveCurrent")}
           </Button>
+          <Button variant="outline" onClick={() => setBatchOpen(true)} title={t("grossMargin.simulator.batch.title")}>
+            <Users aria-hidden="true" />
+            {t("grossMargin.simulator.batch.open")}
+          </Button>
         </div>
+        {batchOpen && (
+          <QuoteBatchDialog
+            baseline={baseline}
+            overrides={overrides}
+            packQuantity={packQuantity}
+            rows={rows}
+            commissions={commissions}
+            rebates={rebates}
+            transportCosts={transportCosts}
+            onClose={() => setBatchOpen(false)}
+          />
+        )}
 
         {scenarios.length === 0 ? (
           <p className="py-4 text-center text-sm text-muted-foreground">{t("grossMargin.simulator.scenarios.empty")}</p>

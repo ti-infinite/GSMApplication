@@ -6,15 +6,16 @@ import { sumTreatingNullAsZero } from "@/entities/grossMarginSalesRow";
 import type { SalesRow } from "@/entities/grossMarginSalesRow";
 
 // Same 4-category taxonomy as the radar chart / Cost Breakdown tab, in $
-// this time instead of %. One consistent grouping across the whole
-// dashboard, fits --chart-1..4 with no 5th token needed.
-function toStack(row: SalesRow, label: string, keys: Record<"purchaseCost" | "packing" | "labour" | "transport", string>) {
+// this time instead of %, plus a 5th stack for Extra costs (2026-11-02:
+// they are in FinalUnitCost but belong to no zone, so they get --chart-5).
+function toStack(row: SalesRow, label: string, keys: Record<"purchaseCost" | "packing" | "labour" | "transport" | "extraCosts", string>) {
   return {
     label,
     [keys.purchaseCost]: row.FinalPurPrice ?? 0,
     [keys.packing]: sumTreatingNullAsZero(row.Packing, row.Sticker, row.Box),
     [keys.labour]: sumTreatingNullAsZero(row.LabourProd, row.LabourRepack, row.LabourAssembler),
     [keys.transport]: row.Transport ?? 0,
+    [keys.extraCosts]: row.ExtraCosts ?? 0,
   };
 }
 
@@ -25,6 +26,7 @@ export function QuoteCostCompositionChart({ actual, simulated }: { actual: Sales
     packing: t("grossMargin.simulator.charts.stacks.packing"),
     labour: t("grossMargin.simulator.charts.stacks.labour"),
     transport: t("grossMargin.simulator.charts.stacks.transport"),
+    extraCosts: t("grossMargin.simulator.charts.stacks.extraCosts"),
   };
   const data = [
     toStack(actual, t("grossMargin.simulator.charts.series.actual"), keys),
@@ -51,7 +53,8 @@ export function QuoteCostCompositionChart({ actual, simulated }: { actual: Sales
             <Bar dataKey={keys.purchaseCost} stackId="cost" fill="var(--color-chart-1)" />
             <Bar dataKey={keys.packing} stackId="cost" fill="var(--color-chart-2)" />
             <Bar dataKey={keys.labour} stackId="cost" fill="var(--color-chart-3)" />
-            <Bar dataKey={keys.transport} stackId="cost" fill="var(--color-chart-4)" radius={[0, 4, 4, 0]} />
+            <Bar dataKey={keys.transport} stackId="cost" fill="var(--color-chart-4)" />
+            <Bar dataKey={keys.extraCosts} stackId="cost" fill="var(--color-chart-5)" radius={[0, 4, 4, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </CardContent>

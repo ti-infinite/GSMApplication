@@ -26,6 +26,11 @@ export interface SalesRow {
   LabourRepack: number | null;
   LabourAssembler: number | null;
   Transport: number | null;
+  // ExtraCosts (2026-11-02): the unpredictable extras of the product (an
+  // extra label, a surcharge...) as ONE per-unit amount, from
+  // db_ai.CostReference.ExtraCosts. Blank = $0 in FinalUnitCost. Optional
+  // on the type only so rows served before the pipeline rebuild still parse.
+  ExtraCosts?: number | null;
   // Mixed-herb rows only. When 1, every dollar figure on this row
   // (AvgUnitPrice, FinalPurPrice, Box, Transport, FinalUnitCost) is a
   // WHOLE-PACK total, not a per-unit figure like every other row -- drives

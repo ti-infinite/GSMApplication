@@ -22,6 +22,7 @@ const FIELDS = [
   { key: "labourProd" },
   { key: "labourRepack" },
   { key: "labourAssembler" },
+  { key: "extraCosts" },
 ] as const;
 type CostKey = (typeof FIELDS)[number]["key"];
 const COST_KEYS = FIELDS.map((f) => f.key);

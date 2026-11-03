@@ -30,6 +30,7 @@ const COST_FIELDS: (keyof SalesRow)[] = [
   "LabourProd",
   "LabourRepack",
   "LabourAssembler",
+  "ExtraCosts",
   "IsMixedHerbWholePack",
 ];
 
@@ -158,6 +159,7 @@ export function buildManualBaseline(
     LabourRepack: estimates?.labourRepack.value ?? null,
     LabourAssembler: estimates?.labourAssembler.value ?? null,
     Transport: estimates?.transport.value ?? null,
+    ExtraCosts: null, // never estimated: extras are unpredictable by definition
     IsMixedHerbWholePack: 0,
     FinalUnitCost: null,
     CostRatio: null,

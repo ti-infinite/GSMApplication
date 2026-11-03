@@ -154,6 +154,7 @@ export function Combobox({
 
       {open && pos && createPortal(
         <div ref={dropdownRef}
+          data-combobox-dropdown=""
           // Frena el mousedown ACÁ: si el combo vive dentro de un Dialog (Radix), su propio
           // detector de "click afuera" corre a nivel de documento y este dropdown es un portal
           // SEPARADO (no un hijo real del DialogContent) — sin esto, Radix lo trata como
@@ -167,6 +168,9 @@ export function Combobox({
             left:   pos.left,
             width:  pos.width,
             zIndex: 9999,
+            // Un Dialog modal (Radix) pone pointer-events:none en todo lo que no es su
+            // contenido; este portal vive fuera, así que se lo vuelve a habilitar acá.
+            pointerEvents: 'auto',
           }}
           className="overflow-hidden rounded-xl border border-border bg-popover shadow-[0_8px_30px_rgb(0,0,0,0.12)] ring-1 ring-black/5"
         >

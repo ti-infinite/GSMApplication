@@ -34,7 +34,7 @@ type ColKind = "currency" | "percent" | "number" | "flag";
 
 // "core" columns are what Sales Explorer shows by default -- the numbers
 // most relevant to margin at a glance. "Full Breakdown" reveals every
-// remaining column in db_ai.Sales (21 total) for a full cost-buildup audit.
+// remaining column in db_ai.GMSales (22 total) for a full cost-buildup audit.
 const NUMERIC_COLUMNS: { key: keyof SalesRow; labelKey: string; kind: ColKind; core: boolean }[] = [
   { key: "AvgUnitPrice", labelKey: "avgUnitPrice", kind: "currency", core: true },
   { key: "FinalUnitCost", labelKey: "finalUnitCost", kind: "currency", core: true },
@@ -52,6 +52,7 @@ const NUMERIC_COLUMNS: { key: keyof SalesRow; labelKey: string; kind: ColKind; c
   { key: "LabourRepack", labelKey: "labourRepack", kind: "currency", core: false },
   { key: "LabourAssembler", labelKey: "labourAssembler", kind: "currency", core: false },
   { key: "Transport", labelKey: "transport", kind: "currency", core: false },
+  { key: "ExtraCosts", labelKey: "extraCosts", kind: "currency", core: false },
 ];
 
 // Traffic-light background for the Sales Explorer's Gross Margin cell only

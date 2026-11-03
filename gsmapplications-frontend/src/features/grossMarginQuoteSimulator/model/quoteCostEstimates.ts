@@ -417,3 +417,57 @@ export function hasEstimatedFields(estimates: QuoteCostEstimates | null | undefi
     return (estimates[key] as FieldEstimate).source === "estimated";
   });
 }
+
+// ---------------------------------------------------------------------------
+// Existing sales rows: the same estimates, but only for the cost fields the
+// reference tables have not filled yet (a sale whose Cost Reference row is
+// missing or incomplete). The row's own values always win; an estimate only
+// fills a blank, so the person sees a plausible number instead of nothing
+// and can then save it as the real reference.
+// ---------------------------------------------------------------------------
+
+const MODE_A_FIELDS: (keyof SalesRow)[] = ["PurchaseCost", "Box", "LabourRepack", "LabourAssembler", "Transport"];
+const MODE_B_FIELDS: (keyof SalesRow)[] = ["PurchaseCost", "Yield", "Packing", "Sticker", "LabourProd", "LabourRepack", "Transport"];
+
+/** True when a cost the row's sourcing mode needs is still blank. */
+export function rowHasMissingCosts(row: SalesRow): boolean {
+  if (row.IsMixedHerbWholePack === 1) return false;
+  const fields = row.Flag === 1 ? MODE_A_FIELDS : row.Flag === 0 ? MODE_B_FIELDS : [];
+  return fields.some((f) => row[f] === null || row[f] === undefined);
+}
+
+const FILL: { field: keyof SalesRow; estimate: keyof QuoteCostEstimates }[] = [
+  { field: "PurchaseCost", estimate: "purchaseCost" },
+  { field: "Yield", estimate: "yield" },
+  { field: "Packing", estimate: "packing" },
+  { field: "Sticker", estimate: "sticker" },
+  { field: "Box", estimate: "box" },
+  { field: "LabourProd", estimate: "labourProd" },
+  { field: "LabourRepack", estimate: "labourRepack" },
+  { field: "LabourAssembler", estimate: "labourAssembler" },
+  { field: "Transport", estimate: "transport" },
+];
+
+/** The row with each blank cost replaced by its estimate (when there is one). */
+export function fillMissingFromEstimates(row: SalesRow, estimates: QuoteCostEstimates): SalesRow {
+  const out: SalesRow = { ...row };
+  for (const { field, estimate } of FILL) {
+    if (out[field] !== null && out[field] !== undefined) continue;
+    const est = estimates[estimate] as FieldEstimate;
+    if (est.source !== "estimated" || est.value === null) continue;
+    (out as unknown as Record<string, unknown>)[field] = est.value;
+  }
+  return out;
+}
+
+/** Estimates restricted to the blanks of an existing row: fields the row
+ *  already has are reported as "exact" so no badge shows on them. */
+export function estimatesForExistingRow(row: SalesRow, estimates: QuoteCostEstimates): QuoteCostEstimates {
+  const out = { ...estimates };
+  for (const { field, estimate } of FILL) {
+    if (row[field] !== null && row[field] !== undefined) {
+      (out as Record<string, unknown>)[estimate] = { ...(estimates[estimate] as FieldEstimate), value: row[field], source: "exact", basis: "none", sampleSize: 0 };
+    }
+  }
+  return out;
+}

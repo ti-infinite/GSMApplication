@@ -51,6 +51,9 @@ export interface QuoteOverrides {
   transportOverride?: number;
   palletCostOverride?: number;
 
+  // Extra costs -- every mode, per-unit (whole-pack in Mode C like Box/Transport).
+  extraCostsOverride?: number;
+
   // Cost side -- Mode C only, opaque whole-pack total (see the Context note
   // in the plan on why per-child editing isn't in this version).
   mixedHerbFinalPurPriceOverride?: number;
@@ -199,6 +202,9 @@ export function recomputeSalesRow(inputs: RecomputeInputs, overrides: QuoteOverr
     overrides,
     packQtyForWholePack
   );
+  // Extra costs apply in every mode (same rule as LabourAssembler in SQL);
+  // null means none, never a guessed value.
+  const extraCosts: number | null = overrides.extraCostsOverride ?? baseline.ExtraCosts ?? null;
 
   if (mode === "A") {
     purchaseCost = overrides.purchaseCostOverride ?? baseline.PurchaseCost;
@@ -236,7 +242,7 @@ export function recomputeSalesRow(inputs: RecomputeInputs, overrides: QuoteOverr
   const finalUnitCost =
     finalPurPrice === null
       ? null
-      : finalPurPrice + sumTreatingNullAsZero(packing, sticker, box, labourProd, labourRepack, labourAssembler, transport);
+      : finalPurPrice + sumTreatingNullAsZero(packing, sticker, box, labourProd, labourRepack, labourAssembler, transport, extraCosts);
 
   // A zero-or-negative price makes Cost Ratio/Gross Margin meaningless, not
   // just undefined -- a negative denominator would flip the ratio's sign
@@ -274,6 +280,7 @@ export function recomputeSalesRow(inputs: RecomputeInputs, overrides: QuoteOverr
     LabourRepack: labourRepack,
     LabourAssembler: labourAssembler,
     Transport: transport,
+    ExtraCosts: extraCosts,
     FinalUnitCost: finalUnitCost,
     CostRatio: costRatio,
     GrossMargin: grossMargin,
@@ -383,6 +390,8 @@ export function getCurrentFieldValue(
       return baseline.Transport ?? transportCost?.TransportUnitCost ?? null;
     case "palletCostOverride":
       return transportCost?.PalletCost ?? null;
+    case "extraCostsOverride":
+      return baseline.ExtraCosts ?? null;
     case "mixedHerbFinalPurPriceOverride":
       return baseline.FinalPurPrice;
     default:

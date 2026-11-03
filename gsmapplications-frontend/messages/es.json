@@ -507,34 +507,56 @@
   },
   "logistics": {
     "title": "Logística",
-    "subtitle": "Asigna los carriers de cada despacho y confirma con cuál sale.",
-    "filters": "Filtros",
-    "whs": "WHS",
-    "division": "DC",
-    "allWhs": "Todos los WHS",
-    "allDivisions": "Todos los DC",
-    "dateRange": "Fecha de despacho",
-    "selectDateRange": "Selecciona un rango",
-    "applyDateRange": "Aplicar",
-    "clearDateRange": "Limpiar rango de fechas",
-    "invoice": "Factura",
-    "dateShip": "Fecha despacho",
-    "pallets": "Pallets",
-    "carrierA": "Carrier A",
-    "carrierB": "Carrier B",
-    "confirmed": "Carrier confirmado",
-    "carrierPlaceholder": "Escribe o elige",
-    "unsaved": "Cambio sin guardar",
-    "pendingChanges_one": "{{count}} despacho con cambios sin guardar",
-    "pendingChanges_other": "{{count}} despachos con cambios sin guardar",
-    "discard": "Descartar",
-    "save": "Guardar cambios",
-    "saving": "Guardando…",
-    "saved_one": "{{count}} despacho actualizado",
-    "saved_other": "{{count}} despachos actualizados",
-    "saveFailed": "No se pudieron guardar los cambios. Intenta de nuevo.",
-    "pickFilters": "Selecciona un rango de fechas para ver los despachos.",
-    "noResults": "No hay despachos para estos filtros."
+    "subtitle": "Asigne los transportistas de cada despacho y confirme cuál lo lleva.",
+    "table": {
+      "loadError": "No pudimos cargar los despachos. Seguiremos intentando.",
+      "empty": "Todavía no hay despachos para mostrar.",
+      "noMatch": "Ningún despacho coincide con los filtros actuales."
+    },
+    "filters": {
+      "toggle": "Filtros",
+      "searchInvoice": "Buscar factura",
+      "allWhs": "Todas las bodegas",
+      "allDcs": "Todos los DC",
+      "selectDateRange": "Seleccione un rango",
+      "applyDateRange": "Aplicar",
+      "clearDateRange": "Limpiar rango de fechas"
+    },
+    "columns": {
+      "invoice": "Factura",
+      "whs": "Bodega",
+      "dc": "DC",
+      "shipDate": "Fecha de despacho",
+      "deliveryDate": "Fecha de entrega",
+      "pallets": "Pallets",
+      "carrierA": "Transportista A",
+      "carrierB": "Transportista B",
+      "po": "PO"
+    },
+    "alarm": {
+      "title": "Por favor seleccione un transportista"
+    },
+    "edit": {
+      "edit": "Editar",
+      "save": "Guardar",
+      "cancel": "Cancelar",
+      "confirmThis": "Confirmar este transportista",
+      "carrierPlaceholder": "Transportista",
+      "tooLong": "El nombre del transportista debe tener menos de 100 caracteres",
+      "palletsInvalid": "Pallets debe ser un número de 0 o más",
+      "confirmNeedsCarrier": "Escriba el nombre del transportista antes de confirmarlo",
+      "saved": "{{invoice}} guardado",
+      "failed": "No pudimos guardar el despacho"
+    },
+    "details": {
+      "title": "Factura {{invoice}}",
+      "empty": "No se encontraron líneas de esta factura en IH Sales.",
+      "loadError": "No pudimos cargar las líneas de la factura.",
+      "columns": {
+        "description": "Descripción",
+        "quantity": "Cantidad"
+      }
+    }
   },
   "reports": {
     "title": "Reportes",
@@ -818,6 +840,7 @@
         "labourProd": "Mano de obra (Prod)",
         "labourRepack": "Mano de obra (Reempaque)",
         "labourAssembler": "Mano de obra (Ensamble)",
+        "extraCosts": "Costos extra",
         "amount": "Monto"
       }
     },
@@ -910,6 +933,7 @@
           "labourRepack": "Mano de obra (Reempaque)",
           "labourAssembler": "Mano de obra (Ensamble)",
           "transport": "Transporte",
+          "extraCosts": "Costos extra",
           "variety": "Variedad",
           "customer": "Cliente",
           "warehouse": "Bodega",
@@ -971,6 +995,19 @@
       }
     },
     "simulator": {
+      "suppliers": {
+        "transactions": "Compras",
+        "button": "Proveedores",
+        "title": "Costo de compra por proveedor",
+        "description": "El costo de compra promedia todos los proveedores de este producto en esta bodega. Desmarque los que no quiera contar y aplique.",
+        "supplier": "Proveedor",
+        "pricePerLb": "$/lb",
+        "priceUnit": "$/unidad",
+        "empty": "No hay compras registradas de este producto en esta bodega.",
+        "average": "Promedio de {{count}} seleccionados:",
+        "apply": "Usar como costo de compra",
+        "basisMismatch": "Estos precios están en una base distinta a la de esta cotización (por libra vs. empacado). Revise antes de aplicar."
+      },
       "flows": {
         "existing": "Venta existente",
         "newCustomerProduct": "Cliente / producto nuevo"
@@ -1128,6 +1165,8 @@
         "commissionPercent": "Comisión %",
         "transport": "Transporte",
         "transportWholePack": "Transporte (paquete completo)",
+        "extraCosts": "Costos extra",
+        "extraCostsWholePack": "Costos extra (paquete completo)",
         "purchaseCost": "Costo de compra",
         "purchaseCostPerLb": "Costo de compra ($/lb)",
         "box": "Caja",
@@ -1187,7 +1226,9 @@
           "labourProd": "Mano de obra (Prod)",
           "labourRepack": "Mano de obra (Reempaque)",
           "labourAssembler": "Mano de obra (Ensamble)",
-          "transport": "Transporte"
+          "transport": "Transporte",
+          "extraCosts": "Costos extra",
+          "extraCostsWholePack": "Costos extra (paquete completo)"
         }
       },
       "scenarios": {
@@ -1215,6 +1256,7 @@
         "reopened": "Se abrió \"{{name}}\" desde las cotizaciones guardadas."
       },
       "saveReference": {
+        "updateDescription": "{{variety}} en {{warehouse}} ya tiene una referencia de costos con vacíos. Guarde para completarla con los valores de abajo.",
         "title": "¿Guardar estos costos para la próxima vez?",
         "description": "La próxima cotización de {{variety}} en {{warehouse}} partirá de estos costos. El precio de compra no se guarda.",
         "save": "Guardar referencia de costo",
@@ -1254,7 +1296,8 @@
           "purchaseCost": "Costo de compra",
           "packing": "Empaque + Etiqueta + Caja",
           "labour": "Mano de obra",
-          "transport": "Transporte"
+          "transport": "Transporte",
+          "extraCosts": "Costos extra"
         }
       },
       "drivers": {
@@ -1322,6 +1365,29 @@
           "sameSkuSize": "misma hierba y tamaño, otros clientes",
           "none": "sin datos comparables"
         }
+      },
+      "batch": {
+        "open": "Varios clientes",
+        "title": "Cotización para varios clientes",
+        "description": "Mismo producto y costos para cada cliente de abajo; ajuste lo que cambia por cliente.",
+        "name": "Nombre de la cotización",
+        "addExisting": "Agregar un cliente",
+        "addNew": "O escriba uno nuevo",
+        "addNewPlaceholder": "Nombre del cliente nuevo",
+        "add": "Agregar",
+        "remove": "Quitar",
+        "commission": "Comisión",
+        "listPrice": "Precio de lista",
+        "finalPrice": "Precio por {{packQty}}",
+        "margin": "Margen",
+        "more": "Más",
+        "moreHint": "Costos solo para {{customer}}. Deje en blanco para mantener el valor compartido.",
+        "hint": "Las celdas en blanco usan la cotización compartida. El transporte parte de la referencia de transporte de cada cliente cuando existe.",
+        "empty": "Agregue al menos un cliente.",
+        "count": "{{count}} cliente(s)",
+        "saveAll": "Guardar {{count}} cotización(es)",
+        "saved": "{{count}} cotización(es) guardadas con el nombre {{name}} seguido del cliente",
+        "failed": "No se pudo guardar para: {{customers}}"
       }
     },
     "pages": {
@@ -1400,7 +1466,7 @@
       },
       "costReference": {
         "title": "Referencia de costo",
-        "description": "Costo por unidad de empaque, etiqueta, caja y mano de obra para cada variedad y bodega. Deja en blanco lo que no aplique.",
+        "description": "Costo por unidad de empaque, etiqueta, caja y mano de obra para cada variedad y bodega. Deja en blanco lo que no aplique. Costos extra es un solo monto por unidad para los extras impredecibles de un producto (una etiqueta adicional, un recargo...). Aplica en todos los modos de abastecimiento.",
         "conflict": "Ya existe una referencia de costo para esta combinación. Revisa la tabla de abajo.",
         "failed": "No se pudo agregar la referencia de costo.",
         "success": "Referencia de costo agregada para {{variety}} en {{warehouse}}.",
@@ -1409,7 +1475,7 @@
           "title": "Registro de referencias de costo",
           "description": "Referencias de costo vigentes por variedad y bodega.",
           "empty": "Aún no hay referencias de costo.",
-          "deleteWarning": "Esto cambia los costos de empaque, etiqueta, caja y mano de obra para todos los clientes que compran {{variety}} desde {{warehouse}}, no solo una fila.",
+          "deleteWarning": "Esto cambia los costos de empaque, etiqueta, caja, mano de obra y costos extra para todos los clientes que compran {{variety}} desde {{warehouse}}, no solo una fila.",
           "searchPlaceholder": "Buscar variedad o bodega…"
         }
       },
@@ -1540,59 +1606,22 @@
         "baseCost": "Costo base",
         "labour": "Mano de obra",
         "commission": "Comisión"
-      }
-    }
-  },
-  "logistics": {
-    "title": "Logística",
-    "subtitle": "Asigne los transportistas de cada despacho y confirme cuál lo lleva.",
-    "table": {
-      "loadError": "No pudimos cargar los despachos. Seguiremos intentando.",
-      "empty": "Todavía no hay despachos para mostrar.",
-      "noMatch": "Ningún despacho coincide con los filtros actuales."
-    },
-    "filters": {
-      "toggle": "Filtros",
-      "searchInvoice": "Buscar factura",
-      "allWhs": "Todas las bodegas",
-      "allDcs": "Todos los DC",
-      "selectDateRange": "Seleccione un rango",
-      "applyDateRange": "Aplicar",
-      "clearDateRange": "Limpiar rango de fechas"
-    },
-    "columns": {
-      "invoice": "Factura",
-      "whs": "Bodega",
-      "dc": "DC",
-      "shipDate": "Fecha de despacho",
-      "deliveryDate": "Fecha de entrega",
-      "pallets": "Pallets",
-      "carrierA": "Transportista A",
-      "carrierB": "Transportista B",
-      "po": "PO"
-    },
-    "alarm": {
-      "title": "Por favor seleccione un transportista"
-    },
-    "edit": {
-      "edit": "Editar",
-      "save": "Guardar",
-      "cancel": "Cancelar",
-      "confirmThis": "Confirmar este transportista",
-      "carrierPlaceholder": "Transportista",
-      "tooLong": "El nombre del transportista debe tener menos de 100 caracteres",
-      "palletsInvalid": "Pallets debe ser un número de 0 o más",
-      "confirmNeedsCarrier": "Escriba el nombre del transportista antes de confirmarlo",
-      "saved": "{{invoice}} guardado",
-      "failed": "No pudimos guardar el despacho"
-    },
-    "details": {
-      "title": "Factura {{invoice}}",
-      "empty": "No se encontraron líneas de esta factura en IH Sales.",
-      "loadError": "No pudimos cargar las líneas de la factura.",
-      "columns": {
-        "description": "Descripción",
-        "quantity": "Cantidad"
+      },
+      "selectAll": "Seleccionar todo",
+      "downloadFull": "Descargar Excel completo",
+      "downloadClient": "Descargar hoja para el cliente",
+      "downloadHint": "Marque las cotizaciones a incluir y elija una descarga.",
+      "downloadFailed": "No pudimos generar el archivo",
+      "preparing": "Preparando…",
+      "selectColumn": "Seleccionar",
+      "clientExport": {
+        "title": "Hoja para el cliente",
+        "description": "Una propuesta de precios con la imagen de la empresa y las {{count}} cotizaciones marcadas. Indique para quién es.",
+        "client": "Cliente",
+        "clientPlaceholder": "Empresa o nombre del cliente",
+        "contact": "Persona de contacto (opcional)",
+        "contactPlaceholder": "Quién la recibirá",
+        "confirm": "Descargar hoja"
       }
     }
   }

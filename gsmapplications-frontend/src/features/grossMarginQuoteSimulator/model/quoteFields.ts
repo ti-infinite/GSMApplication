@@ -33,6 +33,8 @@ const DEFAULT_LABELS: Record<string, string> = {
   commissionPercent: "Commission %",
   transport: "Transport",
   transportWholePack: "Transport (whole pack)",
+  extraCosts: "Extra costs",
+  extraCostsWholePack: "Extra costs (whole pack)",
   purchaseCost: "Purchase cost",
   purchaseCostPerLb: "Purchase cost ($/lb)",
   box: "Box",
@@ -108,6 +110,24 @@ export function getCostFields(mode: SalesRowMode, L: QuoteFieldTranslate = engli
     format: "currency",
     step: "0.001",
   };
+  // Extra costs (2026-11-02): one per-unit amount for the unpredictable
+  // extras (extra label, surcharge...). Sits right after Transport in
+  // every mode, like db_ai.CostReference.ExtraCosts does in the pipeline.
+  const extraCosts: QuoteFieldMeta = {
+    key: "extraCostsOverride",
+    label: L("extraCosts"), labelKey: "extraCosts",
+    group: "cost",
+    format: "currency",
+    step: "0.001",
+    supportsWholePackEntry: true,
+  };
+  const wholePackExtraCosts: QuoteFieldMeta = {
+    key: "extraCostsOverride",
+    label: L("extraCostsWholePack"), labelKey: "extraCostsWholePack",
+    group: "cost",
+    format: "currency",
+    step: "0.001",
+  };
 
   if (mode === "A") {
     return [
@@ -116,6 +136,7 @@ export function getCostFields(mode: SalesRowMode, L: QuoteFieldTranslate = engli
       { key: "labourRepackOverride", label: L("labourRepack"), labelKey: "labourRepack", group: "cost", format: "currency", step: "0.001" },
       { key: "labourAssemblerOverride", label: L("labourAssembler"), labelKey: "labourAssembler", group: "cost", format: "currency", step: "0.001" },
       wholePackEligibleTransport,
+      extraCosts,
     ];
   }
   if (mode === "B") {
@@ -130,6 +151,7 @@ export function getCostFields(mode: SalesRowMode, L: QuoteFieldTranslate = engli
       { key: "boxOverride", label: L("box"), labelKey: "box", group: "cost", format: "currency", step: "0.001", supportsWholePackEntry: true },
       { key: "labourAssemblerOverride", label: L("labourAssembler"), labelKey: "labourAssembler", group: "cost", format: "currency", step: "0.001" },
       wholePackEligibleTransport,
+      extraCosts,
     ];
   }
   if (mode === "C") {
@@ -137,6 +159,7 @@ export function getCostFields(mode: SalesRowMode, L: QuoteFieldTranslate = engli
       { key: "mixedHerbFinalPurPriceOverride", label: L("mixedHerbFinalPurPrice"), labelKey: "mixedHerbFinalPurPrice", group: "cost", format: "currency", step: "0.001" },
       { key: "boxOverride", label: L("boxWholePack"), labelKey: "boxWholePack", group: "cost", format: "currency", step: "0.001" },
       wholePackTransport,
+      wholePackExtraCosts,
     ];
   }
   return [];

@@ -21,7 +21,8 @@ export interface QuoteScenarioExportEntry {
 }
 
 // Column order matches gross-margin-relay/bulk_export.py's QUOTE_COLUMNS
-// exactly -- change one, change the other.
+// exactly -- change one, change the other. 35 columns since 2026-11-02:
+// EXTRA COSTS sits right after TRANSP (also db_ai.SavedQuotes.ExtraCosts).
 export function buildQuoteRowValues(entry: QuoteScenarioExportEntry): (string | number | null)[] {
   const { row, inputs, overrides, avgUnitPriceBase, mode, packQuantity, commissionType } = entry;
 
@@ -65,6 +66,7 @@ export function buildQuoteRowValues(entry: QuoteScenarioExportEntry): (string | 
     null, // AD PACK
     row.Box,
     row.Transport,
+    row.ExtraCosts ?? null,
     rebate,
     commissionAmount,
     commissionPercent,

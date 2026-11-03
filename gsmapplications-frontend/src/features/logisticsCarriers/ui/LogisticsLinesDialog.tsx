@@ -20,6 +20,8 @@ export function LogisticsLinesDialog({ row, onClose }: { row: LogisticsRow | nul
     return d ? d.toLocaleDateString(i18n.language, { dateStyle: "medium" }) : "—";
   };
   const confirmed = confirmedSlot(row);
+  const deliveryDates = lines.map((l) => l.DeliveryDate).filter((d): d is string => d !== null).sort();
+  const deliveryDate = deliveryDates[0] ?? null;
 
   const columns: TableColumn<LogisticsLine>[] = [
     { key: "Row", header: "#", align: "right", hideMobile: true, render: (l) => <span className="text-muted-foreground">{l.Row}</span> },
@@ -53,7 +55,7 @@ export function LogisticsLinesDialog({ row, onClose }: { row: LogisticsRow | nul
   const facts: { label: string; value: React.ReactNode }[] = [
     { label: t("logistics.columns.dc"), value: row.Division ?? "—" },
     { label: t("logistics.columns.whs"), value: row.WHS ?? "—" },
-    { label: t("logistics.columns.deliveryDate"), value: fmtDate(row.DeliveryDate) },
+    { label: t("logistics.columns.deliveryDate"), value: fmtDate(deliveryDate) },
     { label: t("logistics.columns.po"), value: row.PO ?? "—" },
     { label: t("logistics.columns.carrierA"), value: carrier("A") },
     { label: t("logistics.columns.carrierB"), value: carrier("B") },

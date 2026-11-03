@@ -7,7 +7,7 @@ import { buildQuoteRowValues, type QuoteScenarioExportEntry } from "./quoteScena
 
 const SHEET_COLUMNS = [
   "Whs", "Oz", "Pk", "Herb", "Class", "Type", "Packaging", "LaborType", "BoxType", "Client",
-  "LbCost", "Yield", "BaseCost", "Waste", "Labor", "ClamBag", "Sticker", "AdPack", "Box", "Transp",
+  "LbCost", "Yield", "BaseCost", "Waste", "Labor", "ClamBag", "Sticker", "AdPack", "Box", "Transp", "ExtraCosts",
   "Rebate", "Comm", "CommPct", "SuggestedMargin", "SuggestedPrice", "FinalPrice", "DynamicMargin",
   "ClientsPrice", "ClientsMargin", "FobPrice", "ProductPctSales", "LaborPctSales", "PackagingPctSales", "FreightPctSales",
 ] as const;
@@ -57,6 +57,7 @@ export function buildSavedQuoteBody(entry: QuoteScenarioExportEntry, baseline: S
     AdPack: num(sheet.AdPack),
     Box: num(sheet.Box),
     Transp: num(sheet.Transp),
+    ExtraCosts: num(sheet.ExtraCosts),
     Rebate: num(sheet.Rebate),
     Comm: num(sheet.Comm),
     CommPct: num(sheet.CommPct),
@@ -110,6 +111,7 @@ function snapshotFromSavedQuote(q: SavedQuoteRow): SalesRow {
     LabourRepack: null,
     LabourAssembler: null,
     Transport: q.Transp,
+    ExtraCosts: q.ExtraCosts ?? null,
     IsMixedHerbWholePack: q.Mode === "C" ? 1 : 0,
     FinalUnitCost: finalUnitCost,
     CostRatio: avgUnitPrice !== null && finalUnitCost !== null && avgUnitPrice !== 0 ? finalUnitCost / avgUnitPrice : null,

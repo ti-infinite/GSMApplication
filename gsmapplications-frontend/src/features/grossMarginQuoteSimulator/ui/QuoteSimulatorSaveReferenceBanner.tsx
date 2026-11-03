@@ -7,6 +7,7 @@ import { Button } from "@/shared/ui/button";
 import { getCurrentFieldValue, type QuoteOverrides, type RecomputeInputs, type SalesRowMode } from "../model/recompute";
 import { grossMarginFetch as relayFetch } from "@/shared/lib/ihAgent";
 import { ESTIMATE_KEY_BY_OVERRIDE, type FieldEstimate, type QuoteCostEstimates } from "../model/quoteCostEstimates";
+import type { CostReferenceRow } from "@/entities/grossMarginCostReference";
 
 
 const COST_REFERENCE_FIELD_MAP: Record<string, string> = {
@@ -16,7 +17,14 @@ const COST_REFERENCE_FIELD_MAP: Record<string, string> = {
   labourProdOverride: "labourProd",
   labourRepackOverride: "labourRepack",
   labourAssemblerOverride: "labourAssembler",
+  extraCostsOverride: "extraCosts",
 };
+
+/** True when the person typed a value into a field that lives on the Cost
+ *  Reference row (so the banner can offer to update a row already on file). */
+export function hasCostReferenceEdits(overrides: QuoteOverrides): boolean {
+  return Object.keys(COST_REFERENCE_FIELD_MAP).some((k) => (overrides as Record<string, number | undefined>)[k] !== undefined);
+}
 
 
 export function QuoteSimulatorSaveReferenceBanner({
@@ -28,6 +36,7 @@ export function QuoteSimulatorSaveReferenceBanner({
   avgUnitPriceBase,
   calculatedSku,
   estimates,
+  costReference = null,
   onSaved,
 }: {
   mode: SalesRowMode;
@@ -42,6 +51,9 @@ export function QuoteSimulatorSaveReferenceBanner({
   // estimated value the user never touched is NOT saved as a real reference
   // unless they opt in below.
   estimates?: QuoteCostEstimates | null;
+  // The row already on file for this variety + warehouse, when there is one:
+  // saving then completes it (PUT) instead of creating a second one.
+  costReference?: CostReferenceRow | null;
   onSaved: () => void;
 }) {
   const { t } = useTranslation();
@@ -88,15 +100,33 @@ export function QuoteSimulatorSaveReferenceBanner({
    
       const tasks: { label: string; promise: Promise<Response> }[] = [];
       if (Object.keys(costBody).length > 0) {
-        const costReferenceBody: Record<string, unknown> = { variety, warehouse, ...costBody };
-        if (calculatedSku) costReferenceBody.calculatedSku = calculatedSku;
-        tasks.push({
-          label: t("grossMargin.simulator.saveReference.costReference"),
-          promise: relayFetch("/cost-reference", {
-            method: "POST",
-            body: JSON.stringify(costReferenceBody),
-          }),
-        });
+        if (costReference) {
+          // Full overwrite, so start from what is on file and lay the new values on top.
+          const merged = {
+            packing: costReference.Packing,
+            sticker: costReference.Sticker,
+            box: costReference.Box,
+            labourProd: costReference.LabourProd,
+            labourRepack: costReference.LabourRepack,
+            labourAssembler: costReference.LabourAssembler,
+            extraCosts: costReference.ExtraCosts,
+            ...costBody,
+          };
+          tasks.push({
+            label: t("grossMargin.simulator.saveReference.costReference"),
+            promise: relayFetch(`/cost-reference/${costReference.Id}`, { method: "PUT", body: JSON.stringify(merged) }),
+          });
+        } else {
+          const costReferenceBody: Record<string, unknown> = { variety, warehouse, ...costBody };
+          if (calculatedSku) costReferenceBody.calculatedSku = calculatedSku;
+          tasks.push({
+            label: t("grossMargin.simulator.saveReference.costReference"),
+            promise: relayFetch("/cost-reference", {
+              method: "POST",
+              body: JSON.stringify(costReferenceBody),
+            }),
+          });
+        }
       }
       if (yieldValue !== null) {
         tasks.push({
@@ -171,7 +201,9 @@ export function QuoteSimulatorSaveReferenceBanner({
           </div>
           <div>
             <CardTitle>{t("grossMargin.simulator.saveReference.title")}</CardTitle>
-            <CardDescription>{t("grossMargin.simulator.saveReference.description", { variety, warehouse })}</CardDescription>
+            <CardDescription>
+              {t(costReference ? "grossMargin.simulator.saveReference.updateDescription" : "grossMargin.simulator.saveReference.description", { variety, warehouse })}
+            </CardDescription>
           </div>
         </div>
       </CardHeader>

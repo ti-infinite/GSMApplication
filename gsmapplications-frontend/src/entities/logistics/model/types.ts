@@ -1,5 +1,4 @@
-// Mirrors db_srv.IHLogistics as served by ih-logistics: one row per outbound
-// invoice, plus PO / Lines / Qty pulled from db_srv.IHSales for the same invoice.
+// Mirrors db_srv.IHLogistics as served by ih-logistics: one row per outbound invoice.
 export interface LogisticsRow {
   ID: number;
   WHS: string | null;
@@ -11,35 +10,24 @@ export interface LogisticsRow {
   CarrierB: string | null;
   ConfirmedCarrier: string | null; // the chosen carrier's name (equals CarrierA or CarrierB)
   PO: string | null;
-  Lines: number | null;
-  Qty: number | null;
-  DeliveryDate: string | null; // YYYY-MM-DD, earliest delivery date of the invoice lines
 }
 
 /** One IHSales line of an invoice: what is being shipped and how much. */
 export interface LogisticsLine {
   Row: number;
-  PO: string | null;
-  Code: string | null;
   Description: string | null;
   Qty: number | null;
-  Price: number | null;
-  Amount: number | null;
-  DateShip: string | null;
   DeliveryDate: string | null;
-  Name: string | null;
-  Location: string | null;
 }
 
 export type CarrierSlot = "A" | "B";
 
-/** One save from the inline row editor. Carriers are always written; Pallets
- *  and Confirmed are only applied by the service when present. */
+/** One save from the inline row editor: replaces all four editable columns. */
 export interface LogisticsUpdateBody {
   CarrierA: string | null;
   CarrierB: string | null;
-  Pallets?: number | null;
-  Confirmed?: CarrierSlot | null;
+  Pallets: number | null;
+  Confirmed: CarrierSlot | null;
 }
 
 /** One option of the WHS filter: a GSM location. */

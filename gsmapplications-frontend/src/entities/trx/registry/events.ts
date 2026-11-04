@@ -21,8 +21,7 @@ const submissionFields = (front: FrontConfig): TrxField[] =>
  * en vez de quedar implícito). Cada uno devuelve `null` (pasa) o el motivo YA TRADUCIDO.
  */
 export const DEFAULT_EVENTS: Record<string, (ctx: EventCtx) => string | null> = {
-  // Al menos 1 fila para poder confirmar (carrito si hay, si no la tabla principal). Mismo
-  // nombre que ya usaba `registry/guards.ts`'s `hasItems` para este concepto — un solo vocabulario.
+  // Al menos 1 fila para poder confirmar (carrito si hay, si no la tabla principal).
   HAS_ITEMS: ({ front, rows, collection, t }) => {
     const source = submissionRows(front, rows, collection)
     if (source.length > 0) return null

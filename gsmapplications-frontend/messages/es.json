@@ -503,7 +503,8 @@
     "emailSendFailed": "No fue posible enviar el correo al proveedor.",
     "pickFilters": "Completa los filtros para ver la información",
     "noOptionsForFilter": "No hay {{filter}} disponibles para {{location}}.",
-    "loadError": "No se pudo cargar la información"
+    "loadError": "No se pudo cargar la información",
+    "staleData": "No se pudo actualizar la información. Se muestra la última guardada."
   },
   "logistics": {
     "title": "Logística",

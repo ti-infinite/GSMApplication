@@ -1,16 +1,9 @@
-// Runtime declarativo: el JsonConfig es el objeto UNIFICADO (front + rea + workflow)
-// que el motor renderiza. Mapea 1:1 con las columnas JsonFront/JsonREA/JsonWorkflow
-// de la tabla TrxDefinition. La lógica no declarable vive en el registry (por id).
 import type { ReactNode, Key } from 'react'
 import type { TableColumn } from '@/shared/ui/data-table'
 import type { Resource, ReaConfig } from './types'
 import type { Fetcher } from './engine'
 import type { ValueSourceCtx } from './valueSources'
 
-/** Descriptor GENÉRICO de un campo de datos — lo consume CUALQUIER componente
- *  (tabla → columna · card → label-valor · lista → item · KPI → valor). */
-/** Descriptor de un campo — formato del backend (solo `descr`→`label`). El motor
- *  lo interpreta genérico; cada atributo es configurable desde el JSON. */
 export interface TrxField {
   label?:        string      // etiqueta (header de columna). Omitible (ej. columna de botón)
   selectorValue?: string     // el valor/path a extraer. Omitible si es solo `renderer` (botón)
@@ -19,7 +12,6 @@ export interface TrxField {
   sourceType?:   string      // dónde está (INDEXED_DB · API · MEMORY)
   renderer?:     string      // cómo se dibuja el valor → registry.renderers
   sub?:          string      // path acompañante (sub-texto de 2 líneas · clave de tono/estado)
-  // ── shorthand del template (el transformer los traduce a renderer/selectorValue) ──
   value?:        string             // alias corto de selectorValue
   unit?:         boolean | string   // → renderer withUnit (true = campo estándar 'measurementUnit')
   input?:        boolean            // → renderer input (editable)
@@ -27,21 +19,11 @@ export interface TrxField {
   button?:       string             // botón de celda → renderer (addButton · removeButton · …); key declarativa
   values?:       { value: string; label: string }[]   // opciones INLINE (select/checkbox estáticos, sin source)
   unitType?:     'unit' | 'unitSelect'  // 'unit' = unidad fija · 'unitSelect' = input + dropdown de unidad (guarda en base)
-  // NO se declaran acá directo — el template las calcula solas comparando `selectorValue` contra
-  // `FrontConfig.validations.sign`/`.negate` (nivel transacción, no por columna: es dato de
-  // negocio de la TRX entera, no de dónde se pinta — aplica igual en `products` o en el carrito
-  // heredado). Cualquiera de los dos implica que el campo resta stock: deja tipear negativo
-  // (`sign`) o guarda negado lo que se tipeó positivo (`negate`) — el input se marca en rojo solo
-  // (contra `remaining` de la misma fila). Para que ADEMÁS bloquee confirmar hace falta agregar
-  // `STOCK_LIMIT` a `FrontConfig.event` (declaración y activación separadas a propósito).
   sign?:         boolean            // input que permite +/- (ajustes); si no, solo positivos
   negate?:       boolean            // qty: el usuario teclea positivo, se GUARDA negado (ej. gasto: 90 → -90)
   money?:        boolean            // → input de moneda ($ del tenant); guarda número plano, formatea solo display
-  sendToTrx?:    boolean            // products: default true (false = SOLO-UI, ej. "rejected") · summary: default false (true = se manda). Va en trxProductAttributes. Mismo patrón que `addSupply` (opt-out explícito, no hace falta tocar actions.ts por cada columna nueva).
-  // NO se declara acá directo — igual que `sign`/`negate`, el template lo calcula comparando
-  // `selectorValue` contra `FrontConfig.validations.required` (nivel transacción). Ninguna fila
-  // (products o carrito) puede tener este campo vacío para poder confirmar → lo revisa el evento
-  // REQUIRED_FIELDS, solo si el módulo lo lista en `event`.
+  sendToTrx?:    boolean            // products: default true (false = SOLO-UI, ej. "rejected") · summary: default false (true = se manda). Va en trxProductAttributes. Mismo patrón que `addSupply` (opt-out explícito, no hace falta tocar actions.ts por cada columna nueva)
+  hidden?:       boolean            // no se dibuja, pero sigue en las columns → se manda igual que si se viera (ver sendToTrx)
   required?:     boolean
 }
 
@@ -60,13 +42,9 @@ export interface FilterConfig {
   input?:         'text' | 'date'   // 'text' = input libre · 'date' = date picker (no combo)
   placeholder?:   string   // placeholder del input/combo
   required?:      boolean  // sin valor, el motor bloquea las transiciones (evento REQUIRED_FILTERS, ver canFire/blockReason)
-  // Agrupa en la FiltersBar — default 'main' (inline, sin declarar). Otro valor (ej. 'extra')
-  // arma un botón+popover aparte, para dato secundario que no interactúa con la trx.
   section?:       string
 }
 
-/** Buscador de catálogo del toolbar. Con `cascade` se vuelve un PICKER: botón +
- *  popover con filtros categoría→subcategoría + lista filtrada (como Requirements). */
 export interface SearchConfig {
   source:       string
   optionValue?: string
@@ -88,9 +66,7 @@ export interface CollectionSection {
   trigger?: string                // label del botón que abre el drawer (si display=drawer)
 }
 
-/** Multi-select del toolbar → ctx.selections[key] (comparativa de opciones, ej. proveedores). */
 export interface SelectConfig { key: string; label: string; source: string; optionValue: string; optionLabel: string }
-/** Columnas DERIVADAS de una selección múltiple: 1 col por opción elegida (comparativa). */
 export interface DynamicFieldsConfig { from: string; label: string; selector: string; pick?: string }
 
 /** Slot de la tabla principal (template). El transformer lo vuelve un component `table`. */
@@ -107,19 +83,6 @@ export interface MainSlot {
   fields:       TrxField[]
 }
 
-/** Un attribute de la TRANSACCIÓN (`FrontConfig.trxAttributes`) — no filtra ninguna tabla,
- *  es un dato de la transacción misma (documento origen, proveedor, forma de pago…) que
- *  además necesita un control para elegirse. El motor lo renderiza como un filtro más (mismo
- *  FiltersBar, mismo context, mismo gate de resources) Y lo manda 1:1 a `payload.trxAttributes` —
- *  antes la key se declaraba dos veces (una en `filter`, otra en un `trxAttributes: string[]`
- *  aparte); ahora es una sola declaración. Sin `type`: la forma se infiere de qué campos trae —
- *  `resource` → combo de un resource (JsonREA); `source` → combo de un fetcher registrado;
- *  `values` → combo quemado; `input` solo → caja libre/fecha; `compute` → SIN control visible, el
- *  valor lo calcula ese `registry.computeds` (ej. `EmailSupplier` en OCM: lee `$options.idSupplier`,
- *  la opción CRUDA del proveedor elegido — mismo mecanismo que `FrontConfig.derive`/`skuPrefix`,
- *  declarado UNA sola vez acá en vez de repetir la key en un `derive` aparte); nada de eso (solo
- *  `key`) → sin control Y sin cálculo, el valor lo pone otra cosa (ej. heredado por fila de un
- *  documento origen) — solo viaja al payload. */
 export interface AttributeSpec {
   key:          string
   label?:       string
@@ -127,11 +90,9 @@ export interface AttributeSpec {
   source?:      string
   values?:      { value: string; label: string }[]
   input?:       'text' | 'date'
-  compute?:     string   // registry.computeds a llamar (sin control visible) → equivale a un `derive` inline
+  compute?:     string  
   optionValue?: string
   optionLabel?: string
-  // NO se declara acá directo — el template lo calcula comparando `key` contra
-  // `FrontConfig.validations.required` (nivel transacción, un solo lugar para todo lo `required`).
   required?:    boolean
   placeholder?: string
   section?:     string   // agrupa en la FiltersBar — ver FilterConfig.section (mismo nombre/default)
@@ -150,23 +111,15 @@ export interface ProductsSlot {
   dynamicFields?: DynamicFieldsConfig  // comparativa: 1 columna por opción elegida (ej. precio por proveedor)
 }
 
-/** Slot resumen. La columna `qty` NO se redeclara — el template la toma de `products`
- *  (mismo label/sign/negate/max: es la MISMA cantidad, solo se edita una vez) y le fuerza
- *  `unitType:"unit"` (el carrito ya no re-elige unidad, así que nunca `unitSelect`) salvo
- *  que `columns` ya traiga otra columna con unidad propia (ej. AJT: `inventory`/newTotal) —
- *  ahí no la repite. `columns` = SOLO lo extra que products no tiene (removeButton es fijo,
- *  tampoco se declara). La mayoría de módulos no necesita nada → `summary: {}` alcanza. */
 export interface SummarySlot {
   title?:   string
-  columns?: TrxField[]        // columnas EXTRA antes de qty+removeButton (fijos), ej. AJT: newTotal
+  columns?: TrxField[]
   target?:  string
   rowKey?:  string
   display?: 'inline' | 'drawer'
   trigger?: string
 }
 
-/** Agrupa lo VISUAL de la TRX (de filtros a carrito), separado del contrato
- *  (trxAttributes/event). El template lo aplana; también se acepta plano (backward-compat). */
 export interface ItemsSlots {
   products?: ProductsSlot
   summary?:    SummarySlot | false   // false = sin carrito: `products` ES la transacción completa (ej. RPI/VFI)
@@ -179,36 +132,14 @@ export interface FrontConfig {
   rowKey?:     string
   derive?:         { key: string; compute: string }[]   // context DERIVADO (registry.computeds con $options)
   initCollection?: string              // hidrata la collection con las filas de un resource (ej. "main")
-  headerBadge?:    string              // computed (registry) → badge del header (ej. finca del usuario)
-  // Datos de la TRANSACCIÓN (no filtran tabla) — documento origen, proveedor, forma de pago…
-  // Cada uno con control propio (ver `AttributeSpec`) → el template los suma a `filters` (se
-  // renderizan y funcionan igual que cualquier filtro) Y van 1:1 a payload.trxAttributes.
   trxAttributes?:  AttributeSpec[]
-  // Detalle de A QUÉ CAMPO aplica cada validación de nivel-transacción (ver `event`) — declaración
-  // y activación separadas a propósito: `event` es la lista corta y legible de qué está prendido;
-  // `validations` es donde se busca el detalle. El template aplica esto sobre la columna (misma
-  // `qty` en products Y en el carrito heredado, sin tener que declararlo en la columna misma).
   validations?: {
     sign?:     string     // qué campo (selectorValue) permite +/- — igual que el `sign` viejo de TrxField, ahora acá
     negate?:   string     // qué campo se guarda negado (tipea positivo, se guarda negativo) — igual que el `negate` viejo
     required?: string[]   // keys que no pueden quedar vacías EN TODA fila — de `trxAttributes`/filtros (revisa REQUIRED_ATTRIBUTES) o de columnas de products/summary por `selectorValue` (revisa REQUIRED_FIELDS, por fila)
-    // `{ condición: campo }` — `campo` (selectorValue) es obligatorio SOLO en las filas donde
-    // `condición` (selectorValue de OTRO campo de esa misma fila) da verdadero. Ej. RPI:
-    // `{ "rejected": "comment" }` — el comentario de rechazo solo es obligatorio en las filas
-    // marcadas `rejected`, no en todas (por eso no entra en `required`, que es incondicional).
-    // Lo revisa REQUIRED_FIELDS también.
     when?: Record<string, string>
-    // NO bloquea confirmar (a diferencia de `required`/`when`) — decide qué filas se MANDAN.
-    // Siempre sobre `qty`: en 0, `createTrx` excluye esa fila entera de `trxProducts`. Ej. RPI:
-    // un insumo que no llegó no queda como línea de producto, así Verificación/Factura no lo ven.
     voidZeroQty?: boolean
   }
-  // Eventos FRONT (registry.events) que gatean el botón de confirmar — ejecutores con nombre,
-  // igual patrón que el back (IEventExecutor). `HAS_ITEMS` (≥1 fila) es el ÚNICO que corre
-  // siempre, sin declararlo — toda TRX necesita al menos una línea. El resto (`STOCK_LIMIT`,
-  // `REQUIRED_FIELDS`, `REQUIRED_ATTRIBUTES`, `PARAMS_READY`, o uno propio del módulo vía
-  // `buildRegistry({ events })`) SOLO corre si se lista acá — a propósito, para que el JSON
-  // diga a simple vista qué se valida en vez de quedar implícito.
   event?:          string[]
   // ── Forma MÍNIMA (el template `expandFront` la expande a location/filters/main/collection) ──
   items?:      ItemsSlots           // agrupa lo visual (products/cart); también se acepta plano
@@ -218,14 +149,6 @@ export interface FrontConfig {
   main?:       MainSlot            // slot de la tabla principal
   filters?:    FilterConfig[]      // location + trxAttributes con control + categoría
   collection?: CollectionSection   // slot carrito (inline/drawer)
-}
-
-/** Sección de tabla (para componentes compuestos como `picker`). */
-export interface TableSection {
-  title?:   string
-  fields:   TrxField[]
-  rowKey?:  string
-  target?:  string          // balde del payload (trxProducts…)
 }
 
 /** Un componente de UI (lista PLANA). `type` → registry.components[type]. El
@@ -254,11 +177,6 @@ export interface ComponentNode {
   when?:       string         // computed que filtra qué filas entran a `reviewList` (truthy = incluir)
   emptyText?:  string         // texto cuando `reviewList` está vacío
   trigger?:    string         // label del botón que abre el `drawer`
-  // Columnas DERIVADAS de una selección múltiple (comparativa): 1 columna por opción
-  // elegida. `selector` = computed llamado con { ...row, $opt: opción }. `label` es
-  // una plantilla con tokens de la opción, ej. 'Precio {short}'.
-  // `pick` = campo de la fila donde se guarda la opción ELEGIDA (botón +): habilita
-  // escoger 1 columna por fila (comparar y elegir precio/proveedor).
   dynamicFields?: { from: string; label: string; selector: string; pick?: string }
   cols?:     number           // para `grid` (grid-cols-N, default 10)
   span?:     number           // ancho del hijo en el grid (col-span)
@@ -337,10 +255,6 @@ export interface GuardCtx {
   state:      string
 }
 
-/** Contexto para un evento FRONT (`registry.events`, declarado en `FrontConfig.event`).
- *  Devuelve `null` (pasa) o el motivo YA TRADUCIDO (bloquea confirmar y se muestra junto
- *  al botón) — mismo contrato para el paquete default del motor y para los que registre
- *  cada módulo. `front` trae `main`/`collection` ya expandidos (columnas con `max`/`required`). */
 export interface EventCtx {
   front:       FrontConfig
   rows:        Record<string, unknown>[]

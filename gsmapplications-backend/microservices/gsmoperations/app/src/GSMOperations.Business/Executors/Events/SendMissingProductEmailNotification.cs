@@ -1,10 +1,11 @@
 using System.Globalization;
 using System.Net;
+using System.Reflection;
 using System.Text;
 using GSMOperations.Abstractions;
 using GSMOperations.Business.Executors.Events;
 using GSMOperations.DataAccess.Entities;
-using GSMOperations.Entities.Common;
+using GSMOperations.Entities.Models.Transactions;
 
 namespace GSMOperations.Business.Executors;
 
@@ -13,64 +14,81 @@ public sealed class SendMissingProductEmailNotification : SendNotification
     public const string EventExecutorName = "EMAIL_NOTIFICATION_MISSINGPRODUCT";
     public override string EventName => EventExecutorName;
     protected override string NotificationType => "EMAIL";
+    private const string attributePrefix = "TrxProductAttributes.";
     public SendMissingProductEmailNotification(IAgentNotificacions agentNotificacions) : base(agentNotificacions) { }
 
-    protected override string BuildBody(string bodyTemplate, TrxHeader trxRequest)
+    protected override string BuildBody(string bodyTemplate, JsonReaEvents eventDefinition, TrxHeader trxRequest)
     {
-        var buildHtmlResponse = HtmlTableBuilder(trxRequest);
 
-        return ResolveTemplate(bodyTemplate, trxRequest)
-            .Replace("{ProductDifferences}", buildHtmlResponse);
+        var comparissonAttributes = ResolveParameter(eventDefinition, "comparissonAttributes", trxRequest);
+
+        var rows  = BuildProductDifferenceRows(trxRequest, comparissonAttributes);
+
+        return ResolveTemplate(bodyTemplate, trxRequest).Replace("{ProductDifferences}", rows );
     }
 
-    private static string HtmlTableBuilder(TrxHeader trxRequest)
+    private static string BuildProductDifferenceRows(TrxHeader trxRequest, IReadOnlyList<string> comparissonAttributes)
     {
+
+        var originalValuePath = comparissonAttributes[0];
+        var receivedValuePath = comparissonAttributes[1];
         var rows = new StringBuilder();
+
         foreach (var product in trxRequest.TrxProducts)
         {
-            var originalQty = product.TrxProductAttributes
-                .FirstOrDefault(x =>
-                    x.AttributeKey.Equals("OriginalQty", StringComparison.OrdinalIgnoreCase))?.AttributeValue;
-            var receivedQty = product.Qty;
+            var originalValue = ResolveValue(product, originalValuePath);
+            var receivedValue = ResolveValue(product, receivedValuePath);
 
-            if (!decimal.TryParse(originalQty, CultureInfo.InvariantCulture, out var finalOriginalQty))
+            if (!decimal.TryParse(originalValue, CultureInfo.InvariantCulture, out var originalQty))
             {
                 continue;
             }
             
-            if (finalOriginalQty == receivedQty)
+            if (!decimal.TryParse(receivedValue, CultureInfo.InvariantCulture, out var receivedQty))
             {
                 continue;
             }
 
-            var herbName = WebUtility.HtmlEncode(product.VarietyName);
+            if (originalQty == receivedQty)
+            {
+                continue;
+            }
+
+            var varietyName = WebUtility.HtmlEncode(product.VarietyName);
             rows.AppendLine($"""
                 <TR>
-                    <TD>{herbName}</TD>
-                    <TD>{finalOriginalQty:N2}</TD>
-                    <TD>{receivedQty:N2}</TD>
+                    <TD>{varietyName}</TD>
+                    <TD>{originalQty.ToString("N2", CultureInfo.InvariantCulture)}</TD>
+                    <TD>{receivedQty.ToString("N2", CultureInfo.InvariantCulture)}</TD>
                 </TR>
             """);
         }
 
-        if (rows.Length == 0)
+        return rows.ToString();
+    }
+
+    private static string? ResolveValue(TrxProduct product, string path)
+    {
+        if (path.StartsWith(attributePrefix, StringComparison.OrdinalIgnoreCase))
         {
-            return Messages.Events.EmailNotFoundDifferences;
+            var attributeKey = path[attributePrefix.Length..];
+
+            return product.TrxProductAttributes
+                .FirstOrDefault(x =>
+                    x.AttributeKey.Equals(attributeKey, StringComparison.OrdinalIgnoreCase))
+                ?.AttributeValue;
         }
 
-        return $"""
-            <TABLE BORDER="1" CELLPADING="3" CELLSPACING="0">
-                <THEAD>
-                    <TR>
-                        <TH>Hierba</TH>
-                        <TH>Qty Esperada</TH>
-                        <TH>Qty Recibida</TH>
-                    </TR>
-                </THEAD>
-                <TBODY>
-                    {rows}
-                </TBODY>
-            </TABLE>        
-            """;
+        var property = product.GetType().GetProperty(path, BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
+
+        if (property is null)
+        {
+            throw new InvalidOperationException($"Product property '{path}' was not found.");
+        }
+
+        return Convert.ToString(property.GetValue(product), CultureInfo.InvariantCulture);
     }
+
+
+
 }

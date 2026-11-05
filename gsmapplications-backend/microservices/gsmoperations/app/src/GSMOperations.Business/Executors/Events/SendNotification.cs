@@ -75,6 +75,7 @@ public abstract class SendNotification : IEventExecutor
 
             var body = BuildBody(
                 bodyTemplate,
+                eventDefinition,
                 trxRequest);
 
             var notificationRequest = new NotificationRequest
@@ -118,12 +119,12 @@ public abstract class SendNotification : IEventExecutor
     }
 
 
-    protected virtual string BuildBody(string bodyTemplate, TrxHeader trxRequest)
+    protected virtual string BuildBody(string bodyTemplate, JsonReaEvents eventDefinition, TrxHeader trxRequest)
     {
         return ResolveTemplate(bodyTemplate, trxRequest);
     }
 
-    private static List<string> ResolveParameter(JsonReaEvents eventDefinition, string parameterKey, TrxHeader trx)
+    protected static List<string> ResolveParameter(JsonReaEvents eventDefinition, string parameterKey, TrxHeader trx)
     {
         var parameter = eventDefinition.Parameters
             .FirstOrDefault(x =>

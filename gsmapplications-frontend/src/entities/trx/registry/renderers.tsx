@@ -429,23 +429,10 @@ export const DEFAULT_RENDERERS: Record<string, (ctx: CellRenderCtx) => ReactNode
     )
   },
 
-  // Duplica la fila con un id NUEVO (dividir presentación / partir una línea).
-  // La copia queda marcada `added` → se puede quitar; la original no.
-  splitButton: ({ row, collection, keyField }) => (
-    <Button
-      variant="ghost" size="icon"
-      onClick={() => collection.add({ ...row, [keyField]: `${String(row[keyField] ?? '')}#${Date.now().toString(36)}`, added: true })}
-      className="h-7 w-7 text-muted-foreground hover:bg-primary/10 hover:text-primary"
-      aria-label="Dividir" title="Dividir línea"
-    >
-      <Copy className="h-3.5 w-3.5" />
-    </Button>
-  ),
-
-  // Como `splitButton`, pero para tablas SIN carrito (`summary:false` — ej. Invoice): duplica
-  // la fila en la tabla PRINCIPAL vía `addProductRow` (mismo canal que "cargar insumo"), no
-  // `collection.add` (que ahí escribe a un carrito que nadie lee). Queda `_added:true` → editable
-  // y con su botón de quitar automático (misma columna sintética que "cargar insumo").
+  // Duplica la fila con un id NUEVO (partir una línea) en tablas SIN carrito (`summary:false` —
+  // ej. Invoice): va a la tabla PRINCIPAL vía `addProductRow` (mismo canal que "cargar insumo"),
+  // no `collection.add` (que ahí escribe a un carrito que nadie lee). Queda `_added:true` →
+  // editable y con su botón de quitar automático (misma columna sintética que "cargar insumo").
   splitRow: ({ row, keyField, addProductRow }) => {
     if (!addProductRow) return null
     return (
@@ -456,21 +443,6 @@ export const DEFAULT_RENDERERS: Record<string, (ctx: CellRenderCtx) => ReactNode
         aria-label="Dividir" title="Dividir línea"
       >
         <Copy className="h-3.5 w-3.5" />
-      </Button>
-    )
-  },
-
-  // Quita la fila SOLO si fue agregada/dividida (`added`). Las originales no se borran.
-  removeAdded: ({ row, collection, keyField }) => {
-    if (!row.added) return null
-    return (
-      <Button
-        variant="ghost" size="icon"
-        onClick={() => collection.remove(String(row[keyField]))}
-        className="h-7 w-7 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-        aria-label="Quitar" title="Quitar"
-      >
-        <Trash2 className="h-3.5 w-3.5" />
       </Button>
     )
   },

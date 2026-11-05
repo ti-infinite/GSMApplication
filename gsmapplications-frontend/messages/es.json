@@ -451,6 +451,7 @@
     "herb": "Hierba",
     "lote": "Lote",
     "unitPrice": "Precio unitario",
+    "price": "Precio",
     "overMax": "Supera el disponible ({{max}})",
     "recordConsumption": "Registrar consumo",
     "consumptionsSubtitle": "Registra consumos directos de insumos.",
@@ -482,6 +483,8 @@
     "originalQty": "Cant. pedida",
     "sentQty": "Cant. enviada",
     "receivedQty": "Cant. recibida",
+    "presentationQty": "Cant. presentación",
+    "receivedPresentations": "Unidades recibidas",
     "comment": "Comentario",
     "reject": "Rechazar",
     "undoReject": "Deshacer rechazo",
@@ -503,7 +506,8 @@
     "emailSendFailed": "No fue posible enviar el correo al proveedor.",
     "pickFilters": "Completa los filtros para ver la información",
     "noOptionsForFilter": "No hay {{filter}} disponibles para {{location}}.",
-    "loadError": "No se pudo cargar la información"
+    "loadError": "No se pudo cargar la información",
+    "staleData": "No se pudo actualizar la información. Se muestra la última guardada."
   },
   "logistics": {
     "title": "Logística",

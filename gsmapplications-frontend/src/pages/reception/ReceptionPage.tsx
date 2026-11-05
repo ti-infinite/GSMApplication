@@ -12,7 +12,11 @@ const envelope = (data: unknown[]) => ({ success: 'true', message: '', data, tra
 
 
 const searchMissingTrx: Fetcher = async (_process, params) => {
-  const res = await getTransaction({ trxDocument: params.trxDocument ?? '' })
+  const [res, catalog] = await Promise.all([
+    getTransaction({ trxDocument: params.trxDocument ?? '' }),
+    fetchCatalogRows(),
+  ])
+  const presentationByVariety = new Map(catalog.map(c => [c.idVariety, c.presentationQty]))
   const trx = (res.data as TrxResponseDTOListApiResponse | undefined)?.data?.[0]
   const headerAttrs = pivotAttributes(trx?.trxAttributes)
   const data = (trx?.trxProducts ?? []).map(p => ({
@@ -22,6 +26,7 @@ const searchMissingTrx: Fetcher = async (_process, params) => {
     ...headerAttrs,
     ...pivotAttributes(p.trxProductAttributes),
     measurementUnit: p.measurementUnit ?? '',
+    presentationQty: presentationByVariety.get(p.idVariety ?? 0) ?? 0,
     originalQty:     p.qty ?? 0,
     qty:             p.qty ?? 0,
     rejected:        false,
@@ -35,8 +40,16 @@ const catalogFetcher: Fetcher = async () => {
   return envelope(data)
 }
 
+// Presentaciones recibidas = qty ÷ cantidad por presentación
+const receivedPresentations = (row: Record<string, unknown>) => {
+  const perPresentation = Number(row.presentationQty)
+  if (!perPresentation) return ''
+  return Number((Number(row.qty ?? 0) / perPresentation).toFixed(2))
+}
+
 const registry = buildRegistry({
   fetchers: { LOCATIONS: locationsFetcher, SEARCHMISSINGTRX: searchMissingTrx, CATALOG: catalogFetcher, CATEGORIES: categoriesFetcher },
+  computeds: { receivedPresentations },
 })
 
 export default function ReceptionPage() {

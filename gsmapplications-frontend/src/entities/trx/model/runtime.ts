@@ -23,6 +23,7 @@ export interface TrxField {
   negate?:       boolean            // qty: el usuario teclea positivo, se GUARDA negado (ej. gasto: 90 → -90)
   money?:        boolean            // → input de moneda ($ del tenant); guarda número plano, formatea solo display
   sendToTrx?:    boolean            // products: default true (false = SOLO-UI, ej. "rejected") · summary: default false (true = se manda). Va en trxProductAttributes. Mismo patrón que `addSupply` (opt-out explícito, no hace falta tocar actions.ts por cada columna nueva)
+  hidden?:       boolean            // no se dibuja, pero sigue en las columns → se manda igual que si se viera (ver sendToTrx)
   required?:     boolean
 }
 

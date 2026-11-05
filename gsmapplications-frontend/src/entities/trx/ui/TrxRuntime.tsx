@@ -298,6 +298,21 @@ export function TrxRuntime({ config, registry, title, subtitle, heading, heading
     return map
   }, [enrichResources, enrichRows])
 
+  // Campos que aportan los resources de enriquecimiento
+  const enrichFieldsRef = useRef(new Set<string>())
+  const enrichFields = useMemo(() => {
+    for (const r of enrichResources) {
+      for (const row of enrichRows[r.id] ?? []) for (const k of Object.keys(row)) if (k !== r.enrichBy) enrichFieldsRef.current.add(k)
+    }
+    return enrichFieldsRef.current
+  }, [enrichResources, enrichRows])
+
+  const applyEnrich = (r: Row): Row => {
+    let m = r
+    for (const er of enrichResources) { const e = enrichMap[`${er.enrichBy}::${String(r[er.enrichBy!] ?? '')}`]; if (e) m = { ...m, ...e } }
+    return m
+  }
+
   const setSelection = (key: string, options: Row[]) => setSelections(s => ({ ...s, [key]: options }))
 
   // Setea un filtro y RESETEA sus dependientes (cascada).
@@ -314,9 +329,23 @@ export function TrxRuntime({ config, registry, title, subtitle, heading, heading
   const { rows, loading, error } = useTrxData<Row>(canFetch ? mainResource : null, enrichedContext, mainFetcher, refreshKey)
   const retry = () => setRefreshKey(k => k + 1)
 
-  useEffect(() => { if (error) toast.error(t('loadError')) }, [error])  
+  useEffect(() => { if (error) toast.error(t('loadError')) }, [error])
 
   const hydratedSig = useRef<string>('')
+
+  // Si cambian los params del resource principal (otro documento, otra finca) se vacían, o el total y el create-trx
+  // arrastrarían las líneas del anterior.
+  const mainParamsKey = mainResource && ready ? JSON.stringify(resolveParams(mainResource, enrichedContext)) : ''
+  const prevMainParamsKey = useRef(mainParamsKey)
+  useEffect(() => {
+    if (prevMainParamsKey.current === mainParamsKey) return
+    prevMainParamsKey.current = mainParamsKey
+    setCollection([])
+    setEdits({})
+    setExtraRows([])
+    hydratedSig.current = ''
+  }, [mainParamsKey])
+
   useEffect(() => {
     if (front.initCollection !== 'main') return
     const sig = JSON.stringify(rows)
@@ -331,12 +360,25 @@ export function TrxRuntime({ config, registry, title, subtitle, heading, heading
  
   const effectiveRows = useMemo(
     () => [...rows, ...extraRows].map(r => {
-      let m = r
-      for (const er of enrichResources) { const e = enrichMap[`${er.enrichBy}::${String(r[er.enrichBy!] ?? '')}`]; if (e) m = { ...m, ...e } }
+      const m  = applyEnrich(r)
       const id = String(m[keyField] ?? '')
       return edits[id] ? { ...m, ...edits[id] } : m
     }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [rows, extraRows, enrichResources, enrichMap, edits, keyField],
+  )
+
+  // El carrito guarda la fila tal como estaba al agregarla; al leerlo se le quitan los campos de
+  // enriquecimiento y se aplican los actuales → cambiar de proveedor re-precia sin perder líneas.
+  const effectiveCollection = useMemo(
+    () => collection.map(item => {
+      const base = enrichFields.size ? Object.fromEntries(Object.entries(item).filter(([k]) => !enrichFields.has(k))) : item
+      const m  = applyEnrich(base)
+      const id = String(m[collectionKey] ?? '')
+      return edits[id] ? { ...m, ...edits[id] } : m
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [collection, enrichFields, enrichMap, enrichResources, edits, collectionKey],
   )
 
   const addProductRow = (row: Row) => setExtraRows(prev => {
@@ -352,7 +394,7 @@ export function TrxRuntime({ config, registry, title, subtitle, heading, heading
   }
 
   const collectionApi: CollectionApi = {
-    items:  collection,
+    items:  effectiveCollection,
     add:    row => setCollection(prev => {
       const id = String(row[collectionKey] ?? '')
       return prev.some(r => String(r[collectionKey] ?? '') === id)
@@ -393,9 +435,9 @@ export function TrxRuntime({ config, registry, title, subtitle, heading, heading
   const blockReason = (tr: WfTransition): string | null => {
     if (tr.guard) {
       const g = registry.guards?.[tr.guard]
-      return g && !g({ rows: effectiveRows, collection, context, state }) ? t('cantConfirmHint') : null
+      return g && !g({ rows: effectiveRows, collection: effectiveCollection, context, state }) ? t('cantConfirmHint') : null
     }
-    const eventCtx: EventCtx = { front, rows: effectiveRows, collection, context: enrichedContext, filters, enrichResources, enrichedContext, state, t }
+    const eventCtx: EventCtx = { front, rows: effectiveRows, collection: effectiveCollection, context: enrichedContext, filters, enrichResources, enrichedContext, state, t }
     const always = registry.events?.HAS_ITEMS?.(eventCtx)
     if (always) return always
     for (const name of front.event ?? []) {
@@ -411,7 +453,7 @@ export function TrxRuntime({ config, registry, title, subtitle, heading, heading
     if (!canFire(tr)) return
     setSubmitting(true)
     // enrichedContext incluye los DERIVADOS (skuPrefix, EmailSupplier…)
-    const args = { rows: effectiveRows, collection, context: enrichedContext, state, config, clearCollection: () => setCollection([]), transition: tr, trxLabel, t, registry }
+    const args = { rows: effectiveRows, collection: effectiveCollection, context: enrichedContext, state, config, clearCollection: () => setCollection([]), transition: tr, trxLabel, t, registry }
 
     // create-trx es INTRÍNSECO y debe tener ÉXITO para resetear/transicionar. Si falla,
     // salimos SIN tocar nada → el pedido (carrito + cantidades) queda intacto para reintentar.
@@ -427,8 +469,6 @@ export function TrxRuntime({ config, registry, title, subtitle, heading, heading
       setCollection([])
       setEdits({})
       setExtraRows([])   // limpia las filas agregadas a mano (catálogo) tras crear
-      // Resetea TODOS los filtros (ubicación incluida) — es una TRX nueva, no continuación de la
-      // anterior. Si el usuario tiene finca fija por cookie, initialContext ya la vuelve a poner sola.
       setContext(() => initialContext(filters))
       setState(tr.to)
       for (const r of rea.resources) if (r.cacheIn) await clearResourcePrefix(r.id)
@@ -436,9 +476,6 @@ export function TrxRuntime({ config, registry, title, subtitle, heading, heading
       // Estado destino TERMINAL (sin salidas) → auto-reset al inicial (listo para otra TRX).
       if (!workflow.transitions.some(x => x.from === tr.to)) setState(workflow.initialState)
 
-      // `event` = efecto(s) post-success (ej. ADJUST_INVENTORY, SEND_EMAIL). El backend los corre
-      // como parte del workflow (el front lee el response para avisar fallos). Acá solo se disparan
-      // los que EXISTAN como registry.actions (override de front), fire-and-forget. Uno o varios.
       const events = Array.isArray(tr.event) ? tr.event : tr.event ? [tr.event] : []
       for (const ev of events) {
         if (ev in registry.actions) {

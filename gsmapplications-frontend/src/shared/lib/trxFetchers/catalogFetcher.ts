@@ -6,6 +6,7 @@ export interface CatalogRow {
   varietyName: string
   sku: string
   measurementUnit: string
+  presentationQty: number
 }
 
 export const fetchCatalogRows = async (): Promise<CatalogRow[]> => {
@@ -16,6 +17,7 @@ export const fetchCatalogRows = async (): Promise<CatalogRow[]> => {
     varietyName:     v.name ?? '',
     sku:             p.sku ?? '',
     measurementUnit: p.measurementUnit ?? '',
+    presentationQty: v.qty ?? 0,
   })))
 }
 

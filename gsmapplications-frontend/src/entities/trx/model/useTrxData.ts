@@ -29,6 +29,7 @@ export function useTrxData<T = unknown>(resource: Resource | null, ctx: Context,
       .then(data => done(data))
       .catch(err => { console.error('[useTrxData] error resolviendo resource:', err); done([], err) })
     return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchKey])
 
   const sameData = !!resource && loaded.dataKey === dataKey

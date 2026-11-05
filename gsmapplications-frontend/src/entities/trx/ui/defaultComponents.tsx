@@ -15,6 +15,8 @@ import { getValueByPath } from '@/shared/lib/pathResolver'
 import type { ComponentNode, RuntimeCtx, SearchConfig, FilterConfig, TrxField } from '../model/runtime'
 import { overMax } from '../registry/renderers'
 
+const visibleFields = (fields?: TrxField[]) => (fields ?? []).filter(f => !f.hidden)
+
 const countBadge = (n: number) => (
   <span className="shrink-0 rounded-md bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">{n}</span>
 )
@@ -603,7 +605,8 @@ function TrxTable({ node, ctx }: { node: ComponentNode; ctx: RuntimeCtx }) {
     : []
 
   // `noteInput` fields live in the full-width row under each product, not as columns.
-  const allFields  = node.fields ?? []
+  // 'hidden' fields are only filtered here: createTrx reads the JSON columns, so they are still sent.
+  const allFields  = visibleFields(node.fields)
   const noteFields = allFields.filter(f => f.renderer === 'noteInput')
   const colFields  = allFields.filter(f => f.renderer !== 'noteInput')
   const noteCols   = ctx.makeColumns(noteFields, kf, isCollection)
@@ -859,7 +862,7 @@ export const DEFAULT_COMPONENTS: Record<string, (node: ComponentNode, ctx: Runti
           <div key={i} className="rounded-xl border border-border bg-card p-3 shadow-sm">
             {node.titleField && <p className="mb-2 text-sm font-semibold text-foreground">{String(row[node.titleField] ?? '')}</p>}
             <dl className="flex flex-col gap-1">
-              {(node.fields ?? []).map((f, j) => (
+              {visibleFields(node.fields).map((f, j) => (
                 <div key={j} className="flex items-center justify-between gap-3">
                   <dt className="text-xs text-muted-foreground">{ctx.t(f.label ?? '')}</dt>
                   <dd className="text-sm font-medium text-foreground">{ctx.renderField(f, row)}</dd>
@@ -903,7 +906,7 @@ export const DEFAULT_COMPONENTS: Record<string, (node: ComponentNode, ctx: Runti
 
   // Card: muestra UN registro como label-valor. Consume los MISMOS `fields`.
   card: (node, ctx) => {
-    const fields = node.fields ?? []
+    const fields = visibleFields(node.fields)
     const row = ctx.rows[0] ?? {}   // (por ahora el 1er registro; luego se puede parametrizar)
     return (
       <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
@@ -927,7 +930,7 @@ export const DEFAULT_COMPONENTS: Record<string, (node: ComponentNode, ctx: Runti
       <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
         {node.title && <div className="border-b border-border px-4 py-3"><h2 className="text-sm font-semibold text-foreground">{ctx.t(node.title)}</h2></div>}
         <div className="divide-y divide-border/60">
-          {(node.fields ?? []).map((f, i) => (
+          {visibleFields(node.fields).map((f, i) => (
             <div key={i} className="flex items-center justify-between px-4 py-3">
               <span className="text-sm text-muted-foreground">{ctx.t(f.label ?? '')}</span>
               <span className="text-sm font-semibold text-foreground">{ctx.renderField(f, data)}</span>

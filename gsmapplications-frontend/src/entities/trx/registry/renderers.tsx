@@ -388,7 +388,7 @@ export const DEFAULT_RENDERERS: Record<string, (ctx: CellRenderCtx) => ReactNode
     // `renderer` explícito en el JSON → normField corta antes de derivar `sub` desde `unitType`
     // (eso es solo para el shorthand genérico) — por eso acá el default es manual, igual que
     // `inputUnit`/`withUnit`. Con `"sub"` propio en el JSON, ese gana.
-    const unit = String(row[field.sub ?? 'measurementUnit'] ?? '')
+    const unit = field.factor ? '' : String(row[field.sub ?? 'measurementUnit'] ?? '')
     return (
       <div className="flex items-center gap-1.5">
         <input

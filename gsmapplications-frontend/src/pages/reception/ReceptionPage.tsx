@@ -40,16 +40,8 @@ const catalogFetcher: Fetcher = async () => {
   return envelope(data)
 }
 
-// Presentaciones recibidas = qty ÷ cantidad por presentación
-const receivedPresentations = (row: Record<string, unknown>) => {
-  const perPresentation = Number(row.presentationQty)
-  if (!perPresentation) return ''
-  return Number((Number(row.qty ?? 0) / perPresentation).toFixed(2))
-}
-
 const registry = buildRegistry({
   fetchers: { LOCATIONS: locationsFetcher, SEARCHMISSINGTRX: searchMissingTrx, CATALOG: catalogFetcher, CATEGORIES: categoriesFetcher },
-  computeds: { receivedPresentations },
 })
 
 export default function ReceptionPage() {

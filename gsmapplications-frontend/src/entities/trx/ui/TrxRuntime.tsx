@@ -54,10 +54,19 @@ function renderField(
   addProductRow?: (row: Record<string, unknown>) => void,
 ) {
   const raw = resolveValue(f, row, registry, context)
-  const value = f.negate && raw != null && raw !== '' && !Number.isNaN(Number(raw)) ? Math.abs(Number(raw)) : raw
-  const set = f.negate
+  const isNum = (v: unknown) => v != null && v !== '' && !Number.isNaN(Number(v))
+  const signed = f.negate && isNum(raw) ? Math.abs(Number(raw)) : raw
+  const setSigned = f.negate
     ? (v: unknown) => setValue(v === '' || v == null ? v : -Math.abs(Number(v)))
     : setValue
+  // `factor`: la columna ve el campo en otra escala (ej. qty en presentaciones) sin dato propio.
+  // Sin factor en la fila no hay cómo convertir → solo lectura.
+  const factor = f.factor ? Number(row[f.factor]) : 1
+  if (f.factor && !factor) return '—'
+  const value = f.factor && isNum(signed) ? Math.round((Number(signed) / factor) * 100) / 100 : signed
+  const set = f.factor
+    ? (v: unknown) => setSigned(v === '' || v == null ? v : Math.round(Number(v) * factor * 1000) / 1000)
+    : setSigned
   if (f.renderer && f.renderer in registry.renderers) {
     return registry.renderers[f.renderer]({ value, row, field: f, context, setValue: set, collection, keyField, removeProductRow, t, addProductRow })
   }
@@ -423,9 +432,12 @@ export function TrxRuntime({ config, registry, title, subtitle, heading, heading
   }
 
   // Helper de TABLA: convierte fields → columnas de DataTable.
+  // Dos columnas pueden leer el mismo campo (ej. qty y presentaciones sobre qty): la key se
+  // desambigua con el índice para que DataTable/React no las confundan.
+  const fieldKey = (f: TrxField) => f.selectorValue || f.label || f.renderer || ''
   const makeColumns = (fields: TrxField[], kField: string, fromCollection = false): TableColumn<Row>[] =>
-    fields.map(f => ({
-      key:      f.selectorValue || f.label || f.renderer || '',
+    fields.map((f, i) => ({
+      key:      fields.findIndex(o => fieldKey(o) === fieldKey(f)) === i ? fieldKey(f) : `${fieldKey(f)}-${i}`,
       header:   f.label ? t(f.label) : '',
       sortable: !f.renderer,
       render:   (row: Row) => renderFieldInRow(f, row, kField, fromCollection),

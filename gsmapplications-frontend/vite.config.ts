@@ -16,9 +16,19 @@ export default defineConfig(({ mode }) => {
     server: {
       proxy: {
         '/api': {
-          target: 'http://localhost:80',
+          target: 'http://localhost:8080',
           changeOrigin: true,
         },
+        // Credits module against a local ih-credits backend (optional; defaults to the box below).
+        ...(env.VITE_IH_CREDITS_LOCAL_URL
+          ? {
+              '/ih-api/ih-credits': {
+                target: env.VITE_IH_CREDITS_LOCAL_URL,
+                changeOrigin: true,
+                rewrite: (p) => p.replace(/^\/ih-api\/ih-credits/, ''),
+              },
+            }
+          : {}),
         '/ih-api': {
           target: env.VITE_IH_AGENT_URL,
           changeOrigin: true,

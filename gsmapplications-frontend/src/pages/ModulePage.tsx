@@ -35,6 +35,9 @@ const modules: Record<string, React.LazyExoticComponent<React.ComponentType>> = 
   'artificial-intelligence/quotes/quote-simulator': lazy(() => import('@/pages/grossMargin/QuoteSimulatorPage')),
   'artificial-intelligence/audit/updates':         lazy(() => import('@/pages/grossMargin/UpdatesPage')),
   'artificial-intelligence/quotes/reports':         lazy(() => import('@/pages/grossMargin/ReportsPage')),
+  'credits/dashboard': lazy(() => import('@/pages/credits/CreditsPage')),
+  'credits/credit':    lazy(() => import('@/pages/credits/CreditDetailPage')),
+  'credits/prealert':  lazy(() => import('@/pages/credits/PreAlertDetailPage')),
 }
 
 function slugToTitle(slug: string): string {
@@ -46,7 +49,8 @@ function slugToTitle(slug: string): string {
 }
 
 export default function ModulePage() {
-  const { '*': slug = '' } = useParams()
+  const { '*': rawSlug = '' } = useParams()
+  const slug = rawSlug.replace(/\/+$/, '')   // deep links from e-mails may end in a slash
   const { menuOptions } = useOutletContext<DashboardOutletCtx>()
 
   const option = menuOptions.find(o => o.Route?.endsWith(`/${slug}`))

@@ -1,11 +1,14 @@
-import { Fragment, useEffect, useMemo, useRef, useState, type Key } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState, type Key, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { Info, Loader2 } from 'lucide-react'
 import { Button } from '@/shared/ui/button'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/ui/tooltip'
 import { getStoredUser } from '@/shared/lib/auth'
 import { clearResourcePrefix, getResource, saveResource } from '@/shared/lib/idb'
 import { getValueByPath } from '@/shared/lib/pathResolver'
+import { getTransaction } from '@/shared/api/operations/endpoints'
+import type { TrxResponseDTOListApiResponse } from '@/shared/api/operations/model'
 import type { TableColumn } from '@/shared/ui/data-table'
 import { useTrxData } from '../model/useTrxData'
 import { DEFAULT_SELECTORS } from '../model/selectors'
@@ -15,7 +18,7 @@ import type { Fetcher } from '../model/engine'
 import type { Resource } from '../model/types'
 import type {
   JsonConfig, FrontConfig, FilterConfig, TrxField, TrxRegistry, CollectionApi, WfTransition, ComponentNode, RuntimeCtx, EventCtx,
-} from '../model/runtime'
+} from '../model/runtimeTypes'
 import { DEFAULT_COMPONENTS } from './defaultComponents'
 import { expandFront } from '../model/template'
 
@@ -67,10 +70,28 @@ function renderField(
   const set = f.factor
     ? (v: unknown) => setSigned(v === '' || v == null ? v : Math.round(Number(v) * factor * 1000) / 1000)
     : setSigned
-  if (f.renderer && f.renderer in registry.renderers) {
-    return registry.renderers[f.renderer]({ value, row, field: f, context, setValue: set, collection, keyField, removeProductRow, t, addProductRow })
-  }
-  return value == null || value === '' ? '—' : String(value)
+  const out = f.renderer && f.renderer in registry.renderers
+    ? registry.renderers[f.renderer]({ value, row, field: f, context, setValue: set, collection, keyField, removeProductRow, t, addProductRow })
+    : value == null || value === '' ? '—' : String(value)
+  const original = f.defaultFrom && f.selectorValue ? (row.$original as Row | undefined)?.[f.selectorValue] : undefined
+  return original == null || original === ''
+    ? out
+    : <DefaultHint hint={t?.('defaultOriginal', { value: original }) ?? String(original)}>{out}</DefaultHint>
+}
+
+// Tooltip con el valor que el defaultFrom reemplazó; se abre al entrar al input (foco), no al pasar el mouse.
+function DefaultHint({ hint, children }: { hint: string; children: ReactNode }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <TooltipProvider>
+      <Tooltip open={open}>
+        <TooltipTrigger asChild>
+          <div className="inline-flex" onFocus={() => setOpen(true)} onBlur={() => setOpen(false)}>{children}</div>
+        </TooltipTrigger>
+        <TooltipContent>{hint}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  )
 }
 
 // Árbol de components armado desde los slots que deja expandFront (filters/main/collection).
@@ -155,6 +176,9 @@ export function TrxRuntime({ config, registry, title, subtitle, heading, heading
 
   const [context,        setContext]        = useState<Record<string, string>>(() => initialContext(filters))
   const [fetchedOptions, setFetchedOptions] = useState<Record<string, unknown[]>>({})
+  // Documento elegido con lookup por filtro: ya no sale en su combo (ej. OCM con saldo que ya tiene una RPI),
+  // así que se agrega como opción para que el combo lo muestre y no se limpie al recargar.
+  const [lookedUp,       setLookedUp]       = useState<Record<string, string>>({})
   const [selections,     setSelections]     = useState<Record<string, Row[]>>({})
   const [edits,      setEdits]      = useState<Record<string, Record<string, unknown>>>({})
   const [collection, setCollection] = useState<Row[]>([])
@@ -202,20 +226,24 @@ export function TrxRuntime({ config, registry, title, subtitle, heading, heading
     const combo: Record<string, { value: string; label: string }[]> = {}
     const selected: Record<string, unknown> = {}
     for (const f of filters) {
-      const data: unknown[] = f.values                                   // combo ESTÁTICO (inline)
+      const valOf = (o: unknown) =>
+        o != null && typeof o === 'object' ? String((o as Record<string, unknown>)[f.optionValue] ?? '') : String(o ?? '')
+      const fetched: unknown[] = f.values                                // combo ESTÁTICO (inline)
         ? f.values
         : f.dependsOn && f.optionsFrom                                   // CASCADA (opción del padre)
           ? ((getValueByPath(selected[f.dependsOn], f.optionsFrom) as unknown[]) ?? [])
           : (fetchedOptions[f.key] ?? [])                               // fetch por source
-      const valOf = (o: unknown) =>
-        o != null && typeof o === 'object' ? String((o as Record<string, unknown>)[f.optionValue] ?? '') : String(o ?? '')
+      const doc = lookedUp[f.key]
+      const data = doc && !fetched.some(o => valOf(o) === doc)
+        ? [...fetched, { [f.optionValue]: doc, [f.optionLabel]: doc }]
+        : fetched
       const labOf = (o: unknown) =>
         o != null && typeof o === 'object' ? String((o as Record<string, unknown>)[f.optionLabel] ?? '') : String(o ?? '')
       combo[f.key] = data.map(o => ({ value: valOf(o), label: labOf(o) }))
       selected[f.key] = data.find(o => valOf(o) === (context[f.key] ?? ''))
     }
     return { comboOptions: combo, selectedOptions: selected }
-  }, [filters, fetchedOptions, context])
+  }, [filters, fetchedOptions, context, lookedUp])
 
   // Context ENRIQUECIDO con valores derivados de los filtros (ej. 'category' -> 'subcategory'), para que los resources se resuelvan con todos los params. 
   const enrichedContext = useMemo(() => {
@@ -263,7 +291,7 @@ export function TrxRuntime({ config, registry, title, subtitle, heading, heading
 
     function clearStaleSelection(f: FilterConfig, list: unknown[]) {
       const current = context[f.key]
-      if (!current) return
+      if (!current || lookedUp[f.key] === current) return
       const valOf = (o: unknown) => (o != null && typeof o === 'object' ? String((o as Record<string, unknown>)[f.optionValue] ?? '') : String(o ?? ''))
       if (list.some(o => valOf(o) === current)) return
       if (cancelled) return
@@ -324,12 +352,40 @@ export function TrxRuntime({ config, registry, title, subtitle, heading, heading
 
   const setSelection = (key: string, options: Row[]) => setSelections(s => ({ ...s, [key]: options }))
 
-  // Setea un filtro y RESETEA sus dependientes (cascada).
-  const setFilter = (key: string, value: string) => setContext(c => {
-    const next = { ...c, [key]: value }
+  // Lookup en un combo (módulos que parten de otro documento): el combo-desde-resource marcado con
+  // `lookup`; el tipo queda fijo en el `trxPrefixRelative` de su resource.
+  // Lookup en la raíz (módulos de catálogo): sin combo; el tipo queda fijo en el del propio módulo.
+  const lookupFilter   = filters.find(f => f.lookup && f.resource)
+  const lookupResource = lookupFilter ? rea.resources.find(r => r.id === lookupFilter.resource) : undefined
+  const lookupFixed    = !!lookupFilter
+  const lookupPrefix   = lookupResource
+    ? (resolveParams(lookupResource, enrichedContext).trxPrefixRelative ?? '')
+    : front.lookup ? config.prefix : ''
+  // Context keys que lee ese resource (location…): si cambian, el documento elegido ya no aplica.
+  const lookupParamKeys = useMemo(() => new Set((lookupResource?.parameters ?? [])
+    .filter(p => (p.sourceType ?? 'CONTEXT') === 'CONTEXT')
+    .map(p => p.values?.[0] ?? p.value ?? p.keyValue ?? p.key)), [lookupResource])
+
+  const withoutDependents = (next: Record<string, string>, key: string) => {
     for (const f of filters) if (f.dependsOn === key) delete next[f.key]
     return next
-  })
+  }
+
+  // Setea un filtro y RESETEA sus dependientes (cascada).
+  const setFilter = (key: string, value: string) => {
+    if (key === lookupFilter?.key || lookupParamKeys.has(key)) setLookedUp({})
+    setContext(c => withoutDependents({ ...c, [key]: value }, key))
+  }
+
+  const lookupInCombo = (trxDocument: string, location?: string) => {
+    if (!lookupFilter) return
+    setLookedUp({ [lookupFilter.key]: trxDocument })
+    setContext(c => {
+      let next = { ...c }
+      if (location && location !== c.location) next = withoutDependents({ ...next, location }, 'location')
+      return withoutDependents({ ...next, [lookupFilter.key]: trxDocument }, lookupFilter.key)
+    })
+  }
 
   const hasFetcher  = !!mainResource && (mainResource.id in registry.fetchers || mainResource.sourceType === 'API' || !!mainResource.endpoint)
   const ready = useMemo(() => !!mainResource && paramsReady(mainResource, enrichedContext), [mainResource, enrichedContext])
@@ -367,14 +423,33 @@ export function TrxRuntime({ config, registry, title, subtitle, heading, heading
   const collectionKey = front.collection?.rowKey ?? keyField
 
  
+  // `defaultFrom`: la columna arranca con el valor de otro campo de la fila (ej. qty ← saldo). El valor
+  // que reemplaza queda en `$original` para el tooltip; lo digitado (edits) siempre gana.
+  const defaults = useMemo(
+    () => [...(front.main?.fields ?? []), ...(front.collection?.fields ?? [])]
+      .filter(f => f.defaultFrom && f.selectorValue)
+      .map(f => ({ key: f.selectorValue!, from: f.defaultFrom! })),
+    [front],
+  )
+  const applyDefaults = (m: Row): Row => {
+    let out = m
+    for (const { key, from } of defaults) {
+      const v = out[from]
+      if (v == null || v === '') continue
+      const original = (out.$original as Row | undefined)?.[key] ?? out[key]
+      out = { ...out, [key]: v, $original: { ...(out.$original as Row | undefined), [key]: original } }
+    }
+    return out
+  }
+
   const effectiveRows = useMemo(
     () => [...rows, ...extraRows].map(r => {
-      const m  = applyEnrich(r)
+      const m  = applyDefaults(applyEnrich(r))
       const id = String(m[keyField] ?? '')
       return edits[id] ? { ...m, ...edits[id] } : m
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [rows, extraRows, enrichResources, enrichMap, edits, keyField],
+    [rows, extraRows, enrichResources, enrichMap, edits, keyField, defaults],
   )
 
   // El carrito guarda la fila tal como estaba al agregarla; al leerlo se le quitan los campos de
@@ -382,12 +457,12 @@ export function TrxRuntime({ config, registry, title, subtitle, heading, heading
   const effectiveCollection = useMemo(
     () => collection.map(item => {
       const base = enrichFields.size ? Object.fromEntries(Object.entries(item).filter(([k]) => !enrichFields.has(k))) : item
-      const m  = applyEnrich(base)
+      const m  = applyDefaults(applyEnrich(base))
       const id = String(m[collectionKey] ?? '')
       return edits[id] ? { ...m, ...edits[id] } : m
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [collection, enrichFields, enrichMap, enrichResources, edits, collectionKey],
+    [collection, enrichFields, enrichMap, enrichResources, edits, collectionKey, defaults],
   )
 
   const addProductRow = (row: Row) => setExtraRows(prev => {
@@ -414,6 +489,37 @@ export function TrxRuntime({ config, registry, title, subtitle, heading, heading
     update: (id, patch) => setCollection(prev => prev.map(r => (String(r[collectionKey] ?? '') === id ? { ...r, ...patch } : r))),
     has:    id => collection.some(r => String(r[collectionKey] ?? '') === id),
   }
+
+  // Lookup en la raíz: el documento elegido es una PLANTILLA. Sus cantidades reemplazan lo digitado y
+  // entran al carrito; los productos que no están en la tabla se agregan como filas extra.
+  const loadTemplate = async (trxDocument: string) => {
+    try {
+      const res = await getTransaction({ trxDocument })
+      const products = (res.data as TrxResponseDTOListApiResponse | undefined)?.data?.[0]?.trxProducts ?? []
+      const byVariety = new Map(effectiveRows.filter(r => !r._added).map(r => [String(r.idVariety ?? ''), r]))
+      const nextEdits: Record<string, Row> = {}
+      const extra: Row[] = []
+      const cart: Row[] = []
+      for (const p of products) {
+        const variety = String(p.idVariety ?? '')
+        if (!variety) continue
+        const base: Row = byVariety.get(variety)
+          ?? { idVariety: p.idVariety, varietyName: p.varietyName ?? '', sku: p.sku ?? '', measurementUnit: p.measurementUnit ?? '', _added: true }
+        if (!byVariety.has(variety)) extra.push(base)
+        nextEdits[String(base[keyField] ?? '')] = { qty: p.qty ?? 0 }
+        cart.push({ ...base, qty: p.qty ?? 0 })
+      }
+      setExtraRows(extra)
+      setEdits(nextEdits)
+      if (front.collection) setCollection(cart)
+      if (!products.length) toast(t('lookupEmpty'))
+    } catch {
+      toast.error(t('loadError'))
+    }
+  }
+
+  const lookup = (trxDocument: string, location?: string) =>
+    lookupFixed ? lookupInCombo(trxDocument, location) : void loadTemplate(trxDocument)
 
 
   const renderFieldInRow = (f: TrxField, row: Row, kField: string, fromCollection = false): React.ReactNode => {
@@ -513,6 +619,7 @@ export function TrxRuntime({ config, registry, title, subtitle, heading, heading
     front, rows: effectiveRows, loading, ready, error, retry, collection: collectionApi, addProductRow, removeProductRow,
     // enrichedContext (no el crudo): incluye los DERIVADOS (skuPrefix…) que el filterBy de la tabla necesita para filtrar correctamente.
     context: enrichedContext, setContext, setFilter, options: comboOptions, filterData: fetchedOptions, selections, setSelection, locked,
+    lookupPrefix, lookupFixed, lookup,
     state, transitions, fire, canFire, blockReason, submitting,
     makeColumns, renderField: (f, row) => renderFieldInRow(f, row, keyField),
     keyField, registry, renderNode,

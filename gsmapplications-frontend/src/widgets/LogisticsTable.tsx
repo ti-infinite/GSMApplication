@@ -1,17 +1,15 @@
 import { useMemo, useState, type KeyboardEvent, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { format } from "date-fns";
 import type { DateRange } from "react-day-picker";
-import { Calendar as CalendarIcon, Check, CheckCircle2, Circle, Pencil, Search, X } from "lucide-react";
+import { Check, CheckCircle2, Circle, Pencil, Search, X } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 import { DataTable, type TableColumn } from "@/shared/ui/data-table";
 import { FilterBar, FilterField } from "@/shared/ui/filter-bar";
 import { Input } from "@/shared/ui/input";
 import { Button } from "@/shared/ui/button";
 import { Combobox } from "@/shared/ui/combobox";
-import { Calendar } from "@/shared/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/shared/ui/popover";
+import { DateRangePicker } from "@/shared/ui/date-picker";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui/tooltip";
 import { ErrorState } from "@/shared/components/ErrorState";
 import { formatNumber } from "@/shared/lib/format";
@@ -80,8 +78,6 @@ export function LogisticsTable() {
   const [whs, setWhs] = useState("");
   const [dc, setDc] = useState("");
   const [range, setRange] = useState<DateRange | undefined>(defaultRange);
-  const [stagedRange, setStagedRange] = useState<DateRange | undefined>(range);
-  const [rangeOpen, setRangeOpen] = useState(false);
 
   const [selected, setSelected] = useState<LogisticsRow | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -110,11 +106,6 @@ export function LogisticsTable() {
     const d = parseShipDate(iso);
     return d ? d.toLocaleDateString(i18n.language, { day: "2-digit", month: "2-digit", year: "numeric" }) : "—";
   };
-  const rangeLabel = range?.from
-    ? range.to
-      ? `${format(range.from, "dd/MM/yyyy")} – ${format(range.to, "dd/MM/yyyy")}`
-      : format(range.from, "dd/MM/yyyy")
-    : t("logistics.filters.selectDateRange");
 
   // ── Inline editing ──────────────────────────────────────────────────
   function startEdit(row: LogisticsRow) {
@@ -395,49 +386,10 @@ export function LogisticsTable() {
           </div>
         </FilterField>
         <FilterField label={t("logistics.columns.shipDate")} width="sm:w-60">
-          <div className="relative">
-            <Popover
-              open={rangeOpen}
-              onOpenChange={(open) => {
-                setRangeOpen(open);
-                if (open) setStagedRange(range);
-              }}
-            >
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn("h-8 w-full justify-start gap-2 px-2.5 py-1 text-sm font-normal", range?.from ? "pr-8 text-foreground" : "text-muted-foreground")}
-                >
-                  <CalendarIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                  <span className="flex-1 text-left">{rangeLabel}</span>
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar mode="range" selected={stagedRange} onSelect={setStagedRange} />
-                <div className="border-t border-border p-2">
-                  <Button
-                    className="w-full"
-                    onClick={() => {
-                      setRange(stagedRange);
-                      setRangeOpen(false);
-                    }}
-                  >
-                    {t("logistics.filters.applyDateRange")}
-                  </Button>
-                </div>
-              </PopoverContent>
-            </Popover>
-            {range?.from && (
-              <button
-                type="button"
-                onClick={() => setRange(undefined)}
-                aria-label={t("logistics.filters.clearDateRange")}
-                className="absolute top-1/2 right-2.5 -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:text-foreground"
-              >
-                <X className="size-3.5" aria-hidden="true" />
-              </button>
-            )}
-          </div>
+          <DateRangePicker
+            value={range} onChange={setRange} placeholder={t("logistics.filters.selectDateRange")}
+            applyLabel={t("logistics.filters.applyDateRange")} clearLabel={t("logistics.filters.clearDateRange")}
+          />
         </FilterField>
       </FilterBar>
 

@@ -4,15 +4,16 @@ import { Button } from '@/shared/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/ui/tooltip'
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/shared/ui/dropdown-menu'
 import { Plus, Trash2, XCircle, Copy, ChevronDown, Check } from 'lucide-react'
-import type { CellRenderCtx, TrxField } from '../model/runtime'
+import type { CellRenderCtx, TrxField } from '../model/runtimeTypes'
 import { unitOptionsFor, toBaseUnit, fromBaseUnit } from '../model/units'
 import { formatMoney } from '../model/money'
 
-// ¿La qty deja el stock negativo? Se activa con `sign`/`negate` (ya dicen "esto resta stock",
-// no hace falta un tag `max` aparte) comparado siempre contra `remaining` de la MISMA fila —
-// convención fija, igual en todo módulo que lo usa. Marca el input en rojo → señala JUSTO el
-// dato incorrecto. Exportada: la usa también `addButton` de acá abajo y el evento STOCK_LIMIT
-// (registry/events.ts, cuando el módulo lo declara en `event`) — un solo cálculo, un lugar.
+/**
+ * Verifica si una fila excede el límite de stock disponible.
+ * @param field - La definición del campo.
+ * @param row - Los datos de la fila.
+ * @returns true si la fila excede el límite, false en caso contrario.
+ */
 export function overMax(field: TrxField, row: Record<string, unknown>): boolean {
   if (!field.sign && !field.negate) return false
   const remaining = Number(row.remaining)
@@ -24,15 +25,8 @@ const errBorder = (over: boolean, focusWithin = false) =>
     ? `border-destructive ${focusWithin ? 'focus-within:ring-destructive' : 'focus:ring-destructive'}`
     : `border-border ${focusWithin ? 'focus-within:ring-ring' : 'focus:ring-ring'}`
 
-// Input numérico + selector de unidad. El valor de la fila se guarda SIEMPRE en la base
-// (kg/L) → el payload sale en la unidad estándar sin que el usuario vea la conversión.
-// La unidad elegida es estado LOCAL (preferencia de captura, no se persiste). Al cambiarla,
-// la cifra tecleada se reinterpreta en la nueva unidad (mismo número, distinta unidad).
+
 function InputUnitSelect({ value, row, field, setValue }: CellRenderCtx): ReactNode {
-  // `unitType:"unitSelect"` gana en normField antes de mirar `sign` (son ramas del mismo
-  // else-if) — este renderer nunca heredaba el "permite negativos" que sí tienen
-  // `inputUnit`/`signedInput`. Por eso el ajuste con unidad no dejaba tipear "-" y el mismo
-  // campo, sin unitType (ej. en el summary), sí.
   const allowNeg = field.sign === true
   const measurementUnit = String(row[field.sub ?? 'measurementUnit'] ?? '')
   const opts = unitOptionsFor(measurementUnit)
@@ -43,9 +37,6 @@ function InputUnitSelect({ value, row, field, setValue }: CellRenderCtx): ReactN
     value == null || value === '' || Number.isNaN(Number(value))
       ? '' : String(round3(fromBaseUnit(Number(value), measurementUnit))),
   )
-  // Resincroniza si `value` cambia desde AFUERA de este input (ej. la misma fila editada
-  // desde el carrito/summary) — sin esto, `text` queda pegado al valor del montaje para
-  // siempre. No pisa mientras el usuario está tecleando acá (`focused`).
   const [focused, setFocused] = useState(false)
   useEffect(() => {
     if (focused) return
@@ -76,9 +67,6 @@ function InputUnitSelect({ value, row, field, setValue }: CellRenderCtx): ReactN
       <input
         type="text" inputMode="decimal" value={text}
         onChange={e => onText(e.target.value)}
-        // select(): al hacer click en un campo que ya tiene "0" (valor real, no placeholder),
-        // el cursor solo se posicionaba ahí — tipear insertaba junto al 0 ("090") en vez de
-        // reemplazarlo. Seleccionar todo al entrar hace que tipear lo reemplace de una.
         onFocus={e => { setFocused(true); e.target.select() }} onBlur={() => setFocused(false)}
         placeholder="0"
         className="w-16 min-w-0 rounded-l-md bg-transparent px-2 py-1 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
@@ -182,7 +170,6 @@ export const DEFAULT_RENDERERS: Record<string, (ctx: CellRenderCtx) => ReactNode
     )
   },
 
-  // Valor con unidad de medida acompañante en `field.sub` → "1250 kg".
   withUnit: ({ value, row, field }) => {
     if (value == null || value === '') return '—'
     const unit = field.sub ? String(row[field.sub] ?? '') : ''
@@ -465,8 +452,6 @@ export const DEFAULT_RENDERERS: Record<string, (ctx: CellRenderCtx) => ReactNode
     )
   },
 
-  // Free-text note per line. TrxTable renders it in the full-width row under the product
-  // (never as a column), so long text doesn't widen the table.
   noteInput: ({ value, field, setValue, t }) => (
     <NoteInput
       value={value == null ? '' : String(value)}

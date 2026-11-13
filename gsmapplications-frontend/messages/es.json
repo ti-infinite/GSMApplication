@@ -415,6 +415,7 @@
     "document": "Documento",
     "consumption": "Consumo",
     "remaining": "Restante",
+    "remainingFarm": "Restante Finca",
     "quantityToOrder": "Cantidad a pedir",
     "qty": "Cantidad",
     "order": "Pedido",
@@ -456,6 +457,7 @@
     "recordConsumption": "Registrar consumo",
     "consumptionsSubtitle": "Registra consumos directos de insumos.",
     "purchaseOrder": "Órdenes de compra",
+    "saldo": "Saldo",
     "purchaseOrderSubtitle": "Genera órdenes de compra a partir de requerimientos pendientes.",
     "createPurchaseOrder": "Genera la orden de compra",
     "selectRequirement": "Selecciona un requerimiento",
@@ -507,7 +509,13 @@
     "pickFilters": "Completa los filtros para ver la información",
     "noOptionsForFilter": "No hay {{filter}} disponibles para {{location}}.",
     "loadError": "No se pudo cargar la información",
-    "staleData": "No se pudo actualizar la información. Se muestra la última guardada."
+    "staleData": "No se pudo actualizar la información. Se muestra la última guardada.",
+    "lookup": "Retomar transacción",
+    "lookupHint": "Busca el documento a retomar y cárgalo para continuar con su saldo.",
+    "load": "Cargar",
+    "defaultOriginal": "Cantidad original: {{value}}",
+    "lookupTemplateHint": "Busca una transacción y carga sus cantidades como base para esta.",
+    "lookupEmpty": "La transacción no tiene productos."
   },
   "logistics": {
     "title": "Logística",
@@ -567,17 +575,17 @@
     "filters": "Filtros",
     "type": "Tipo de transacción",
     "selectType": "Selecciona un tipo",
-    "selectLocation": "Selecciona una ubicación",
+    "selectLocation": "Selecciona un centro de costo",
     "dateRange": "Rango de fechas",
     "selectDateRange": "Selecciona un rango",
     "clearDateRange": "Limpiar rango de fechas",
     "applyDateRange": "Aplicar",
-    "pickFilters": "Selecciona ubicación, tipo y rango de fechas para ver resultados.",
+    "pickFilters": "Selecciona centro de costo, tipo y rango de fechas para ver resultados.",
     "document": "Documento",
     "description": "Descripción",
     "date": "Fecha",
     "status": "Estado",
-    "location": "Ubicación",
+    "location": "Centro de costo",
     "user": "Usuario",
     "lines": "Líneas",
     "details": "Detalles",
@@ -586,7 +594,8 @@
     "supplier": "Proveedor",
     "view": "Visualizar",
     "download": "Descargar",
-    "noResults": "No hay transacciones para este tipo."
+    "noResults": "No hay transacciones para este tipo.",
+    "pickFiltersNoType": "Selecciona centro de costo y rango de fechas para ver resultados."
   },
   "ia": {
     "chat": {

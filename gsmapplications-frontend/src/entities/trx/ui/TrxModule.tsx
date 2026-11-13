@@ -3,11 +3,10 @@ import { Skeleton } from '@/shared/ui/skeleton'
 import { ErrorState } from '@/shared/components/ErrorState'
 import { useTrxConfig } from '../model/useTrxConfig'
 import { TrxRuntime } from './TrxRuntime'
-import type { TrxRegistry } from '../model/runtime'
+import type { TrxRegistry } from '../model/runtimeTypes'
 
 /**
  * Wrapper de un módulo TRX: carga el config (SWR) y maneja los 3 estados con el HEADER
- * siempre visible (frame estable estilo App Shell). Deja las páginas en una línea.
  *   • config OK      → TrxRuntime (template real, con su propio header + contenido)
  *   • config cargando → header + skeleton genérico (raro: 1ª vez; el SWR lo cachea)
  *   • config falla    → header + ErrorState (contenido, NO toma toda la pantalla)
@@ -19,20 +18,19 @@ export function TrxModule({ prefix, registry, title, subtitle, heading, headingB
   title?:    string
   subtitle?: string
   heading?:  string
-  // Id de un computed (registry.computeds) que arma un total/conteo visible junto al heading —
-  // ej. total de la orden en OCM/Factura. Opcional, no toca el JSON del módulo.
   headingBadge?: string
   trxLabel?: string
 }) {
   const { t } = useTranslation(undefined, { keyPrefix: 'trx' })
+  // Carga el config del módulo (SWR: cache + revalidación)
   const { config, error, reload } = useTrxConfig(prefix)
 
-  // Config OK → el template real. TrxRuntime pinta su propio header + el contenido.
+  // Config OK -> se carga el modulo.
   if (config) {
     return <TrxRuntime config={config} registry={registry} title={title} subtitle={subtitle} heading={heading} headingBadge={headingBadge} trxLabel={trxLabel} />
   }
 
-  // Cargando / error → header SIEMPRE visible; el estado va en la zona de contenido.
+  // Loading / error -> header SIEMPRE visible; el estado va en la zona de contenido.
   return (
     <div className="flex flex-col gap-6">
       <div>

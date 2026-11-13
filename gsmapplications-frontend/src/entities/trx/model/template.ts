@@ -1,7 +1,7 @@
 // Expande el JsonFront MÍNIMO (trxAttributes + products + summary) a la forma interna
 // (location gate + filters + derive + main/collection) que consume el runtime. Lo que es
 // igual en todas las TRX vive AQUÍ, no en cada JSON.
-import type { FrontConfig, FilterConfig, MainSlot, CollectionSection, TrxField, AttributeSpec } from './runtime'
+import type { FrontConfig, FilterConfig, MainSlot, CollectionSection, TrxField, AttributeSpec } from './runtimeTypes'
 
 // Al inyectarse acá, aplica a TODAS las TRX de una sola vez (no hay que declararlo por módulo).
 const DEFAULT_LOCATION: FilterConfig = {
@@ -60,7 +60,7 @@ function attributeToFilter(a: AttributeSpec, requiredKeys?: string[]): FilterCon
     key: a.key, label: a.label, placeholder: a.placeholder, section: a.section,
     required: a.required || !!requiredKeys?.includes(a.key),
   }
-  if (a.resource) return { ...base, resource: a.resource, optionValue: a.optionValue ?? 'id', optionLabel: a.optionLabel ?? 'name' }
+  if (a.resource) return { ...base, resource: a.resource, lookup: a.lookup, optionValue: a.optionValue ?? 'id', optionLabel: a.optionLabel ?? 'name' }
   if (a.source)   return { ...base, source: a.source,     optionValue: a.optionValue ?? 'id', optionLabel: a.optionLabel ?? 'name' }
   return { ...base, values: a.values, input: a.input, optionValue: 'value', optionLabel: 'label' }
 }

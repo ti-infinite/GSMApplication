@@ -25,6 +25,7 @@ export interface TrxField {
   sendToTrx?:    boolean            // products: default true (false = SOLO-UI, ej. "rejected") · summary: default false (true = se manda). Va en trxProductAttributes. Mismo patrón que `addSupply` (opt-out explícito, no hace falta tocar actions.ts por cada columna nueva)
   hidden?:       boolean            // no se dibuja, pero sigue en las columns → se manda igual que si se viera (ver sendToTrx)
   factor?:       string             // campo de la fila (ej. presentationQty): se MUESTRA selectorValue ÷ factor y lo digitado se escribe × factor. Solo visual, no guarda nada propio
+  defaultFrom?:  string             // campo de la fila (ej. saldo) con el que ARRANCA el valor; lo digitado gana. Tooltip al enfocar con el valor que reemplazó
   required?:     boolean
 }
 
@@ -38,6 +39,7 @@ export interface FilterConfig {
   optionValue:    string
   optionLabel:    string
   cookieDefault?: { field: string }   // default (y bloqueo) desde la cookie del usuario
+  lookup?:        boolean             // ver AttributeSpec.lookup
   dependsOn?:     string   // CASCADA: depende de la selección de otro filtro
   optionsFrom?:   string   // path en la OPCIÓN elegida del padre (ej. "Children")
   input?:         'text' | 'date'   // 'text' = input libre · 'date' = date picker (no combo)
@@ -97,6 +99,7 @@ export interface AttributeSpec {
   required?:    boolean
   placeholder?: string
   section?:     string   // agrupa en la FiltersBar — ver FilterConfig.section (mismo nombre/default)
+  lookup?:      boolean  // con `resource`: botón para buscar y cargar un documento que ya no sale en el combo (el tipo sale del `trxPrefixRelative` del resource)
 }
 
 /** Slot tabla principal — forma MÍNIMA: solo `columns` (el resto lo pone el template). */
@@ -142,6 +145,7 @@ export interface FrontConfig {
     voidZeroQty?: boolean
   }
   event?:          string[]
+  lookup?:         boolean   // módulos de catálogo: botón para buscar una transacción del mismo tipo del módulo y cargar sus cantidades como plantilla. En módulos con combo de documento va en el atributo (AttributeSpec.lookup)
   // ── Forma MÍNIMA (el template `expandFront` la expande a location/filters/main/collection) ──
   items?:      ItemsSlots           // agrupa lo visual (products/cart); también se acepta plano
   products?:   ProductsSlot        // tabla principal (solo `columns`)
@@ -300,6 +304,9 @@ export interface RuntimeCtx {
   selections:  Record<string, Record<string, unknown>[]>          // selecciones MÚLTIPLES (multi-select → columnas/acciones derivadas)
   setSelection: (key: string, options: Record<string, unknown>[]) => void
   locked:      Set<string>
+  lookupPrefix: string                              // tipo de documento del lookup ('' = el módulo no tiene)
+  lookupFixed: boolean                              // true = lookup en un combo (tipo fijo) · false = en la raíz (plantilla, tipo del módulo)
+  lookup:      (trxDocument: string, location?: string) => void   // combo: carga el documento aunque ya no salga en su lista · raíz: copia sus cantidades
   state:       string
   transitions: WfTransition[]
   fire:        (t: WfTransition) => void

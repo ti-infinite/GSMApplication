@@ -24,6 +24,7 @@ export type { TrxAttrPair } from './model/attributes'
 // Runtime declarativo: renderiza un módulo entero desde su ModuleConfig.
 export { TrxRuntime } from './ui/TrxRuntime'
 export { TrxModule } from './ui/TrxModule'
+export { TrxDocumentSearch } from './ui/TrxDocumentSearch'
 export type {
   JsonConfig,
   FrontConfig,
@@ -40,4 +41,4 @@ export type {
   CellRenderCtx,
   ActionCtx,
   CollectionApi,
-} from './model/runtime'
+} from './model/runtimeTypes'

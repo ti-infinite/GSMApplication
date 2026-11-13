@@ -1,4 +1,4 @@
-import type { TrxRegistry } from '../model/runtime'
+import type { TrxRegistry } from '../model/runtimeTypes'
 import { DEFAULT_RENDERERS } from './renderers'
 import { DEFAULT_ACTIONS } from './actions'
 import { DEFAULT_EVENTS } from './events'

@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 import { getConfig, saveConfig } from '@/shared/lib/idb'
 import { getFilteredTrxDefinitions } from '@/shared/api/operations/endpoints'
 import type { TrxDefinitionDTOListApiResponse } from '@/shared/api/operations/model'
-import type { JsonConfig } from './runtime'
+import type { JsonConfig } from './runtimeTypes'
 import { staleWhileRevalidate } from './swr'
 
 async function fetchConfig(prefix: string): Promise<JsonConfig> {
@@ -21,7 +21,7 @@ async function fetchConfig(prefix: string): Promise<JsonConfig> {
 }
 
 /**
- * Carga el JsonConfig de un módulo por `prefix`, con estrategia SWR:
+ * Carga el JsonConfig de un módulo por 'prefix', con estrategia SWR:
  *  1) muestra el cacheado (IndexedDB) al instante → shell sin espera de red;
  *  2) revalida en background contra el backend → actualiza si cambió.
  */

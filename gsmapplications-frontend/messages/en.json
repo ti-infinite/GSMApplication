@@ -415,6 +415,7 @@
     "document": "Document",
     "consumption": "Consumption",
     "remaining": "Remaining",
+    "remainingFarm": "Remaining Farm",
     "quantityToOrder": "Quantity to order",
     "qty": "Qty",
     "order": "Order",
@@ -457,6 +458,7 @@
     "recordConsumption": "Record consumption",
     "consumptionsSubtitle": "Record direct supply consumption.",
     "purchaseOrder": "Purchase orders",
+    "saldo": "Balance",
     "purchaseOrderSubtitle": "Generate purchase orders from pending requirements.",
     "createPurchaseOrder": "Create the purchase order",
     "selectRequirement": "Select a requirement",
@@ -508,7 +510,13 @@
     "pickFilters": "Complete the filters to see the data",
     "noOptionsForFilter": "No {{filter}} available for {{location}}.",
     "loadError": "Couldn't load the data",
-    "staleData": "Couldn't refresh the data. Showing the last saved version."
+    "staleData": "Couldn't refresh the data. Showing the last saved version.",
+    "lookup": "Resume transaction",
+    "lookupHint": "Find the document to resume and load it to continue with its balance.",
+    "load": "Load",
+    "defaultOriginal": "Original quantity: {{value}}",
+    "lookupTemplateHint": "Find a transaction and load its quantities as a starting point for this one.",
+    "lookupEmpty": "The transaction has no products."
   },
   "logistics": {
     "title": "Logistics",
@@ -568,17 +576,17 @@
     "filters": "Filters",
     "type": "Transaction type",
     "selectType": "Select a type",
-    "selectLocation": "Select a location",
+    "selectLocation": "Select a cost center",
     "dateRange": "Date range",
     "selectDateRange": "Select a range",
     "clearDateRange": "Clear date range",
     "applyDateRange": "Apply",
-    "pickFilters": "Select a location, type and date range to see results.",
+    "pickFilters": "Select a cost center, type and date range to see results.",
     "document": "Document",
     "description": "Description",
     "date": "Date",
     "status": "Status",
-    "location": "Location",
+    "location": "Cost center",
     "user": "User",
     "lines": "Lines",
     "details": "Details",
@@ -587,7 +595,8 @@
     "supplier": "Supplier",
     "view": "View",
     "download": "Download",
-    "noResults": "No transactions for this type."
+    "noResults": "No transactions for this type.",
+    "pickFiltersNoType": "Select a cost center and date range to see results."
   },
   "ia": {
     "chat": {

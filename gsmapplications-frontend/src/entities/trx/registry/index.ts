@@ -1,21 +1,19 @@
-import type { TrxRegistry } from '../model/runtime'
+import type { TrxRegistry } from '../model/runtimeTypes'
 import { DEFAULT_RENDERERS } from './renderers'
-import { DEFAULT_GUARDS } from './guards'
 import { DEFAULT_ACTIONS } from './actions'
 import { DEFAULT_EVENTS } from './events'
 import { DEFAULT_COMPUTEDS } from './computeds'
 
 export { DEFAULT_RENDERERS } from './renderers'
-export { DEFAULT_GUARDS } from './guards'
 export { DEFAULT_ACTIONS } from './actions'
 export { DEFAULT_EVENTS } from './events'
 export { DEFAULT_COMPUTEDS } from './computeds'
 
 /**
- * Une el KIT BASE (renderers/guards genéricos del motor) con lo ESPECÍFICO del
+ * Une el KIT BASE (renderers/events genéricos del motor) con lo ESPECÍFICO del
  * módulo (fetchers/computeds/actions/…). Cada TRX hace:
  *   const registry = buildRegistry({ fetchers, computeds, actions })
- * y ya tiene badge/input/addButton/removeButton/hasItems sin redefinirlos.
+ * y ya tiene badge/input/addButton/removeButton/HAS_ITEMS sin redefinirlos.
  */
 export function buildRegistry(module: Partial<TrxRegistry>): TrxRegistry {
   return {
@@ -25,7 +23,7 @@ export function buildRegistry(module: Partial<TrxRegistry>): TrxRegistry {
     selectors:  { ...module.selectors },
     valueSources: { ...module.valueSources },
     actions:    { ...DEFAULT_ACTIONS, ...module.actions },
-    guards:     { ...DEFAULT_GUARDS, ...module.guards },
+    guards:     { ...module.guards },
     events:     { ...DEFAULT_EVENTS, ...module.events },
     components: { ...module.components },
   }

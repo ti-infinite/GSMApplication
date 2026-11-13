@@ -2,7 +2,7 @@ import { toast } from 'sonner'
 import { getStoredUser } from '@/shared/lib/auth'
 import { createTransaction } from '@/shared/api/operations/endpoints'
 import type { TrxCreateDTO, ResponseCreateTransactionDTOApiResponse } from '@/shared/api/operations/model'
-import type { ActionCtx } from '../model/runtime'
+import type { ActionCtx } from '../model/runtimeTypes'
 
 // El backend recibe las claves de atributo en PascalCase (mayúscula inicial): consumption → Consumption.
 // Se transforma acá (al armar el payload), NO en el JSON (el selectorValue lee la data del row) ni en i18n.

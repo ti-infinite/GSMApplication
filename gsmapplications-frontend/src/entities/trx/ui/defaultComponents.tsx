@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
-import { ChevronDown, Check, Plus, Search, Filter, X, Trash2, CalendarIcon, Loader2, SlidersHorizontal } from 'lucide-react'
+import { ChevronDown, Check, Plus, Search, Filter, X, Trash2, Loader2, SlidersHorizontal } from 'lucide-react'
 import { Combobox } from '@/shared/ui/combobox'
 import { Button } from '@/shared/ui/button'
 import { DataTable, type TableColumn } from '@/shared/ui/data-table'
@@ -10,10 +10,13 @@ import { FilterBar, FilterField } from '@/shared/ui/filter-bar'
 import { ErrorState } from '@/shared/components/ErrorState'
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/shared/ui/dropdown-menu'
 import { Popover, PopoverTrigger, PopoverContent } from '@/shared/ui/popover'
-import { Calendar } from '@/shared/ui/calendar'
+import { DatePicker } from '@/shared/ui/date-picker'
 import { getValueByPath } from '@/shared/lib/pathResolver'
-import type { ComponentNode, RuntimeCtx, SearchConfig, FilterConfig, TrxField } from '../model/runtime'
+import type { ComponentNode, RuntimeCtx, SearchConfig, FilterConfig, TrxField } from '../model/runtimeTypes'
 import { overMax } from '../registry/renderers'
+import { TrxLookupDialog } from './TrxLookupDialog'
+
+const visibleFields = (fields?: TrxField[]) => (fields ?? []).filter(f => !f.hidden)
 
 const countBadge = (n: number) => (
   <span className="shrink-0 rounded-md bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">{n}</span>
@@ -323,37 +326,12 @@ function renderSearch(cfg: SearchConfig, ctx: RuntimeCtx) {
 function DateFilterField({ value, onChange, placeholder, disabled, clearLabel }: {
   value: string; onChange: (v: string) => void; placeholder?: string; disabled?: boolean; clearLabel?: string
 }) {
-  const selected = value ? new Date(`${value}T00:00:00`) : undefined
   return (
-    <div className="relative">
-      <Popover>
-        <PopoverTrigger asChild>
-          <Button
-            variant="outline"
-            disabled={disabled}
-            className={`h-auto w-full justify-start gap-2 px-3.5 py-2.5 text-sm font-normal ${selected ? 'pr-8 text-foreground' : 'text-muted-foreground'}`}
-          >
-            <CalendarIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
-            <span className="flex-1 text-left">{selected ? format(selected, 'dd/MM/yyyy') : placeholder}</span>
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-auto p-0" align="start">
-          <Calendar mode="single" selected={selected} onSelect={d => onChange(d ? format(d, 'yyyy-MM-dd') : '')} />
-        </PopoverContent>
-      </Popover>
-      {/* Hermano del trigger de Radix a propósito: anidado adentro, el click bubblea al
-          <button> del Popover y reabre/cierra en vez de solo limpiar. */}
-      {selected && !disabled && (
-        <button
-          type="button"
-          onClick={() => onChange('')}
-          aria-label={clearLabel ?? 'clear'}
-          className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:text-foreground"
-        >
-          <X className="h-3.5 w-3.5" />
-        </button>
-      )}
-    </div>
+    <DatePicker
+      value={value ? new Date(`${value}T00:00:00`) : undefined}
+      onChange={d => onChange(d ? format(d, 'yyyy-MM-dd') : '')}
+      placeholder={placeholder} disabled={disabled} clearLabel={clearLabel ?? 'clear'}
+    />
   )
 }
 
@@ -388,7 +366,7 @@ function FiltersBar({ filters, applyLabel, ctx }: { filters: FilterConfig[]; app
           onChange={e => onPick(f, e.target.value)}
           placeholder={ctx.t(f.placeholder ?? f.label)}
           disabled={ctx.locked.has(f.key)}
-          className="rounded-lg border border-border bg-card px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+          className="h-8 rounded-lg border border-border bg-card px-3.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
         />
       ) : (
         <Combobox
@@ -426,7 +404,7 @@ function FiltersBar({ filters, applyLabel, ctx }: { filters: FilterConfig[]; app
               <Popover key={section}>
                 <PopoverTrigger asChild>
                   <button type="button"
-                    className="flex items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-border bg-card px-3.5 py-2.5 text-sm font-medium text-foreground transition-colors hover:border-ring focus:outline-none focus:ring-2 focus:ring-ring">
+                    className="flex items-center justify-center gap-2 h-8 whitespace-nowrap rounded-lg border border-border bg-card px-3.5 text-sm font-medium text-foreground transition-colors hover:border-ring focus:outline-none focus:ring-2 focus:ring-ring">
                     <SlidersHorizontal className="h-4 w-4" /> {ctx.t(section)}
                   </button>
                 </PopoverTrigger>
@@ -438,8 +416,13 @@ function FiltersBar({ filters, applyLabel, ctx }: { filters: FilterConfig[]; app
           </div>
         </FilterField>
       )}
+      {ctx.lookupPrefix && (
+        <FilterField label={<span className="invisible select-none">·</span>} width="sm:w-auto">
+          <TrxLookupDialog ctx={ctx} />
+        </FilterField>
+      )}
       {apply && (
-        <Button className="w-full gap-2 sm:w-auto" onClick={() => ctx.setContext(c => ({ ...c, ...staged }))}>
+        <Button className="h-8 w-full gap-2 sm:w-auto" onClick={() => ctx.setContext(c => ({ ...c, ...staged }))}>
           <Filter className="h-4 w-4" /> {applyLabel}
         </Button>
       )}
@@ -603,7 +586,8 @@ function TrxTable({ node, ctx }: { node: ComponentNode; ctx: RuntimeCtx }) {
     : []
 
   // `noteInput` fields live in the full-width row under each product, not as columns.
-  const allFields  = node.fields ?? []
+  // 'hidden' fields are only filtered here: createTrx reads the JSON columns, so they are still sent.
+  const allFields  = visibleFields(node.fields)
   const noteFields = allFields.filter(f => f.renderer === 'noteInput')
   const colFields  = allFields.filter(f => f.renderer !== 'noteInput')
   const noteCols   = ctx.makeColumns(noteFields, kf, isCollection)
@@ -859,7 +843,7 @@ export const DEFAULT_COMPONENTS: Record<string, (node: ComponentNode, ctx: Runti
           <div key={i} className="rounded-xl border border-border bg-card p-3 shadow-sm">
             {node.titleField && <p className="mb-2 text-sm font-semibold text-foreground">{String(row[node.titleField] ?? '')}</p>}
             <dl className="flex flex-col gap-1">
-              {(node.fields ?? []).map((f, j) => (
+              {visibleFields(node.fields).map((f, j) => (
                 <div key={j} className="flex items-center justify-between gap-3">
                   <dt className="text-xs text-muted-foreground">{ctx.t(f.label ?? '')}</dt>
                   <dd className="text-sm font-medium text-foreground">{ctx.renderField(f, row)}</dd>
@@ -903,7 +887,7 @@ export const DEFAULT_COMPONENTS: Record<string, (node: ComponentNode, ctx: Runti
 
   // Card: muestra UN registro como label-valor. Consume los MISMOS `fields`.
   card: (node, ctx) => {
-    const fields = node.fields ?? []
+    const fields = visibleFields(node.fields)
     const row = ctx.rows[0] ?? {}   // (por ahora el 1er registro; luego se puede parametrizar)
     return (
       <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
@@ -927,7 +911,7 @@ export const DEFAULT_COMPONENTS: Record<string, (node: ComponentNode, ctx: Runti
       <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
         {node.title && <div className="border-b border-border px-4 py-3"><h2 className="text-sm font-semibold text-foreground">{ctx.t(node.title)}</h2></div>}
         <div className="divide-y divide-border/60">
-          {(node.fields ?? []).map((f, i) => (
+          {visibleFields(node.fields).map((f, i) => (
             <div key={i} className="flex items-center justify-between px-4 py-3">
               <span className="text-sm text-muted-foreground">{ctx.t(f.label ?? '')}</span>
               <span className="text-sm font-semibold text-foreground">{ctx.renderField(f, data)}</span>

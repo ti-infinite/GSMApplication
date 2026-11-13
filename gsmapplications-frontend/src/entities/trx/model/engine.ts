@@ -2,7 +2,8 @@ import { saveResource, getResource, peekResource } from '@/shared/lib/idb'
 import { getValueByPath } from '@/shared/lib/pathResolver'
 import { operationsFetch } from '@/shared/lib/fetcher'
 import { DEFAULT_VALUE_SOURCES } from './valueSources'
-import type { Resource, ResourceParameter, ApiEnvelope, TrxItem } from './types'
+import { staleWhileRevalidate } from './swr'
+import type { Resource, ResourceParameter, ApiEnvelope } from './types'
 
 /** Contexto runtime (location, category, inputs…) — las variables en uso. */
 export type Context = Record<string, unknown>
@@ -36,11 +37,6 @@ export function peekCachedResource(resource: Resource, ctx: Context): unknown {
   return peekResource(cacheKey(resource, resolveParams(resource, ctx)))
 }
 
-/**
- * Resuelve un resource: resuelve params → cache primero (IndexedDB, por
- * resource+params); si no está → fetcher → desempaca el envelope → guarda `data`
- * en IndexedDB → lo devuelve.
- */
 // Resuelve los params del resource (location…) contra el context. Exportado para que
 // useTrxData keye el re-fetch SOLO por lo que el recurso usa (no por todo el context →
 // cambiar categoría/skuPrefix no re-fetchea LOADCS).
@@ -50,40 +46,37 @@ export function resolveParams(resource: Resource, ctx: Context): Record<string, 
   return params
 }
 
+/**
+ * Resuelve un resource: resuelve params → cache primero (IndexedDB, por
+ * resource+params); si no está → fetcher → desempaca el envelope → guarda `data`
+ * en IndexedDB → lo devuelve.
+ */
 export async function resolveResource(
   resource: Resource, ctx: Context, fetcher: Fetcher,
   onRevalidate?: (data: unknown) => void,   // SWR: recibe lo FRESCO cuando el resource cachea y ya se devolvió el cache
+  onRevalidateError?: (err: unknown) => void,   // la revalidación falló: lo que se ve es el cache
 ): Promise<unknown> {
   const params = resolveParams(resource, ctx)
-  const useCache = resource.cacheIn === 'INDEXED_DB'
-  const key      = cacheKey(resource, params)
 
   const fetchFresh = async (): Promise<unknown> => {
     const envelope = await fetcher(resource.id, params, resource)
     if (envelope.success !== 'true') {
       throw new Error(envelope.message || `Error en resource "${resource.id}"`)
     }
-    if (useCache) await saveResource(key, envelope.data)
     return envelope.data
   }
 
-  // SWR GENÉRICO — para CUALQUIER resource con `cacheIn` (por su config, no por su id: LOADC,
-  // LOADCS, lo que sea): devuelve el cache YA y revalida en background → onRevalidate recibe lo
-  // fresco y la tabla se re-organiza sola si cambió. Los resources sin cacheIn fetchean directo.
-  if (useCache) {
-    const cached = await getResource(key)
-    if (cached != null) {
-      if (onRevalidate) void fetchFresh().then(onRevalidate).catch(() => {})
-      return cached
-    }
-  }
-
-  return fetchFresh()
-}
-
-/** Extrae el valor de un item (columna) sobre la data — con el resolver nativo. */
-export function resolveItemValue(data: unknown, item: TrxItem): unknown {
-  return getValueByPath(data, item.selectorValue)
+  // SWR para CUALQUIER resource con `cacheIn` (por su config, no por su id: LOADC, LOADCS, lo
+  // que sea) → la tabla se re-organiza sola si lo fresco cambió. Sin cacheIn fetchea directo.
+  if (resource.cacheIn !== 'INDEXED_DB') return fetchFresh()
+  const key = cacheKey(resource, params)
+  return staleWhileRevalidate({
+    read:    () => getResource(key),
+    fetch:   fetchFresh,
+    save:    data => saveResource(key, data),
+    onFresh: onRevalidate,
+    onError: onRevalidateError,
+  })
 }
 
 // Gate genérico: ¿todos los params que el resource saca del CONTEXT (location, trxDocument…)

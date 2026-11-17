@@ -25,6 +25,7 @@ export interface TrxField {
   sendToTrx?:    boolean            // products: default true (false = SOLO-UI, ej. "rejected") · summary: default false (true = se manda). Va en trxProductAttributes. Mismo patrón que `addSupply` (opt-out explícito, no hace falta tocar actions.ts por cada columna nueva)
   hidden?:       boolean            // no se dibuja, pero sigue en las columns → se manda igual que si se viera (ver sendToTrx)
   factor?:       string             // campo de la fila (ej. presentationQty): se MUESTRA selectorValue ÷ factor y lo digitado se escribe × factor. Solo visual, no guarda nada propio
+  color?:        string             // tinte de la columna, cualquier color CSS (ej. "#457839"): fondo suave de celdas y encabezado
   defaultFrom?:  string             // campo de la fila (ej. saldo) con el que ARRANCA el valor; lo digitado gana. Tooltip al enfocar con el valor que reemplazó
   required?:     boolean
 }

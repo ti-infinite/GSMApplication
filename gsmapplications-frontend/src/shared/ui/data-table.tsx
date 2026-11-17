@@ -12,7 +12,12 @@ export interface TableColumn<T> {
   mobileLabel?: string
   sortValue?: (row: T) => string | number | null | undefined  
   hideMobile?: boolean    
+  tint?:      string      // cualquier color CSS (ej. "#457839"): fondo suave de la columna; el texto sigue con el color del tema
 }
+
+// El color se mezcla con transparente para que cualquier tinte funcione en tema claro y oscuro.
+const tintStyle = (tint: string | undefined, pct: number) =>
+  tint ? { backgroundColor: `color-mix(in srgb, ${tint} ${pct}%, transparent)` } : undefined
 
 const alignCls = (a?: 'left' | 'center' | 'right') => (a === 'center' ? 'text-center' : a === 'right' ? 'text-right' : 'text-left')
 
@@ -130,7 +135,7 @@ export function DataTable<T>({
     <thead className="sticky top-0 z-10 bg-card">
       <tr className="border-b border-border bg-muted/40">
         {columns.map(col => (
-          <th key={col.key} className={`px-4 py-1 text-xs font-semibold text-muted-foreground ${alignCls(col.align)}`}>
+          <th key={col.key} style={tintStyle(col.tint, 20)} className={`px-4 py-1 text-xs font-semibold text-muted-foreground ${alignCls(col.align)}`}>
             {col.sortable ? (
               <button type="button" onClick={() => handleSort(col.key)}
                 className={`flex items-center gap-1 hover:text-foreground ${col.align === 'center' ? 'mx-auto' : col.align === 'right' ? 'ml-auto' : ''}`}>
@@ -190,7 +195,7 @@ export function DataTable<T>({
                         onClick={onRowClick ? () => onRowClick(row) : undefined}
                         onDoubleClick={onRowDoubleClick ? () => onRowDoubleClick(row) : undefined}>
                         {columns.map(col => (
-                          <td key={col.key} className={`px-4 py-1 text-foreground ${alignCls(col.align)}`}>
+                          <td key={col.key} style={tintStyle(col.tint, 12)} className={`px-4 py-1 text-foreground ${alignCls(col.align)}`}>
                             {col.render
                               ? col.render(row)
                               : String((row as Record<string, unknown>)[col.key] ?? '—')}

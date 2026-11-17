@@ -54,7 +54,7 @@ public sealed class OperationsController : ControllerBase
     }
 
     [HttpPost("execute-trxResource/{resourceEvent}")]
-    [ProducesResponseType(typeof(ApiResponse<List<InventoryCsDTO>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<List<object>>), StatusCodes.Status200OK)]
     public async Task<IActionResult> ExecuteTrxResource([FromRoute] string resourceEvent, [FromBody] Dictionary<string, object> parameters, CancellationToken cancellationToken)
     {
         var response = await _resourceExecutorService.ExecuteAsync(resourceEvent, parameters, cancellationToken);

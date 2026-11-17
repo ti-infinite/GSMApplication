@@ -173,7 +173,8 @@ export const DEFAULT_RENDERERS: Record<string, (ctx: CellRenderCtx) => ReactNode
   withUnit: ({ value, row, field }) => {
     if (value == null || value === '') return '—'
     const unit = field.sub ? String(row[field.sub] ?? '') : ''
-    return <span>{String(value)}{unit ? ` ${unit}` : ''}</span>
+    // nowrap: con poco ancho el navegador partía "40 KG" en dos líneas por el espacio.
+    return <span className="whitespace-nowrap">{String(value)}{unit ? ` ${unit}` : ''}</span>
   },
 
   // Valor coloreado por un tono acompañante en `field.sub` ('ok'|'warn'|'bad').
@@ -225,7 +226,7 @@ export const DEFAULT_RENDERERS: Record<string, (ctx: CellRenderCtx) => ReactNode
   inputUnitSelect: ctx => <InputUnitSelect {...ctx} />,
 
   // Moneda solo lectura ($ del tenant). Opt-in: `type:"money"`. Guarda/lee el número plano.
-  money: ({ value }) => (value == null || value === '' || Number.isNaN(Number(value)) ? '—' : formatMoney(Number(value))),
+  money: ({ value }) => (value == null || value === '' || Number.isNaN(Number(value)) ? '—' : <span className="whitespace-nowrap">{formatMoney(Number(value))}</span>),
 
   // Input de moneda editable. Opt-in: `type:"input"` + `money:true` (+ `sign:true` para negativos).
   moneyInput: ctx => <MoneyInput {...ctx} />,

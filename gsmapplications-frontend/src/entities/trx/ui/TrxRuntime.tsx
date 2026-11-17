@@ -597,6 +597,7 @@ export function TrxRuntime({ config, registry, title, subtitle, heading, heading
       setEdits({})
       setExtraRows([])   // limpia las filas agregadas a mano (catálogo) tras crear
       setContext(() => initialContext(filters))
+      setLookedUp({})    // sin esto, el documento retomado seguía como opción del combo tras confirmar
       setState(tr.to)
       for (const r of rea.resources) if (r.cacheIn) await clearResourcePrefix(r.id)
       setRefreshKey(k => k + 1)

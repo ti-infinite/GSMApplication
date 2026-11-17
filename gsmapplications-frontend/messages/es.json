@@ -513,7 +513,7 @@
     "lookup": "Retomar",
     "lookupHint": "Busca el documento a retomar y cárgalo para continuar con su saldo.",
     "load": "Cargar",
-    "defaultOriginal": "Cantidad original: {{value}}",
+    "defaultOriginal": "Pedido: {{value}}",
     "lookupTemplateHint": "Busca una transacción y carga sus cantidades como base para esta.",
     "lookupEmpty": "La transacción no tiene productos."
   },

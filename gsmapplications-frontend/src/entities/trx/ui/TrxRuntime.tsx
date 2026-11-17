@@ -460,17 +460,26 @@ export function TrxRuntime({ config, registry, title, subtitle, heading, heading
     [rows, extraRows, enrichResources, enrichMap, edits, keyField, defaults],
   )
 
+  // Un campo que ya trae la fila propia (resource principal o "cargar insumo") no es de enriquecimiento
+  // aunque un enrich también lo devuelva (ej. varietyName en el saldo): quitarlo del carrito lo dejaría
+  // vacío en las variedades que ese enrich no cubre.
+  const enrichOnlyFields = useMemo(() => {
+    const own = new Set<string>()
+    for (const r of [...rows, ...extraRows]) for (const k of Object.keys(r)) own.add(k)
+    return new Set([...enrichFields].filter(k => !own.has(k)))
+  }, [enrichFields, rows, extraRows])
+
   // El carrito guarda la fila tal como estaba al agregarla; al leerlo se le quitan los campos de
   // enriquecimiento y se aplican los actuales → cambiar de proveedor re-precia sin perder líneas.
   const effectiveCollection = useMemo(
     () => collection.map(item => {
-      const base = enrichFields.size ? Object.fromEntries(Object.entries(item).filter(([k]) => !enrichFields.has(k))) : item
+      const base = enrichOnlyFields.size ? Object.fromEntries(Object.entries(item).filter(([k]) => !enrichOnlyFields.has(k))) : item
       const m  = applyDefaults(applyEnrich(base))
       const id = String(m[collectionKey] ?? '')
       return edits[id] ? { ...m, ...edits[id] } : m
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [collection, enrichFields, enrichMap, enrichResources, edits, collectionKey, defaults],
+    [collection, enrichOnlyFields, enrichMap, enrichResources, edits, collectionKey, defaults],
   )
 
   const addProductRow = (row: Row) => setExtraRows(prev => {
@@ -499,12 +508,18 @@ export function TrxRuntime({ config, registry, title, subtitle, heading, heading
   }
 
   // Lookup en la raíz: el documento elegido es una PLANTILLA. Sus cantidades reemplazan lo digitado y
-  // entran al carrito; los productos que no están en la tabla se agregan como filas extra.
+  // entran al carrito; los productos que no están en la tabla entran como filas extra, igual que con
+  // "cargar insumo": la fila sale del CATALOG del módulo, que ya trae los campos propios de cada uno
+  // (precio, originalQty…). Solo si el producto no está en el catálogo se arma con lo del documento.
   const loadTemplate = async (trxDocument: string) => {
     try {
       const res = await getTransaction({ trxDocument })
       const products = (res.data as TrxResponseDTOListApiResponse | undefined)?.data?.[0]?.trxProducts ?? []
       const byVariety = new Map(effectiveRows.filter(r => !r._added).map(r => [String(r.idVariety ?? ''), r]))
+      const catalogFetcher = registry.fetchers.CATALOG
+      const needsCatalog = !!catalogFetcher && products.some(p => p.idVariety != null && !byVariety.has(String(p.idVariety)))
+      const catalogData = needsCatalog ? (await catalogFetcher('CATALOG', {})).data : []
+      const catalog = new Map((Array.isArray(catalogData) ? catalogData as Row[] : []).map(r => [String(r.idVariety ?? ''), r]))
       const nextEdits: Record<string, Row> = {}
       const extra: Row[] = []
       const cart: Row[] = []
@@ -512,7 +527,7 @@ export function TrxRuntime({ config, registry, title, subtitle, heading, heading
         const variety = String(p.idVariety ?? '')
         if (!variety) continue
         const base: Row = byVariety.get(variety)
-          ?? { idVariety: p.idVariety, varietyName: p.varietyName ?? '', sku: p.sku ?? '', measurementUnit: p.measurementUnit ?? '', _added: true }
+          ?? { ...(catalog.get(variety) ?? { idVariety: p.idVariety, varietyName: p.varietyName ?? '', sku: p.sku ?? '', measurementUnit: p.measurementUnit ?? '' }), _added: true }
         if (!byVariety.has(variety)) extra.push(base)
         nextEdits[String(base[keyField] ?? '')] = { qty: p.qty ?? 0 }
         cart.push({ ...base, qty: p.qty ?? 0 })

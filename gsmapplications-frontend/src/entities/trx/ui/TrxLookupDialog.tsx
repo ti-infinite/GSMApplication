@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { History, Upload } from 'lucide-react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/shared/ui/dialog'
 import { Button } from '@/shared/ui/button'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/ui/tooltip'
 import type { RuntimeCtx } from '../model/runtimeTypes'
 import { TrxDocumentSearch } from './TrxDocumentSearch'
 
@@ -16,12 +17,20 @@ export function TrxLookupDialog({ ctx }: { ctx: RuntimeCtx }) {
 
   return (
     <>
-      <button
-        type="button" onClick={() => setOpen(true)}
-        className="flex h-8 w-full items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-border bg-card px-3.5 text-sm font-medium text-foreground transition-colors hover:border-ring focus:outline-none focus:ring-2 focus:ring-ring sm:w-auto"
-      >
-        <History className="h-4 w-4" /> {ctx.t('lookup')}
-      </button>
+      {/* Solo ícono, igual que "Opciones": el nombre va en el tooltip y en aria-label. */}
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button" onClick={() => setOpen(true)} aria-label={ctx.t('lookup')}
+              className="flex h-8 w-10 items-center justify-center rounded-lg border border-border bg-card text-foreground transition-colors hover:border-ring focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+              <History className="h-4 w-4" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>{ctx.t('lookup')}</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-h-[90vh] max-w-5xl overflow-y-auto" onOpenAutoFocus={e => e.preventDefault()}>
           <DialogHeader>

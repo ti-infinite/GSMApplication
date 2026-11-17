@@ -4,6 +4,7 @@ import { format } from 'date-fns'
 import { toast } from 'sonner'
 import { ChevronDown, Check, Plus, Search, Filter, X, Trash2, Loader2, SlidersHorizontal } from 'lucide-react'
 import { Combobox } from '@/shared/ui/combobox'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/ui/tooltip'
 import { Button } from '@/shared/ui/button'
 import { DataTable, type TableColumn } from '@/shared/ui/data-table'
 import { FilterBar, FilterField } from '@/shared/ui/filter-bar'
@@ -402,12 +403,20 @@ function FiltersBar({ filters, applyLabel, ctx }: { filters: FilterConfig[]; app
           <div className="flex gap-2">
             {[...extraGroups.entries()].map(([section, fields]) => (
               <Popover key={section}>
-                <PopoverTrigger asChild>
-                  <button type="button"
-                    className="flex items-center justify-center gap-2 h-8 whitespace-nowrap rounded-lg border border-border bg-card px-3.5 text-sm font-medium text-foreground transition-colors hover:border-ring focus:outline-none focus:ring-2 focus:ring-ring">
-                    <SlidersHorizontal className="h-4 w-4" /> {ctx.t(section)}
-                  </button>
-                </PopoverTrigger>
+                {/* Solo ícono: el nombre de la sección va en el tooltip y en aria-label. */}
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <PopoverTrigger asChild>
+                        <button type="button" aria-label={ctx.t(section)}
+                          className="flex h-8 w-10 items-center justify-center rounded-lg border border-border bg-card text-foreground transition-colors hover:border-ring focus:outline-none focus:ring-2 focus:ring-ring">
+                          <SlidersHorizontal className="h-4 w-4" />
+                        </button>
+                      </PopoverTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent>{ctx.t(section)}</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
                 <PopoverContent align="end" className="w-80 p-4">
                   <div className="flex flex-col gap-3">{fields.map(renderField)}</div>
                 </PopoverContent>

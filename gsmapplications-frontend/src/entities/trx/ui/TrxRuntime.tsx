@@ -88,10 +88,18 @@ function DefaultHint({ hint, children }: { hint: string; children: ReactNode }) 
         <TooltipTrigger asChild>
           <div className="inline-flex" onFocus={() => setOpen(true)} onBlur={() => setOpen(false)}>{children}</div>
         </TooltipTrigger>
-        <TooltipContent>{hint}</TooltipContent>
+        {}
+        <TooltipContent side="right" className="border border-border bg-popover text-foreground">{hint}</TooltipContent>
       </Tooltip>
     </TooltipProvider>
   )
+}
+
+// Color de columna del JSON: acepta el hex sin '#' ("B4F527"); un color inválido se ignora en vez de romper la celda.
+function columnTint(color?: string): string | undefined {
+  if (!color) return undefined
+  const c = /^[0-9a-f]{3}([0-9a-f]{3})?([0-9a-f]{2})?$/i.test(color) ? `#${color}` : color
+  return CSS.supports('color', c) ? c : undefined
 }
 
 // Árbol de components armado desde los slots que deja expandFront (filters/main/collection).
@@ -547,6 +555,7 @@ export function TrxRuntime({ config, registry, title, subtitle, heading, heading
       header:   f.label ? t(f.label) : '',
       sortable: !f.renderer,
       render:   (row: Row) => renderFieldInRow(f, row, kField, fromCollection),
+      tint:     columnTint(f.color),
     }))
 
   const transitions = workflow.transitions.filter(t => t.from === state)
